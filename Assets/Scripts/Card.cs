@@ -31,7 +31,7 @@ public class Card
     public Suit Suit;
     public Rank Rank;
 
-    public int GetAttirbuteValue()
+    public int GetAttributeValue()
     {
         if (Rank >= Rank.Two && Rank <= Rank.Ten)
         {
