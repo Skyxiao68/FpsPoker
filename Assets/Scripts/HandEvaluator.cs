@@ -65,7 +65,7 @@ public static class HandEvaluator
     {
         if (cards == null || cards.Count < 5)
         {
-            Debug.LogError("需要至少 5 张牌来评估");
+            Debug.LogError("need at least 5 cards to evaluate hand");
             return null;
         }
 

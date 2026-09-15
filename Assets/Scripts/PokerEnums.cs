@@ -34,3 +34,12 @@ public enum PokerResult
     EnemyWinsShowdown,
     TieShowdown
 }
+
+public enum Street
+{
+    PreFlop,
+    Flop,
+    Turn,
+    River,
+    Showdown
+}

@@ -23,7 +23,7 @@ public static class EnemyPokerAI
         
         if (playerRaised && enemyChips < raiseAmount)
         {
-            Debug.Log($"{parameters.enemyName} 筹码不足，弃牌");
+            Debug.Log($"{parameters.enemyName} not enough chips，fold");
             return EnemyAction.Fold;
         }
 
@@ -43,12 +43,12 @@ public static class EnemyPokerAI
             float effectiveFold = Mathf.Clamp01(parameters.foldTendency + foldMod + 0.2f);
             if (Random.value < effectiveFold)
             {
-                Debug.Log($"{parameters.enemyName} 面对加注，弃牌（fold 概率 {effectiveFold:F2}）");
+                Debug.Log($"{parameters.enemyName} facing raise，fold（fold chance {effectiveFold:F2}）");
                 return EnemyAction.Fold;
             }
 
             
-            Debug.Log($"{parameters.enemyName} 匹配加注 {raiseAmount}");
+            Debug.Log($"{parameters.enemyName} raise {raiseAmount}");
             return EnemyAction.Raise;
         }
 
@@ -56,7 +56,7 @@ public static class EnemyPokerAI
         float effectiveRaise = Mathf.Clamp01(parameters.raiseTendency + handStrengthMod);
         if (Random.value < effectiveRaise)
         {
-            Debug.Log($"{parameters.enemyName} 主动加注（raise 概率 {effectiveRaise:F2}）");
+            Debug.Log($"{parameters.enemyName} effective （raise chance {effectiveRaise:F2}）");
             return EnemyAction.Raise;
         }
 

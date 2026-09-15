@@ -8,7 +8,7 @@ public class PokerGameTester : MonoBehaviour
 
     void Start()
     {
-        // 创建扑克逻辑
+        
         poker = gameObject.AddComponent<PokerGameManager>();
 
         // 创建 UI
@@ -21,16 +21,16 @@ public class PokerGameTester : MonoBehaviour
             Debug.Log($"Match Over：{poker.Result} | Player {poker.PlayerChips} | Enemy {poker.EnemyChips}");
         };
 
-        // 创建敌人参数
+        
         enemyParams = new EnemyAIParameters
         {
             enemyName = "RedHat",
             raiseTendency = 0.7f,
-            foldTendency = 0.3f,
-            combatStyle = "Melee"
+            foldTendency = 0.1f,
+            combatStyle = "Aggressive"
         };
 
-        // 初始化 UI（必须在 poker 创建之后）
+        
         ui.Initialize(poker);
         ui.SetNextHandCallback(StartNewHand);
 
@@ -46,7 +46,7 @@ public class PokerGameTester : MonoBehaviour
 
     void Update()
     {
-        // 键盘快捷键仍然保留，方便测试
+       
         if (poker == null) return;
 
         if (poker.State == PokerState.PlayerTurn)

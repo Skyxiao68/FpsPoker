@@ -1,14 +1,17 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 public class PokerGameManager : MonoBehaviour
 {
-   
+    
     public PokerState State { get; private set; } = PokerState.NotStarted;
     public PokerResult Result { get; private set; } = PokerResult.None;
+    public Street CurrentStreet { get; private set; } = Street.PreFlop;
+    public bool IsDealing { get; private set; } = false;
 
-   
+    
     public int PlayerChips { get; private set; }
     public int EnemyChips { get; private set; }
     public int Pot { get; private set; }
@@ -24,10 +27,13 @@ public class PokerGameManager : MonoBehaviour
 
     private Deck deck;
     private EnemyAIParameters enemyParams;
-    private bool playerHasRaised = false;         
-    private bool awaitingPlayerMatch = false;     
+    private bool playerHasRaised = false;
+    public bool AwaitingPlayerMatch { get; private set; } = false;
 
-    
+    [Tooltip("Each community card deal delay （seconds）")]
+    public float dealDelay = 0.6f;
+
+    // ========== 事件 ==========
     public event Action OnStateChanged;
     public event Action<string> OnMessage;
     public event Action OnHandEnded;
@@ -43,10 +49,12 @@ public class PokerGameManager : MonoBehaviour
         Pot = 0;
         CurrentBet = 0;
         playerHasRaised = false;
-        awaitingPlayerMatch = false;
+        AwaitingPlayerMatch = false;
+        IsDealing = false;
         Result = PokerResult.None;
         PlayerBestHand = null;
         EnemyBestHand = null;
+        CurrentStreet = Street.PreFlop;
 
         PlayerHand.Clear();
         EnemyHand.Clear();
@@ -55,14 +63,14 @@ public class PokerGameManager : MonoBehaviour
         // 检查 buy-in
         if (PlayerChips < BuyIn)
         {
-            LogMessage("Player insufficient chips, cannot pay buy-in, game over");
+            LogMessage("Player has insufficient chips to pay the buy-in, game over");
             State = PokerState.NotStarted;
             OnStateChanged?.Invoke();
             return;
         }
         if (EnemyChips < BuyIn)
         {
-            LogMessage("Enemy insufficient chips, player wins");
+            LogMessage("Enemy has insufficient chips, player advances");
             State = PokerState.HandEnded;
             OnStateChanged?.Invoke();
             return;
@@ -73,10 +81,9 @@ public class PokerGameManager : MonoBehaviour
         PlayerChips -= BuyIn;
         EnemyChips -= BuyIn;
         Pot += BuyIn * 2;
-        LogMessage($"Both Parties pay buy-in {BuyIn}，Pot {Pot}");
+        LogMessage($"Both players paid the buy-in {BuyIn}，pot {Pot}");
 
-        // 发牌
-        State = PokerState.Dealing;
+        // 洗牌 + 发底牌
         deck = new Deck();
         deck.Initialize();
         deck.Shuffle();
@@ -86,30 +93,25 @@ public class PokerGameManager : MonoBehaviour
         PlayerHand.Add(deck.Draw());
         EnemyHand.Add(deck.Draw());
 
-        for (int i = 0; i < 5; i++)
-            CommunityCards.Add(deck.Draw());
+        LogMessage($"Player hand: {CardListToString(PlayerHand)}");
 
-        LogMessage($"PlayerHand：{CardListToString(PlayerHand)}");
-        LogMessage($"CommunityCards：{CardListToString(CommunityCards)}");
-
-        State = PokerState.PlayerTurn;
-        OnStateChanged?.Invoke();
+        // 进入 Pre-Flop 下注
+        CurrentStreet = Street.PreFlop;
+        StartPlayerTurn();
     }
 
-    
+    // ========== 玩家操作 ==========
 
     public void PlayerCheck()
     {
-        if (State != PokerState.PlayerTurn) return;
-
-        
-        if (awaitingPlayerMatch)
+        if (!CanPlayerAct()) return;
+        if (AwaitingPlayerMatch)
         {
-            LogMessage("Enemy Raised，You can only Match or Fold");
+            LogMessage("Enemy has raised, you can only Match or Fold");
             return;
         }
 
-        LogMessage("Player Check");
+        LogMessage($"Player checks ({CurrentStreet})");
         State = PokerState.EnemyTurn;
         OnStateChanged?.Invoke();
         ResolveEnemyTurn(playerRaised: false, raiseAmount: 0);
@@ -117,18 +119,16 @@ public class PokerGameManager : MonoBehaviour
 
     public void PlayerRaise(int amount)
     {
-        if (State != PokerState.PlayerTurn) return;
-
-        
-        if (awaitingPlayerMatch)
+        if (!CanPlayerAct()) return;
+        if (AwaitingPlayerMatch)
         {
-            LogMessage("Enemy Raised，Please use Match or Fold");
+            LogMessage("Enemy has raised, please use Match or Fold");
             return;
         }
 
         if (amount <= 0 || amount > PlayerChips)
         {
-            LogMessage($"Raise amount invalid (Current chips {PlayerChips})");
+            LogMessage($"Invalid raise amount（current chips {PlayerChips}）");
             return;
         }
 
@@ -137,7 +137,7 @@ public class PokerGameManager : MonoBehaviour
         CurrentBet = amount;
         playerHasRaised = true;
 
-        LogMessage($"Player raises {amount}，Pot {Pot}");
+        LogMessage($"Player raises {amount}（{CurrentStreet}），pot {Pot}");
 
         State = PokerState.EnemyTurn;
         OnStateChanged?.Invoke();
@@ -146,91 +146,146 @@ public class PokerGameManager : MonoBehaviour
 
     public void PlayerMatchRaise()
     {
-        if (State != PokerState.PlayerTurn) return;
-
-        if (!awaitingPlayerMatch || CurrentBet <= 0)
+        if (!CanPlayerAct()) return;
+        if (!AwaitingPlayerMatch || CurrentBet <= 0)
         {
-            LogMessage("Currenty no raise to match");
+            LogMessage("Current there is no raise to match");
             return;
         }
 
         if (PlayerChips < CurrentBet)
         {
-            LogMessage("Chips not enough to match，Auto Fold"); 
+            LogMessage("Insufficient chips to match, automatically folding");
             PlayerFold();
             return;
         }
 
         PlayerChips -= CurrentBet;
         Pot += CurrentBet;
-        LogMessage($"Player matches raise {CurrentBet}，Pot {Pot}");
+        LogMessage($"Player matches the raise {CurrentBet}，pot {Pot}");
 
-        awaitingPlayerMatch = false;
-        State = PokerState.Showdown;
-        OnStateChanged?.Invoke();
-        ResolveShowdown();
+        AwaitingPlayerMatch = false;
+        AdvanceStreet();
     }
 
     public void PlayerFold()
     {
         if (State != PokerState.PlayerTurn) return;
 
-        LogMessage($"Player Fold，lose pot {Pot}");
+        LogMessage($"Player folds，losing the pot {Pot}");
         EnemyChips += Pot;
         Pot = 0;
-        awaitingPlayerMatch = false;
+        AwaitingPlayerMatch = false;
         Result = PokerResult.EnemyWinsByFold;
         State = PokerState.PlayerFolded;
         OnStateChanged?.Invoke();
         OnHandEnded?.Invoke();
     }
 
+    private bool CanPlayerAct()
+    {
+        return State == PokerState.PlayerTurn && !IsDealing;
+    }
+
     // ========== 敌人行动 ==========
 
     private void ResolveEnemyTurn(bool playerRaised, int raiseAmount)
+{
+    
+    HandResult enemyHandEval;
+    int totalCards = EnemyHand.Count + CommunityCards.Count;
+
+    if (totalCards >= 5)
     {
         List<Card> enemyAll = new List<Card>(EnemyHand);
         enemyAll.AddRange(CommunityCards);
         EnemyBestHand = HandEvaluator.Evaluate(enemyAll);
-
-        EnemyAction action = EnemyPokerAI.Decide(
-            enemyParams, EnemyBestHand, playerRaised, raiseAmount, EnemyChips);
-
-        switch (action)
-        {
-            case EnemyAction.Fold:
-                EnemyFolds();
-                break;
-            case EnemyAction.Check:
-                
-                if (playerRaised)
-                {
-                   
-                    LogMessage("Enemy cannot Check player's raise, switching to Fold");
-                    EnemyFolds();
-                }
-                else
-                {
-                    EnemyChecks();
-                }
-                break;
-            case EnemyAction.Raise:
-                EnemyRaises(raiseAmount);
-                break;
-        }
+        enemyHandEval = EnemyBestHand;
     }
+    else
+    {
+       
+        enemyHandEval = EvaluatePreFlop(EnemyHand);
+        EnemyBestHand = null; 
+    }
+
+    EnemyAction action = EnemyPokerAI.Decide(
+        enemyParams, enemyHandEval, playerRaised, raiseAmount, EnemyChips);
+
+    switch (action)
+    {
+        case EnemyAction.Fold:
+            EnemyFolds();
+            break;
+        case EnemyAction.Check:
+            if (playerRaised)
+            {
+                LogMessage("Enemy cannot Check Player raise ，change to Fold");
+                EnemyFolds();
+            }
+            else
+            {
+                EnemyChecks();
+            }
+            break;
+        case EnemyAction.Raise:
+            EnemyRaises(raiseAmount);
+            break;
+    }
+}
+
+
+private HandResult EvaluatePreFlop(List<Card> holeCards)
+{
+    HandResult result = new HandResult();
+    result.bestFive = new List<Card>(holeCards);
+
+    if (holeCards.Count < 2)
+    {
+        result.handType = HandType.HighCard;
+        result.tiebreakers = new int[] { (int)HandType.HighCard, 0 };
+        return result;
+    }
+
+    Card a = holeCards[0];
+    Card b = holeCards[1];
+
+    
+    if (a.Rank == b.Rank)
+    {
+        result.handType = HandType.OnePair;
+        result.tiebreakers = new int[] { (int)HandType.OnePair, a.GetPokerValue(), 0, 0, 0 };
+        return result;
+    }
+
+    
+    if (a.Suit == b.Suit)
+    {
+        
+        result.handType = HandType.TwoPair;
+        int hi = Mathf.Max(a.GetPokerValue(), b.GetPokerValue());
+        int lo = Mathf.Min(a.GetPokerValue(), b.GetPokerValue());
+        result.tiebreakers = new int[] { (int)HandType.TwoPair, hi, lo, 0, 0 };
+        return result;
+    }
+
+    // 普通高牌
+    result.handType = HandType.HighCard;
+    int h = Mathf.Max(a.GetPokerValue(), b.GetPokerValue());
+    int l = Mathf.Min(a.GetPokerValue(), b.GetPokerValue());
+    result.tiebreakers = new int[] { (int)HandType.HighCard, h, l, 0, 0, 0 };
+    return result;
+}
 
     private void EnemyChecks()
     {
-        LogMessage("Enemy Check");
-        State = PokerState.Showdown;
-        OnStateChanged?.Invoke();
-        ResolveShowdown();
+        LogMessage($"Enemy checks（{CurrentStreet}）");
+        AdvanceStreet();
     }
 
     private void EnemyFolds()
     {
-        LogMessage($"Enemy Fold，Player wins pot {Pot}");
+        LogMessage($"Enemy folds，player wins the pot {Pot}");
         PlayerChips += Pot;
         Pot = 0;
         Result = PokerResult.PlayerWinsByFold;
@@ -245,8 +300,7 @@ public class PokerGameManager : MonoBehaviour
 
         if (EnemyChips < amount)
         {
-            
-            LogMessage("Enemy chips not enough, cannot match, switching to Fold");
+            LogMessage("Enemy has insufficient chips to match, folding");
             EnemyFolds();
             return;
         }
@@ -257,17 +311,15 @@ public class PokerGameManager : MonoBehaviour
 
         if (playerHasRaised)
         {
-           
-            LogMessage($"Enemy matches raise {amount}，Pot {Pot}");
-            State = PokerState.Showdown;
-            OnStateChanged?.Invoke();
-            ResolveShowdown();
+            
+            LogMessage($"Enemy matches the raise {amount}，pot {Pot}");
+            AdvanceStreet();
         }
         else
         {
             
-            awaitingPlayerMatch = true;
-            LogMessage($"Enemy raises {amount}，Pot {Pot}。Player must Match or Fold。");
+            AwaitingPlayerMatch = true;
+            LogMessage($"Enemy raises {amount}，pot {Pot}。Player must Match or Fold。");
             State = PokerState.PlayerTurn;
             OnStateChanged?.Invoke();
         }
@@ -275,8 +327,63 @@ public class PokerGameManager : MonoBehaviour
 
     
 
+    private void AdvanceStreet()
+    {
+        
+        CurrentBet = 0;
+        playerHasRaised = false;
+        AwaitingPlayerMatch = false;
+
+        switch (CurrentStreet)
+        {
+            case Street.PreFlop:
+                StartCoroutine(DealCommunityCards(3, Street.Flop));
+                break;
+            case Street.Flop:
+                StartCoroutine(DealCommunityCards(1, Street.Turn));
+                break;
+            case Street.Turn:
+                StartCoroutine(DealCommunityCards(1, Street.River));
+                break;
+            case Street.River:
+                ResolveShowdown();
+                break;
+        }
+    }
+
+    private IEnumerator DealCommunityCards(int count, Street nextStreet)
+    {
+        IsDealing = true;
+        State = PokerState.Dealing;
+        OnStateChanged?.Invoke();
+
+        for (int i = 0; i < count; i++)
+        {
+            yield return new WaitForSeconds(dealDelay);
+            Card c = deck.Draw();
+            CommunityCards.Add(c);
+            LogMessage($"Flip open community cards：{c}");
+            OnStateChanged?.Invoke();
+        }
+
+        CurrentStreet = nextStreet;
+        IsDealing = false;
+        StartPlayerTurn();
+    }
+
+    private void StartPlayerTurn()
+    {
+        State = PokerState.PlayerTurn;
+        LogMessage($"—— {CurrentStreet} Player turn ——");
+        OnStateChanged?.Invoke();
+    }
+
+    
+
     private void ResolveShowdown()
     {
+        CurrentStreet = Street.Showdown;
+
         List<Card> playerAll = new List<Card>(PlayerHand);
         playerAll.AddRange(CommunityCards);
         PlayerBestHand = HandEvaluator.Evaluate(playerAll);
@@ -285,21 +392,21 @@ public class PokerGameManager : MonoBehaviour
         enemyAll.AddRange(CommunityCards);
         EnemyBestHand = HandEvaluator.Evaluate(enemyAll);
 
-        LogMessage($"PlayerBestHand：{PlayerBestHand.GetDisplayName()}");
-        LogMessage($"EnemyBestHand：{EnemyBestHand.GetDisplayName()}");
+        LogMessage($"Player's best hand：{PlayerBestHand.GetDisplayName()}");
+        LogMessage($"Enemy's best hand：{EnemyBestHand.GetDisplayName()}");
 
         int cmp = CompareHands(PlayerBestHand, EnemyBestHand);
 
         if (cmp > 0)
         {
             PlayerChips += Pot;
-            LogMessage($"ShowDown：PlayerWins，Receive Pot {Pot}");
+            LogMessage($"Showdown ：PlayerWins ，receive pot {Pot}");
             Result = PokerResult.PlayerWinsShowdown;
         }
         else if (cmp < 0)
         {
             EnemyChips += Pot;
-            LogMessage($"ShowDown：EnemyWins，Receive Pot {Pot}");
+            LogMessage($"Showdown ：EnemyWins ，receive pot {Pot}");
             Result = PokerResult.EnemyWinsShowdown;
         }
         else
@@ -307,7 +414,7 @@ public class PokerGameManager : MonoBehaviour
             int half = Pot / 2;
             PlayerChips += half;
             EnemyChips += Pot - half;
-            LogMessage($"ShowDown：Tie，Split Pot {Pot}");
+            LogMessage($"Showdown ：Tie ，split pot");
             Result = PokerResult.TieShowdown;
         }
 
@@ -328,7 +435,7 @@ public class PokerGameManager : MonoBehaviour
         return a.tiebreakers.Length - b.tiebreakers.Length;
     }
 
-    // ========== 工具 ==========
+   
     private void LogMessage(string msg)
     {
         Debug.Log($"[Poker] {msg}");
