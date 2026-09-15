@@ -1,13 +1,16 @@
-using UnityEngine;
-
+// Represents the four suits in a standard playing card deck.
 public enum Suit
 {
-    Spades,
-    Hearts,
-    Clubs,
-    Diamonds,
+    Spades, // ♠
+    Hearts, // ♥
+    Clubs, // ♣
+    Diamonds, // ♦
 }
 
+/// <summary>
+/// Represents the rank of a playing card (2 through Ace).
+/// The enum values correspond to poker values: 2-10, J=11, Q=12, K=13, A=14.
+/// </summary>
 public enum Rank
 {
     Two = 2,
@@ -25,12 +28,19 @@ public enum Rank
     Ace = 14,
 }
 
+/// <summary>
+/// Represents a single playing card with a suit and rank.
+/// </summary>
 [System.Serializable]
 public class Card
 {
-    public Suit Suit;
-    public Rank Rank;
+    public Suit Suit; // The suit of the card (Spades, Hearts, Clubs, Diamonds)
+    public Rank Rank; // The rank of the card (Two through Ace)
 
+    /// <summary>
+    /// Returns the card's attribute value (used for FPS combat stats).
+    /// Number cards (2-10) return their face value, Ace returns 11, Face cards return 10.
+    /// </summary>
     public int GetAttributeValue()
     {
         if (Rank >= Rank.Two && Rank <= Rank.Ten)
@@ -47,11 +57,19 @@ public class Card
         }
     }
 
+    /// <summary>
+    /// Returns the card's poker ranking value where Ace=14, King=13, etc.
+    /// Used for hand evaluation and comparison during showdown.
+    /// </summary>
     public int GetPokerValue()
     {
         return (int)Rank;
     }
 
+    /// <summary>
+    /// Returns a string representation of the card (e.g., "A♠", "10♥", "Q♦").
+    /// Maps rank to display string and suit to Unicode suit character.
+    /// </summary>
     public override string ToString()
     {
         string rankStr = " ";

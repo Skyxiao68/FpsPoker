@@ -1,26 +1,43 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// Represents the ranking of poker hands from lowest to highest.
+/// Used for comparing hands during showdown.
+/// </summary>
 public enum HandType
 {
-    HighCard = 0,
-    OnePair = 1,
-    TwoPair = 2,
-    ThreeOfAKind = 3,
-    Straight = 4,
-    Flush = 5,
-    FullHouse = 6,
-    FourOfAKind = 7,
-    StraightFlush = 8,
-    RoyalFlush = 9,
+    HighCard = 0, // Highest card only
+    OnePair = 1, // Two cards of the same rank
+    TwoPair = 2, // Two different pairs
+    ThreeOfAKind = 3, // Three cards of the same rank
+    Straight = 4, // Five consecutive ranks
+    Flush = 5, // Five cards of the same suit
+    FullHouse = 6, // Three of a kind + a pair
+    FourOfAKind = 7, // Four cards of the same rank
+    StraightFlush = 8, // Five consecutive cards of the same suit
+    RoyalFlush = 9, // A-K-Q-J-10 of the same suit
 }
 
+/// <summary>
+/// Stores the result of a hand evaluation.
+/// Contains the hand type, the best 5 cards, and tiebreaker values for comparison.
+/// </summary>
 public class HandResult
 {
-    public HandType handType;
-    public List<Card> bestFive;
+    public HandType handType; // The type of the evaluated hand
+    public List<Card> bestFive; // The best 5 cards forming the hand
+
+    /// <summary>
+    /// Tiebreaker values used to compare hands of the same type.
+    /// First value is the HandType, followed by rank values in descending importance.
+    /// </summary>
     public int[] tiebreakers;
 
+    /// <summary>
+    /// Returns a multiplier based on hand strength.
+    /// Used for combat calculations or AI decision weighting.
+    /// </summary>
     public float GetMultiplier()
     {
         switch (handType)
@@ -50,6 +67,9 @@ public class HandResult
         }
     }
 
+    /// <summary>
+    /// Returns a human-readable name for the hand type (e.g., "Full House", "Straight").
+    /// </summary>
     public string GetDisplayName()
     {
         switch (handType)
@@ -80,19 +100,28 @@ public class HandResult
     }
 }
 
+/// <summary>
+/// Static class for evaluating poker hands.
+/// Given a list of cards (typically 7: 2 hole + 5 community), finds the best 5-card combination.
+/// </summary>
 public static class HandEvaluator
 {
+    /// <summary>
+    /// Main evaluation method: iterates over all possible 5-card combinations
+    /// and returns the highest-ranking hand based on hand type and tiebreakers.
+    /// </summary>
     public static HandResult Evaluate(List<Card> cards)
     {
         if (cards == null || cards.Count < 5)
         {
-            Debug.LogError("need at least 5 cards to evaluate hand");
+            Debug.LogError("Need at least 5 cards to evaluate hand");
             return null;
         }
 
         HandResult best = null;
         int n = cards.Count;
 
+        // Generate all 5-card combinations using nested loops.
         for (int a = 0; a < n - 4; a++)
         for (int b = a + 1; b < n - 3; b++)
         for (int c = b + 1; c < n - 2; c++)
@@ -103,6 +132,7 @@ public static class HandEvaluator
 
             HandResult result = EvaluateFive(combo);
 
+            // Keep the best hand found so far.
             if (best == null || CompareTiebreakers(result.tiebreakers, best.tiebreakers) > 0)
                 best = result;
         }
@@ -110,14 +140,20 @@ public static class HandEvaluator
         return best;
     }
 
+    /// <summary>
+    /// Evaluates exactly 5 cards and determines the hand type.
+    /// Checks for flush, straight, and rank counts to classify the hand.
+    /// </summary>
     private static HandResult EvaluateFive(List<Card> five)
     {
+        // Sort cards in descending order by poker value.
         List<Card> sorted = new List<Card>(five);
         sorted.Sort((x, y) => y.GetPokerValue().CompareTo(x.GetPokerValue()));
 
         bool isFlush = IsFlush(sorted);
         bool isStraight = IsStraight(sorted, out int straightHigh);
 
+        // Count how many times each rank appears.
         Dictionary<int, int> rankCount = new Dictionary<int, int>();
         foreach (Card c in sorted)
         {
@@ -127,6 +163,7 @@ public static class HandEvaluator
             rankCount[v]++;
         }
 
+        // Sort ranks by count (descending), then by rank value (descending).
         List<int> ranksByCount = new List<int>(rankCount.Keys);
         ranksByCount.Sort(
             (x, y) =>
@@ -141,6 +178,7 @@ public static class HandEvaluator
         HandResult result = new HandResult();
         result.bestFive = sorted;
 
+        // Royal Flush: straight flush with Ace high.
         if (isFlush && isStraight && straightHigh == 14)
         {
             result.handType = HandType.RoyalFlush;
@@ -148,6 +186,7 @@ public static class HandEvaluator
             return result;
         }
 
+        // Straight Flush.
         if (isFlush && isStraight)
         {
             result.handType = HandType.StraightFlush;
@@ -155,6 +194,7 @@ public static class HandEvaluator
             return result;
         }
 
+        // Four of a Kind.
         if (rankCount[ranksByCount[0]] == 4)
         {
             result.handType = HandType.FourOfAKind;
@@ -167,6 +207,7 @@ public static class HandEvaluator
             return result;
         }
 
+        // Full House: three of a kind + a pair.
         if (rankCount[ranksByCount[0]] == 3 && rankCount[ranksByCount[1]] == 2)
         {
             result.handType = HandType.FullHouse;
@@ -179,6 +220,7 @@ public static class HandEvaluator
             return result;
         }
 
+        // Flush.
         if (isFlush)
         {
             result.handType = HandType.Flush;
@@ -194,6 +236,7 @@ public static class HandEvaluator
             return result;
         }
 
+        // Straight.
         if (isStraight)
         {
             result.handType = HandType.Straight;
@@ -201,6 +244,7 @@ public static class HandEvaluator
             return result;
         }
 
+        // Three of a Kind.
         if (rankCount[ranksByCount[0]] == 3)
         {
             result.handType = HandType.ThreeOfAKind;
@@ -214,6 +258,7 @@ public static class HandEvaluator
             return result;
         }
 
+        // Two Pair.
         if (rankCount[ranksByCount[0]] == 2 && rankCount[ranksByCount[1]] == 2)
         {
             result.handType = HandType.TwoPair;
@@ -227,6 +272,7 @@ public static class HandEvaluator
             return result;
         }
 
+        // One Pair.
         if (rankCount[ranksByCount[0]] == 2)
         {
             result.handType = HandType.OnePair;
@@ -241,6 +287,7 @@ public static class HandEvaluator
             return result;
         }
 
+        // High Card.
         result.handType = HandType.HighCard;
         result.tiebreakers = new int[]
         {
@@ -254,6 +301,9 @@ public static class HandEvaluator
         return result;
     }
 
+    /// <summary>
+    /// Checks if all cards in the list share the same suit.
+    /// </summary>
     private static bool IsFlush(List<Card> five)
     {
         Suit s = five[0].Suit;
@@ -265,8 +315,13 @@ public static class HandEvaluator
         return true;
     }
 
+    /// <summary>
+    /// Checks if the 5 cards form a consecutive sequence (Ace can be high or low).
+    /// Handles the special "wheel" case: A-2-3-4-5 where Ace is the lowest card (high card = 5).
+    /// </summary>
     private static bool IsStraight(List<Card> five, out int highCard)
     {
+        // Collect unique rank values.
         List<int> values = new List<int>();
         foreach (Card c in five)
         {
@@ -275,12 +330,14 @@ public static class HandEvaluator
                 values.Add(v);
         }
 
+        // A straight must have 5 distinct ranks.
         if (values.Count != 5)
         {
             highCard = 0;
             return false;
         }
 
+        // Check for a normal straight (consecutive descending values).
         bool isNormal = true;
         for (int i = 0; i < 4; i++)
         {
@@ -297,6 +354,7 @@ public static class HandEvaluator
             return true;
         }
 
+        // Check for the wheel: A-2-3-4-5 (Ace plays as 1, high card is 5).
         if (values[0] == 14 && values[1] == 5 && values[2] == 4 && values[3] == 3 && values[4] == 2)
         {
             highCard = 5;
@@ -307,6 +365,10 @@ public static class HandEvaluator
         return false;
     }
 
+    /// <summary>
+    /// Compares two tiebreaker arrays.
+    /// Returns positive if A is better, negative if B is better, 0 if equal.
+    /// </summary>
     private static int CompareTiebreakers(int[] a, int[] b)
     {
         int len = Mathf.Min(a.Length, b.Length);

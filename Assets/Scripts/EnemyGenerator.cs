@@ -1,20 +1,29 @@
 using UnityEngine;
 
+/// <summary>
+/// Generates random enemy AI configurations based on predefined archetypes.
+/// Each archetype represents a different playing style (e.g., aggressive, passive, bluffer).
+/// </summary>
 public static class EnemyGenerator
 {
-    // 原型基础参数
+    /// <summary>
+    /// Internal class to store archetype base parameters for different AI personalities.
+    /// </summary>
     private class Archetype
     {
-        public string name;
-        public float raise;
-        public float fold;
-        public float aggression;
-        public float bluff;
+        public string name; // Archetype name (e.g., "Shark")
+        public float raise; // Base raise tendency
+        public float fold; // Base fold tendency
+        public float aggression; // Base aggression level
+        public float bluff; // Base bluff chance
     }
 
+    /// <summary>
+    /// Predefined archetypes covering common poker player styles.
+    /// </summary>
     private static readonly Archetype[] Archetypes = new Archetype[]
     {
-        // 紧凶：加注多，弃牌少，激进，少量诈唬
+        // Tight-Aggressive: raises often, rarely folds, aggressive, minimal bluffing
         new Archetype
         {
             name = "Shark",
@@ -23,7 +32,7 @@ public static class EnemyGenerator
             aggression = 0.8f,
             bluff = 0.15f,
         },
-        // 松凶：什么都加，爱诈唬
+        // Loose-Aggressive: raises on anything, frequently bluffs
         new Archetype
         {
             name = "Maniac",
@@ -32,7 +41,7 @@ public static class EnemyGenerator
             aggression = 0.9f,
             bluff = 0.4f,
         },
-        // 紧弱：保守，容易弃牌
+        // Tight-Passive: conservative, folds often
         new Archetype
         {
             name = "Nit",
@@ -41,7 +50,7 @@ public static class EnemyGenerator
             aggression = 0.3f,
             bluff = 0.0f,
         },
-        // 松弱：爱跟不爱加，不爱弃
+        // Loose-Passive: calls often, rarely raises or folds
         new Archetype
         {
             name = "Caller",
@@ -50,7 +59,7 @@ public static class EnemyGenerator
             aggression = 0.2f,
             bluff = 0.05f,
         },
-        // 均衡
+        // Balanced: moderate in all areas
         new Archetype
         {
             name = "Regular",
@@ -59,7 +68,7 @@ public static class EnemyGenerator
             aggression = 0.5f,
             bluff = 0.1f,
         },
-        // 疯狂诈唬型
+        // Deceiver: constantly bluffs
         new Archetype
         {
             name = "Bluffer",
@@ -68,7 +77,7 @@ public static class EnemyGenerator
             aggression = 0.6f,
             bluff = 0.6f,
         },
-        // 岩石型：极度保守
+        // Extreme Passive: never raises, folds very easily
         new Archetype
         {
             name = "Rock",
@@ -79,34 +88,44 @@ public static class EnemyGenerator
         },
     };
 
-    // 随机生成一个敌人
+    /// <summary>
+    /// Generates a random enemy AI by selecting a random archetype and adding slight parameter variation.
+    /// </summary>
+    /// <returns>An EnemyAIParameters object with randomized values.</returns>
     public static EnemyAIParameters GenerateRandom()
     {
+        // Pick a random archetype from the predefined list.
         Archetype a = Archetypes[Random.Range(0, Archetypes.Length)];
 
         EnemyAIParameters p = new EnemyAIParameters();
         p.enemyName = a.name + " " + GetRandomSuffix();
 
-        // 在原型基础上加 ±0.1 的随机浮动
+        // Add ±0.1 random variation to each archetype parameter for diversity.
         p.raiseTendency = Mathf.Clamp01(a.raise + Random.Range(-0.1f, 0.1f));
         p.foldTendency = Mathf.Clamp01(a.fold + Random.Range(-0.1f, 0.1f));
         p.aggression = Mathf.Clamp01(a.aggression + Random.Range(-0.1f, 0.1f));
         p.bluffChance = Mathf.Clamp01(a.bluff + Random.Range(-0.05f, 0.05f));
 
-        // 战斗风格随机
+        // Randomize combat style for the FPS component.
         string[] styles = { "Melee", "Ranged", "Dodge" };
         p.combatStyle = styles[Random.Range(0, styles.Length)];
 
         return p;
     }
 
-    // 只生成名字（如果只需要名字）
+    /// <summary>
+    /// Generates a random enemy name without full parameters.
+    /// </summary>
+    /// <returns>A randomly generated enemy name string.</returns>
     public static string GenerateRandomName()
     {
         Archetype a = Archetypes[Random.Range(0, Archetypes.Length)];
         return a.name + " " + GetRandomSuffix();
     }
 
+    /// <summary>
+    /// Returns a random suffix (color) to append to the enemy name.
+    /// </summary>
     private static string GetRandomSuffix()
     {
         string[] suffixes =
@@ -125,7 +144,11 @@ public static class EnemyGenerator
         return suffixes[Random.Range(0, suffixes.Length)];
     }
 
-    // 打印当前参数（调试用）
+    /// <summary>
+    /// Returns a formatted string describing the enemy's AI parameters (for debug logging).
+    /// </summary>
+    /// <param name="p">The enemy AI parameters to describe.</param>
+    /// <returns>A formatted description string.</returns>
     public static string Describe(EnemyAIParameters p)
     {
         return $"{p.enemyName} | Raise:{p.raiseTendency:F2} Fold:{p.foldTendency:F2} "

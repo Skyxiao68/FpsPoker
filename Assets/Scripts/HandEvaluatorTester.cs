@@ -1,10 +1,20 @@
 using System.Collections.Generic;
 using UnityEngine;
 
+/// <summary>
+/// Editor/test script to verify the HandEvaluator works correctly.
+/// Tests all major hand types from Royal Flush down to High Card,
+/// and also compares two hands of the same type.
+/// </summary>
 public class HandEvaluatorTester : MonoBehaviour
 {
+    /// <summary>
+    /// Unity Start method.
+    /// Runs a series of hand evaluation tests and logs PASS/FAIL for each.
+    /// </summary>
     void Start()
     {
+        // Test each major hand type.
         TestHand(
             "Royal Flush",
             new string[] { "AS", "KS", "QS", "JS", "TS", "2H", "3D" },
@@ -36,7 +46,7 @@ public class HandEvaluatorTester : MonoBehaviour
             HandType.Straight
         );
         TestHand(
-            "Wheel Straight",
+            "Wheel Straight", // A-2-3-4-5 straight (Ace plays as low)
             new string[] { "AS", "2H", "3D", "4C", "5H", "KD", "QS" },
             HandType.Straight
         );
@@ -63,16 +73,21 @@ public class HandEvaluatorTester : MonoBehaviour
 
         Debug.Log("---Same Hand Compare Test ---");
 
-        // Twopair ：A A 8 8 K vs 5 5 8 8 K，
+        // TwoPair comparison: A A 8 8 K vs 5 5 8 8 K.
+        // The hand with the higher pair (Aces) should win.
         List<Card> hand1 = ParseHand(new string[] { "AS", "AH", "8S", "8H", "KD", "2C", "3D" });
         List<Card> hand2 = ParseHand(new string[] { "5C", "5D", "8D", "8C", "KH", "2S", "3H" });
         HandResult r1 = HandEvaluator.Evaluate(hand1);
         HandResult r2 = HandEvaluator.Evaluate(hand2);
         Debug.Log(
-            $"Two Pair Compare：hand1={r1.handType}, hand2={r2.handType} |  hand1 Win（A Pair > 5 Pair）"
+            $"Two Pair Compare: hand1={r1.handType}, hand2={r2.handType} | hand1 wins (A Pair > 5 Pair)"
         );
     }
 
+    /// <summary>
+    /// Runs a single test case: parses card strings, evaluates them,
+    /// and checks whether the result matches the expected hand type.
+    /// </summary>
     void TestHand(string name, string[] cardStrings, HandType expected)
     {
         List<Card> cards = ParseHand(cardStrings);
@@ -81,10 +96,13 @@ public class HandEvaluatorTester : MonoBehaviour
         bool pass = result.handType == expected;
         string status = pass ? "PASS" : "FAIL";
         Debug.Log(
-            $"[{status}] {name} | Result：{result.handType}，Expected：{expected} | Card：{CardListToString(cards)}"
+            $"[{status}] {name} | Result: {result.handType}, Expected: {expected} | Cards: {CardListToString(cards)}"
         );
     }
 
+    /// <summary>
+    /// Parses an array of card strings (e.g., "AS", "TH") into a list of Card objects.
+    /// </summary>
     List<Card> ParseHand(string[] cardStrings)
     {
         List<Card> cards = new List<Card>();
@@ -93,9 +111,14 @@ public class HandEvaluatorTester : MonoBehaviour
         return cards;
     }
 
+    /// <summary>
+    /// Parses a 2 or 3 character card string into a Card.
+    /// Format: first char(s) = rank, last char = suit
+    /// (e.g., "AS" = Ace of Spades, "TH" = 10 of Hearts).
+    /// </summary>
     Card ParseCard(string s)
     {
-        // Format："AS" = Ace of Spades，"TH" = 10 of Hearts
+        // The last character is the suit; everything before it is the rank.
         string rankPart = s.Substring(0, s.Length - 1);
         char suitChar = s[s.Length - 1];
 
@@ -105,6 +128,10 @@ public class HandEvaluatorTester : MonoBehaviour
         return c;
     }
 
+    /// <summary>
+    /// Converts a rank string to the corresponding Rank enum value.
+    /// Supports "2" through "10", "T", "J", "Q", "K", "A".
+    /// </summary>
     Rank RankPartToRank(string r)
     {
         switch (r)
@@ -137,11 +164,14 @@ public class HandEvaluatorTester : MonoBehaviour
             case "A":
                 return Rank.Ace;
             default:
-                Debug.LogError("Cannot Analyze Rank：" + r);
+                Debug.LogError("Cannot parse Rank: " + r);
                 return Rank.Two;
         }
     }
 
+    /// <summary>
+    /// Converts a suit character ('S', 'H', 'C', 'D') to the corresponding Suit enum value.
+    /// </summary>
     Suit SuitCharToSuit(char s)
     {
         switch (s)
@@ -155,11 +185,14 @@ public class HandEvaluatorTester : MonoBehaviour
             case 'D':
                 return Suit.Diamonds;
             default:
-                Debug.LogError("Cannot Analyze Suit：" + s);
+                Debug.LogError("Cannot parse Suit: " + s);
                 return Suit.Spades;
         }
     }
 
+    /// <summary>
+    /// Utility method to join a list of Cards into a space-separated string for debug logging.
+    /// </summary>
     string CardListToString(List<Card> cards)
     {
         string s = "";
