@@ -23,21 +23,21 @@ public class EnemyAIParameters
     /// Higher values make the AI more cautious.
     /// </summary>
     [Range(0f, 1f)]
-    public float foldTendency = 0.3f;
+    public float foldTendency = 0.1f;
 
     /// <summary>
     /// Size of bets relative to the pot (0 = small bets, 1 = large bets).
     /// Higher aggression produces bigger raise amounts.
     /// </summary>
     [Range(0f, 1f)]
-    public float aggression = 0.5f;
+    public float aggression = 0.7f;
 
     /// <summary>
     /// Probability of bluffing when holding a weak hand (0 = never bluff, 1 = always bluff).
     /// When triggered, the AI may bet or call despite low hand strength.
     /// </summary>
     [Range(0f, 1f)]
-    public float bluffChance = 0.1f;
+    public float bluffChance = 0.3f;
 
     // Describes the enemy's combat style (used for flavor / other systems).
     public string combatStyle = "Melee";
@@ -115,7 +115,7 @@ public static class EnemyPokerAI
             // Reacting to player's raise: check if hand strength justifies calling.
             float foldThreshold = potOdds + streetCaution + (1f - p.raiseTendency) * 0.3f;
             if (isBluff)
-                foldThreshold -= 0.2f; // Bluffing makes the AI more willing to continue.
+                foldThreshold -= 0.5f; // Bluffing makes the AI more willing to continue.
 
             if (strength < foldThreshold)
             {
@@ -275,7 +275,7 @@ public static class EnemyPokerAI
 
         // Suited cards have flush potential.
         if (suited)
-            baseScore += 0.1f;
+            baseScore += 0.3f;
 
         // Connected cards have straight potential.
         int gap = hi - lo;
