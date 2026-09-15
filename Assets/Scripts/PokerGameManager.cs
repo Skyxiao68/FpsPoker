@@ -69,6 +69,14 @@ public class PokerGameManager : MonoBehaviour
     /// <summary>Fired when a hand ends (win, lose, fold, showdown).</summary>
     public event Action OnHandEnded;
 
+//输出
+    //public CombatStats GetPlayerCombatStats() { ... }
+    //public int GetPot() { ... }
+    //public event Action<CombatStats, int> OnCombatReady;
+
+// 输入
+    //public void OnCombatEnded(CombatWinner winner) { ... }
+
     // ========== Hand Initialization ==========
 
     /// <summary>
@@ -614,4 +622,17 @@ public class PokerGameManager : MonoBehaviour
             s += c.ToString() + " ";
         return s;
     }
+
+   /// <summary>
+    /// Gets the combat stats for the player based on their hand.
+    /// </summary>
+    /// <returns>The combat stats for the player.</returns>
+    
+    
+   //public CombatStats GetPlayerCombatStats()
+    
+        // 用 PlayerHand + CommunityCards + PlayerBestHand 计算
+        // 返回 CombatStats
+       
+    
 }
