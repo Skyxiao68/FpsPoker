@@ -5,16 +5,16 @@ public enum Suit
     Spades,
     Hearts,
     Clubs,
-    Diamonds, 
+    Diamonds,
 }
 
 public enum Rank
 {
-    Two = 2, 
-    Three = 3, 
-    Four = 4, 
+    Two = 2,
+    Three = 3,
+    Four = 4,
     Five = 5,
-    Six = 6, 
+    Six = 6,
     Seven = 7,
     Eight = 8,
     Nine = 9,
@@ -22,7 +22,7 @@ public enum Rank
     Jack = 11,
     Queen = 12,
     King = 13,
-    Ace = 14
+    Ace = 14,
 }
 
 [System.Serializable]
@@ -39,22 +39,22 @@ public class Card
         }
         else if (Rank == Rank.Ace)
         {
-            return 11; 
+            return 11;
         }
         else
         {
-            return 10; 
+            return 10;
         }
     }
 
     public int GetPokerValue()
     {
-        return (int)Rank; 
+        return (int)Rank;
     }
 
     public override string ToString()
     {
-        string rankStr = " "; 
+        string rankStr = " ";
         switch (Rank)
         {
             case Rank.Two:
@@ -118,5 +118,3 @@ public class Card
         return rankStr + suitStr;
     }
 }
-
-

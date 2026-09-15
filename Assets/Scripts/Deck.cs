@@ -6,7 +6,6 @@ public class Deck
     private List<Card> cards = new List<Card>();
     private int drawIndex = 0;
 
-    
     public void Initialize()
     {
         cards.Clear();
@@ -24,7 +23,6 @@ public class Deck
         }
     }
 
-  
     public void Shuffle()
     {
         for (int i = cards.Count - 1; i > 0; i--)
@@ -36,7 +34,6 @@ public class Deck
         }
         drawIndex = 0;
     }
-
 
     public Card Draw()
     {

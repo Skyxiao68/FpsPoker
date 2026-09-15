@@ -26,6 +26,8 @@ public class PokerUI : MonoBehaviour
 
     private System.Action onNextHand;
 
+    private Text enemyNameText;
+
     public void Initialize(PokerGameManager manager)
     {
         poker = manager;
@@ -70,7 +72,6 @@ public class PokerUI : MonoBehaviour
             new Vector2(0.35f, 0.98f),
             TextAnchor.MiddleLeft,
             44
-            
         );
         playerChipsText = CreateText(
             canvasGO.transform,
@@ -91,7 +92,6 @@ public class PokerUI : MonoBehaviour
             38
         );
 
-        
         CreateText(
             canvasGO.transform,
             "EnemyLabel",
@@ -100,6 +100,16 @@ public class PokerUI : MonoBehaviour
             new Vector2(0.6f, 0.83f),
             TextAnchor.MiddleCenter,
             32
+        );
+
+        enemyNameText = CreateText(
+            canvasGO.transform,
+            "EnemyNameText",
+            "",
+            new Vector2(0.35f, 0.84f),
+            new Vector2(0.65f, 0.89f),
+            TextAnchor.MiddleCenter,
+            38
         );
         enemyHandText = CreateText(
             canvasGO.transform,
@@ -120,7 +130,6 @@ public class PokerUI : MonoBehaviour
             32
         );
 
-        
         CreateText(
             canvasGO.transform,
             "CommunityLabel",
@@ -140,7 +149,6 @@ public class PokerUI : MonoBehaviour
             56
         );
 
-        
         CreateText(
             canvasGO.transform,
             "PlayerLabel",
@@ -169,7 +177,6 @@ public class PokerUI : MonoBehaviour
             32
         );
 
-        
         stateText = CreateText(
             canvasGO.transform,
             "StateText",
@@ -180,7 +187,6 @@ public class PokerUI : MonoBehaviour
             34
         );
 
-        
         float btnY0 = 0.04f,
             btnY1 = 0.13f;
         checkButton = CreateButton(
@@ -251,11 +257,18 @@ public class PokerUI : MonoBehaviour
     private void RefreshUI()
     {
         if (poker == null)
+        {
             return;
+        }
 
         potText.text = $"Pot：{poker.Pot}";
         playerChipsText.text = $"Player：{poker.PlayerChips}";
         enemyChipsText.text = $"Enemy：{poker.EnemyChips}";
+
+        if (poker.EnemyParams != null && enemyNameText != null)
+        {
+            enemyNameText.text = poker.EnemyParams.enemyName;
+        }
 
         string dealingStr = poker.IsDealing ? "（Dealing…）" : "";
         stateText.text =
@@ -274,7 +287,9 @@ public class PokerUI : MonoBehaviour
         enemyHandText.text = revealEnemy ? CardStr(poker.EnemyHand) : "?? ??";
 
         playerHandTypeText.text =
-            poker.PlayerBestHand != null ? $"Hand Type：{poker.PlayerBestHand.GetDisplayName()}" : "";
+            poker.PlayerBestHand != null
+                ? $"Hand Type：{poker.PlayerBestHand.GetDisplayName()}"
+                : "";
 
         enemyHandTypeText.text =
             revealEnemy && poker.EnemyBestHand != null

@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-
 public class DeckTester : MonoBehaviour
 {
     void Start()
@@ -10,7 +9,6 @@ public class DeckTester : MonoBehaviour
         deck.Initialize();
         deck.Shuffle();
 
-        
         List<Card> hand = new List<Card>();
         for (int i = 0; i < 7; i++)
         {
@@ -27,10 +25,8 @@ public class DeckTester : MonoBehaviour
         }
         Debug.Log(handStr);
 
-       
         Debug.Log("remains：" + deck.RemainingCount()); // 应为 52 - 7 = 45
 
-        
         HashSet<string> uniqueCards = new HashSet<string>();
         foreach (Card c in hand)
         {

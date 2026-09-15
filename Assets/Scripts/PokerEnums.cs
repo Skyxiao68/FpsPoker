@@ -3,26 +3,26 @@ public enum PokerState
     NotStarted,
     PayingBuyIn,
     Dealing,
-    PlayerTurn, 
+    PlayerTurn,
     EnemyTurn,
     Showdown,
     PlayerFolded,
     EnemyFolded,
-    HandEnded
+    HandEnded,
 }
 
 public enum PlayerAction
 {
     Check,
-    Raise, 
-    Fold
+    Raise,
+    Fold,
 }
 
 public enum EnemyAction
 {
     Check,
     Raise,
-    Fold
+    Fold,
 }
 
 public enum PokerResult
@@ -32,7 +32,7 @@ public enum PokerResult
     EnemyWinsByFold,
     PlayerWinsShowdown,
     EnemyWinsShowdown,
-    TieShowdown
+    TieShowdown,
 }
 
 public enum Street
@@ -41,5 +41,5 @@ public enum Street
     Flop,
     Turn,
     River,
-    Showdown
+    Showdown,
 }
