@@ -21,7 +21,8 @@ public class WeaponSettings : ScriptableObject
     [Header("Fire Rate")]
     [Min(0f)]
     public float fireRate = 0.1f;
-
+    [Header("fireMode")]
+    public bool isAutomatic ;
 
     [Header("Ammo")]
     [Min(1)]

@@ -8,6 +8,8 @@ public class FpsPlayerInputHandler : MonoBehaviour
     [SerializeField] private InputAction lookAction;
     [SerializeField] private InputAction jumpAction;
     [SerializeField] private InputAction sprintAction;
+    [SerializeField] private InputAction reloadAction;
+    [SerializeField] private InputAction fireAction;
 
     private FpsCharacterController controller;
 
@@ -23,6 +25,8 @@ public class FpsPlayerInputHandler : MonoBehaviour
         lookAction.Enable();
         jumpAction.Enable();
         sprintAction.Enable();
+        fireAction.Enable();
+        reloadAction.Enable();
     }
 
     private void OnDisable()
@@ -31,6 +35,14 @@ public class FpsPlayerInputHandler : MonoBehaviour
         lookAction.Disable();
         jumpAction.Disable();
         sprintAction.Disable();
+        fireAction.Disable();
+        reloadAction.Disable();
+
+        // If this component gets disabled mid-burst (weapon swap,
+        // death, pause), make sure the trigger doesn't stay latched
+        // held with nothing left to release it.
+        if (controller != null)
+            controller.SetFireInput(false);
     }
 
     private void Update()
@@ -51,5 +63,15 @@ public class FpsPlayerInputHandler : MonoBehaviour
         {
             controller.RequestJump();
         }
+
+        if (reloadAction.triggered)
+        {
+            //
+        }
+
+        // when the button does.
+        controller.SetFireInput(
+            fireAction.IsPressed()
+        );
     }
 }

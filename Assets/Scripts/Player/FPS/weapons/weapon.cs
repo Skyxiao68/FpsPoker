@@ -22,7 +22,7 @@ public class Weapon : MonoBehaviour
     // Spray pattern
     private int shotIndex;
     private float lastShotTime;
-
+    bool hasShot=false;
     // Recoil
     private Vector3 recoilTarget;
     private Vector3 visualRecoilTarget;
@@ -53,17 +53,35 @@ public class Weapon : MonoBehaviour
         }
     }
 
+    // =========================================================
+    // TRIGGER SOURCE
+    // =========================================================
+    // The weapon never reads input itself. FpsCharacterController
+    // owns the trigger for both the player and the AI, so both go
+    // down an identical fire path.
+
+    private bool triggerHeld;
+
+    /// <summary>
+    /// Holds or releases the trigger. Called by
+    /// FpsCharacterController every frame.
+    /// </summary>
+    public void SetTriggerHeld(bool held)
+    {
+        triggerHeld = held;
+    }
+
+    public bool IsTriggerHeld => triggerHeld;
+
     private void Update()
     {
-        bool isFiring =
-            Input.GetButton("Fire1");
+        HandleRecoilRecovery(triggerHeld);
 
-        HandleRecoilRecovery(isFiring);
-
-        if (isFiring)
+        if (triggerHeld&&weaponSettings.isAutomatic||triggerHeld&&!hasShot)
         {
             Fire();
         }
+        if(!triggerHeld)hasShot = false;
     }
 
     // =========================================================
@@ -179,7 +197,7 @@ public class Weapon : MonoBehaviour
         // =====================================================
         // RECOIL
         // =====================================================
-
+        hasShot=true;
         ApplyRecoil();
     }
 

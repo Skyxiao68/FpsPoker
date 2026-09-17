@@ -16,6 +16,7 @@ MonoBehaviour:
   damage: 25
   range: 1000
   fireRate: 0.3
+  isAutomatic: 0
   magazineSize: 6
   reloadTime: 6
   trailSpeed: 300

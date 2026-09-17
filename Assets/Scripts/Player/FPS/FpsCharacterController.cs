@@ -6,6 +6,11 @@ public class FpsCharacterController : MonoBehaviour
     [Header("References")]
     [SerializeField] private GameObject cameraParent;
 
+    [Tooltip("The weapon this character is holding. Both the " +
+             "player and the AI fire through this controller, so " +
+             "neither one needs to touch the Weapon directly.")]
+    [SerializeField] private Weapon weapon;
+
     [Header("Movement Settings")]
     [SerializeField] private FpsMovementSettings movementSettings;
 
@@ -36,15 +41,21 @@ public class FpsCharacterController : MonoBehaviour
     public bool IsGrounded =>
         characterController.isGrounded;
 
-    /// <summary>
-    /// The camera's transform, including any applied recoil pitch.
-    /// Use this (not a weapon's own firePoint) as the source of
-    /// truth for where a hitscan shot is actually aimed.
-    /// </summary>
     public Transform CameraTransform =>
         cameraParent != null
             ? cameraParent.transform
             : transform;
+
+
+    public float LookDegreesPerInputUnit =>
+        movementSettings != null
+            ? movementSettings.lookSensitivity * 0.1f
+            : 0.1f;
+
+    public float LookPitchLimit =>
+        movementSettings != null
+            ? movementSettings.lookXLimit
+            : 80f;
 
     public bool IsMoving =>
         HorizontalSpeed > 0.01f;
@@ -54,18 +65,9 @@ public class FpsCharacterController : MonoBehaviour
         moveInput.y > 0f;
 
 
-    // =========================================================
-    // RECOIL
-    // =========================================================
-
     private Vector2 recoilTarget;
     private Vector2 currentRecoil;
 
-    /// <summary>
-    /// Adds weapon recoil.
-    /// Vertical = upward camera kick.
-    /// Horizontal = sideways camera kick.
-    /// </summary>
     public void AddRecoil(
         float vertical,
         float horizontal)
@@ -80,10 +82,6 @@ public class FpsCharacterController : MonoBehaviour
         currentRecoil = Vector2.zero;
     }
 
-
-    // =========================================================
-    // MOVEMENT API
-    // =========================================================
 
     public void SetMoveInput(Vector2 input)
     {
@@ -134,6 +132,38 @@ public class FpsCharacterController : MonoBehaviour
         lookInput = input;
     }
 
+
+    private bool fireRequested;
+
+    public Weapon EquippedWeapon => weapon;
+
+    public bool HasWeapon => weapon != null;
+
+    public bool IsFiring => fireRequested;
+
+    public void SetFireInput(bool held)
+    {
+        fireRequested = held;
+    }
+
+
+    public void EquipWeapon(Weapon newWeapon)
+    {
+        if (weapon != null)
+            weapon.SetTriggerHeld(false);
+
+        weapon = newWeapon;
+        fireRequested = false;
+    }
+
+    private void HandleWeapon()
+    {
+        if (weapon == null)
+            return;
+
+        weapon.SetTriggerHeld(fireRequested);
+    }
+
     public void FaceDirection(Vector3 direction)
     {
         direction.y = 0f;
@@ -165,14 +195,13 @@ public class FpsCharacterController : MonoBehaviour
     }
 
 
-    // =========================================================
-    // UNITY
-    // =========================================================
-
     private void Awake()
     {
         characterController =
             GetComponent<CharacterController>();
+
+        if (weapon == null)
+            weapon = GetComponentInChildren<Weapon>();
     }
 
     private void Update()
@@ -186,6 +215,8 @@ public class FpsCharacterController : MonoBehaviour
         HandleLook();
 
         HandleRecoil();
+
+        HandleWeapon();
 
         characterController.Move(
             velocity *
@@ -201,11 +232,6 @@ public class FpsCharacterController : MonoBehaviour
 
         jumpRequested = false;
     }
-
-
-    // =========================================================
-    // FRICTION
-    // =========================================================
 
     private void ApplyFriction()
     {
@@ -247,11 +273,6 @@ public class FpsCharacterController : MonoBehaviour
         velocity.x *= newSpeed;
         velocity.z *= newSpeed;
     }
-
-
-    // =========================================================
-    // MOVEMENT
-    // =========================================================
 
     private void HandleMovement()
     {
@@ -369,9 +390,6 @@ public class FpsCharacterController : MonoBehaviour
     }
 
 
-    // =========================================================
-    // JUMP
-    // =========================================================
 
     private void HandleJump()
     {
@@ -399,9 +417,6 @@ public class FpsCharacterController : MonoBehaviour
     }
 
 
-    // =========================================================
-    // LOOK
-    // =========================================================
 
     private void HandleLook()
     {
@@ -431,9 +446,6 @@ public class FpsCharacterController : MonoBehaviour
     }
 
 
-    // =========================================================
-    // RECOIL
-    // =========================================================
 
     private void HandleRecoil()
     {
@@ -456,9 +468,7 @@ public class FpsCharacterController : MonoBehaviour
                 Time.deltaTime
             );
 
-        // -----------------------------------------------------
-        // HORIZONTAL RECOIL
-        // -----------------------------------------------------
+
 
         if (Mathf.Abs(currentRecoil.x) > 0.001f)
         {
@@ -468,21 +478,16 @@ public class FpsCharacterController : MonoBehaviour
             );
         }
 
-        // -----------------------------------------------------
-        // VERTICAL RECOIL
-        // -----------------------------------------------------
+
 
         float recoilPitch =
             currentRecoil.y;
 
-        // Calculate what the camera pitch would be
-        // after applying recoil.
+
         float targetPitch =
             rotationX -
             recoilPitch;
 
-        // Prevent recoil from going beyond
-        // the vertical look limit.
         targetPitch =
             Mathf.Clamp(
                 targetPitch,
@@ -528,4 +533,10 @@ public class FpsCharacterController : MonoBehaviour
                 0f
             );
     }
+
+}
+public interface IDamagable
+{
+    void TakeDamage(float damage);
+    int GetHealth();
 }
