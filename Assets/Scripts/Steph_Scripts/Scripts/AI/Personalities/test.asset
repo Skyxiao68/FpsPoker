@@ -14,26 +14,24 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FPSPersonality
   personalityName: RedHat
   combatStyle: 1
-  raiseTendency: 0.5
-  foldTendency: 0.5
   sightRange: 40
   fieldOfView: 110
-  memoryDuration: 6
+  memoryDuration: 4
   aimTurnSpeed: 220
-  aimError: 2.5
-  aimErrorFrequency: 1.5
+  aimError: 1
+  aimErrorFrequency: 1
   reactionTime: 0.28
   targetLeadAccuracy: 0.4
   preferredRange: 18
   minRange: 6
   fireAngleTolerance: 6
-  burstDuration: 0.35
-  burstCooldown: 0.45
+  burstDuration: 0.24
+  burstCooldown: 0.8
   strafeAmplitude: 0.7
   strafeFrequency: 0.8
   sprintWillingness: 0.5
   jumpiness: 0.2
   repathInterval: 0.35
-  evadeHealthThreshold: 0.239
+  evadeHealthThreshold: 0.3
   evadeDuration: 2.5
-  aggression: 0.742
+  aggression: 0.5

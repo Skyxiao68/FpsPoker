@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: revolver
   m_EditorClassIdentifier: Assembly-CSharp::WeaponSettings
   weaponName: revolver
-  damage: 25
+  damage: 20
   range: 1000
   fireRate: 0.3
   isAutomatic: 0
@@ -23,23 +23,23 @@ MonoBehaviour:
   impactDecal: {fileID: 8636257553129513926, guid: 77bd7906a004bd34399d9484269eb5d0, type: 3}
   decalLifetime: 10
   recoilSnappiness: 10
-  recoilRecovery: 3
-  recoilRandomness: 5
-  recoilResetTime: 0.5
-  visualVerticalKickMultiplier: 10
+  recoilRecovery: 7
+  recoilRandomness: 1
+  recoilResetTime: 0.45
+  visualVerticalKickMultiplier: 20.83
   visualHorizontalKickMultiplier: 1
   verticalRecoilPattern:
+  - 3
   - 5
   - 6
+  - 7
+  - 7
   - 8
-  - 10
-  - 10
-  - 11
   horizontalRecoilPattern:
   - -2
   - 2
   - -2
   - 2
-  - -4
-  - 4
-  movementMultiplier: 0.85
+  - -3
+  - 3
+  movementMultiplier: 0.9
