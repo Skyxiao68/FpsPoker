@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.AI;
 
-
 [RequireComponent(typeof(FpsCharacterController))]
 public class FPSAIEngine : MonoBehaviour
 {
@@ -31,7 +30,30 @@ public class FPSAIEngine : MonoBehaviour
     [Header("Debug")]
     [SerializeField] private AIState currentState = AIState.Idle;
 
+
     public float HealthFraction { get; set; } = 1f;
+
+    private Health health;
+
+    private void OnEnable()
+    {
+        if (health == null)
+            health = GetComponent<Health>();
+
+        if (health != null)
+            health.OnDamaged += HandleDamaged;
+    }
+
+    private void OnDisable()
+    {
+        if (health != null)
+            health.OnDamaged -= HandleDamaged;
+    }
+
+    private void HandleDamaged(int amount, int currentHealth)
+    {
+        HealthFraction = health.NormalizedHealth;
+    }
 
     public AIState CurrentState => currentState;
 
@@ -69,6 +91,7 @@ public class FPSAIEngine : MonoBehaviour
         if (trigger == null)
             trigger = GetComponent<FpsAiTrigger>();
     }
+
 
     public void DistributePersonality()
     {
@@ -184,9 +207,6 @@ public class FPSAIEngine : MonoBehaviour
         trigger?.ReleaseTrigger();
     }
 
-    // =========================================================
-    // STATES
-    // =========================================================
 
     private void RunCurrentState()
     {
@@ -248,7 +268,7 @@ public class FPSAIEngine : MonoBehaviour
 
         locomotion?.Tick(false, false);
 
-        // Look where it's walking.
+
         aim?.LookTowardDirection(
             locomotion != null
                 ? locomotion.CurrentPathDirection
@@ -266,7 +286,7 @@ public class FPSAIEngine : MonoBehaviour
 
     private void RunEngage()
     {
-        // Hold roughly at preferred range while strafing.
+
         Vector3 targetPosition =
             perception.Target.position;
 
@@ -314,8 +334,7 @@ public class FPSAIEngine : MonoBehaviour
         }
         else
         {
-            // Close in. Aggression pulls the stopping point
-            // tighter than preferred range.
+
             float closeRange =
                 Mathf.Lerp(
                     personality.preferredRange,
@@ -338,8 +357,7 @@ public class FPSAIEngine : MonoBehaviour
 
         AimAtTarget();
 
-        // Aggressive personalities shoot while closing; cautious
-        // ones close first, then fire.
+
         trigger?.Tick(personality.aggression > 0.5f);
     }
 
@@ -361,8 +379,7 @@ public class FPSAIEngine : MonoBehaviour
         locomotion?.SetDestination(destination);
         locomotion?.Tick(true, true);
 
-        // Keep eyes on the threat while backing off - this is what
-        // makes "dodge and counterattack" read as deliberate.
+
         if (perception != null && perception.CanSeeTarget)
             AimAtTarget();
         else
@@ -401,6 +418,7 @@ public class FPSAIEngine : MonoBehaviour
 
         trigger?.Tick(false);
     }
+
 
     private void AimAtTarget()
     {

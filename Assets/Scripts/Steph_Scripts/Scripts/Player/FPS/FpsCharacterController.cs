@@ -537,6 +537,5 @@ public class FpsCharacterController : MonoBehaviour
 }
 public interface IDamagable
 {
-    void TakeDamage(float damage);
-    int GetHealth();
+    void TakeDamage(int amount);
 }
