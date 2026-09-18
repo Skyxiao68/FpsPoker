@@ -69,13 +69,46 @@ public class PokerGameManager : MonoBehaviour
     /// <summary>Fired when a hand ends (win, lose, fold, showdown).</summary>
     public event Action OnHandEnded;
 
-//输出
+    //输出
     //public CombatStats GetPlayerCombatStats() { ... }
     //public int GetPot() { ... }
     //public event Action<CombatStats, int> OnCombatReady;
 
-// 输入
+    // 输入
     //public void OnCombatEnded(CombatWinner winner) { ... }
+    //输出
+    //public CombatStats GetPlayerCombatStats() { ... }
+    //public int GetPot() { ... }
+    //public event Action<CombatStats, int> OnCombatReady;
+
+    // 输入
+    //public void OnCombatEnded(CombatWinner winner) { ... }
+    public event Action<CombatStats, CombatStats, int> OnCombatReady;
+
+    private void Awake()
+    {
+        if (GameFlowManager.Instance == null)
+            return;
+
+        PlayerChips = GameFlowManager.Instance.PlayerChips;
+        if (GameFlowManager.Instance.TryConsumeCombatResult(
+                out CombatWinner winner, out int pendingPot))
+        {
+            OnCombatEnded(winner, pendingPot);
+        }
+    }
+
+    public void OnCombatEnded(CombatWinner winner, int pot)
+    {
+        if (winner == CombatWinner.Player)
+            PlayerChips += pot;
+        // enemy-win case: pot is forfeited, nothing to credit
+
+        Pot = 0;
+        State = PokerState.HandEnded;
+        OnStateChanged?.Invoke();
+        OnHandEnded?.Invoke();
+    }
 
     // ========== Hand Initialization ==========
 
@@ -562,33 +595,136 @@ public class PokerGameManager : MonoBehaviour
 
         int cmp = CompareHands(PlayerBestHand, EnemyBestHand);
 
-        if (cmp > 0)
-        {
-            PlayerChips += Pot;
-            LogMessage($"Showdown: Player wins, receives pot {Pot}");
-            Result = PokerResult.PlayerWinsShowdown;
-        }
-        else if (cmp < 0)
-        {
-            EnemyChips += Pot;
-            LogMessage($"Showdown: Enemy wins, receives pot {Pot}");
-            Result = PokerResult.EnemyWinsShowdown;
-        }
-        else
+        /* if (cmp > 0)
+         {
+             PlayerChips += Pot;
+             LogMessage($"Showdown: Player wins, receives pot {Pot}");
+             Result = PokerResult.PlayerWinsShowdown;
+         }
+         else if (cmp < 0)
+         {
+             EnemyChips += Pot;
+             LogMessage($"Showdown: Enemy wins, receives pot {Pot}");
+             Result = PokerResult.EnemyWinsShowdown;
+         }
+         else
+         {
+             int half = Pot / 2;
+             PlayerChips += half;
+             EnemyChips += Pot - half;
+             LogMessage($"Showdown: Tie, split pot");
+             Result = PokerResult.TieShowdown;
+         }
+
+         Pot = 0;
+         State = PokerState.HandEnded;
+         OnStateChanged?.Invoke();
+         OnHandEnded?.Invoke();*/
+        if (cmp == 0)
         {
             int half = Pot / 2;
             PlayerChips += half;
             EnemyChips += Pot - half;
-            LogMessage($"Showdown: Tie, split pot");
             Result = PokerResult.TieShowdown;
+
+            Pot = 0;
+            State = PokerState.HandEnded;
+            OnStateChanged?.Invoke();
+            OnHandEnded?.Invoke();
+            return;
         }
 
-        Pot = 0;
-        State = PokerState.HandEnded;
-        OnStateChanged?.Invoke();
-        OnHandEnded?.Invoke();
+        Result = cmp > 0
+            ? PokerResult.PlayerWinsShowdown
+            : PokerResult.EnemyWinsShowdown;
+
+       BeginCombatHandoff();
+    }
+        /// <summary>
+    /// Packages both fighters' combat stats and the contested pot,
+    /// then hands off to the FPS scene.
+    /// </summary>
+    private void BeginCombatHandoff()
+    {
+        CombatStats playerStats = GetPlayerCombatStats();
+        CombatStats enemyStats = GetEnemyCombatStats();
+
+        OnCombatReady?.Invoke(playerStats, enemyStats, Pot);
+
+        if (GameFlowManager.Instance != null)
+        {
+            GameFlowManager.Instance.BeginCombat(
+                PlayerChips,
+                playerStats,
+                enemyStats,
+                Pot,
+                enemyParams.enemyName,
+                enemyParams.combatStyle
+            );
+        }
+        else
+        {
+            Debug.LogWarning(
+                "PokerGameManager: no GameFlowManager found - " +
+                "can't hand off to the combat scene."
+            );
+        }
+    }
+        public CombatStats GetPlayerCombatStats()
+    {
+        return ComputeCombatStats(PlayerHand, PlayerBestHand);
     }
 
+    /// <summary>Enemy-side equivalent of GetPlayerCombatStats().</summary>
+    public CombatStats GetEnemyCombatStats()
+    {
+        return ComputeCombatStats(EnemyHand, EnemyBestHand);
+    }
+
+    private CombatStats ComputeCombatStats(
+        List<Card> holeCards,
+        HandResult bestHand)
+    {
+        List<Card> allCards = new List<Card>(holeCards);
+        allCards.AddRange(CommunityCards);
+
+        float spadesTotal = 0f;
+        float heartsTotal = 0f;
+        float clubsTotal = 0f;
+        float diamondsTotal = 0f;
+
+        foreach (Card card in allCards)
+        {
+            switch (card.Suit)
+            {
+                case Suit.Spades:
+                    spadesTotal += card.GetAttributeValue();
+                    break;
+                case Suit.Hearts:
+                    heartsTotal += card.GetAttributeValue();
+                    break;
+                case Suit.Clubs:
+                    clubsTotal += card.GetAttributeValue();
+                    break;
+                case Suit.Diamonds:
+                    diamondsTotal += card.GetAttributeValue();
+                    break;
+            }
+        }
+
+        float multiplier =
+            bestHand != null
+                ? bestHand.GetMultiplier()
+                : 1f;
+
+        return new CombatStats
+        {
+            attack = spadesTotal * multiplier,
+            health = heartsTotal * multiplier,
+            fireRate = clubsTotal * multiplier,
+            moveSpeed = diamondsTotal * multiplier
+        };
+    }
     /// <summary>
     /// Compares two hand results. Returns positive if A wins, negative if B wins, 0 for tie.
     /// </summary>
@@ -611,7 +747,7 @@ public class PokerGameManager : MonoBehaviour
         Debug.Log($"[Poker] {msg}");
         OnMessage?.Invoke(msg);
     }
-
+    
     /// <summary>
     /// Converts a list of cards to a readable string.
     /// </summary>
@@ -623,16 +759,16 @@ public class PokerGameManager : MonoBehaviour
         return s;
     }
 
-   /// <summary>
+    /// <summary>
     /// Gets the combat stats for the player based on their hand.
     /// </summary>
     /// <returns>The combat stats for the player.</returns>
-    
-    
-   //public CombatStats GetPlayerCombatStats()
-    
-        // 用 PlayerHand + CommunityCards + PlayerBestHand 计算
-        // 返回 CombatStats
-       
-    
+
+
+    //public CombatStats GetPlayerCombatStats()
+
+    // 用 PlayerHand + CommunityCards + PlayerBestHand 计算
+    // 返回 CombatStats
+
+
 }

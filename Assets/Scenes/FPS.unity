@@ -21195,6 +21195,68 @@ MonoBehaviour:
   hitMask:
     serializedVersion: 2
     m_Bits: 627
+--- !u!1 &1058858653
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1058858655}
+  - component: {fileID: 1058858654}
+  m_Layer: 0
+  m_Name: CombatSceneController
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1058858654
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058858653}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9dad2b7cb23265b4996f485007847e4a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CombatSceneController
+  playerHealth: {fileID: 1833852516}
+  playerController: {fileID: 1833852514}
+  enemySpawnPoint: {fileID: 1833852512}
+  enemyPrefabs:
+  - combatStyleKey: '"Ranged"'
+    prefab: {fileID: 1218645635}
+  debugPlayerStats:
+    attack: 10
+    health: 20
+    fireRate: 5
+    moveSpeed: 2
+  debugEnemyStats:
+    attack: 10
+    health: 20
+    fireRate: 5
+    moveSpeed: 2
+  debugPot: 20
+  debugEnemyCombatStyle: Ranged
+--- !u!4 &1058858655
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1058858653}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 29.95565, y: 67.66001, z: -48.33202}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1083604866
 GameObject:
   m_ObjectHideFlags: 0
@@ -82210,3 +82272,4 @@ SceneRoots:
   - {fileID: 892758358}
   - {fileID: 1553677921}
   - {fileID: 1792363858}
+  - {fileID: 1058858655}
