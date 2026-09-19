@@ -59,8 +59,8 @@ public class PokerGameTester : MonoBehaviour
     private void StartNewHand()
     {
         // Keep existing chips if available; otherwise start with 100 chips.
-        int playerChips = poker.PlayerChips > 0 ? poker.PlayerChips : 100;
-        int enemyChips = poker.EnemyChips > 0 ? poker.EnemyChips : 100;
+        int playerChips = poker.PlayerChips > 0 ? poker.PlayerChips : 1000;
+        int enemyChips = poker.EnemyChips > 0 ? poker.EnemyChips : 1000;
 
         // If the previous hand has ended or the game has not started,
         // generate a new random enemy for the next hand.

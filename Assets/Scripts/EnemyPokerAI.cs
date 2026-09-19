@@ -37,7 +37,7 @@ public class EnemyAIParameters
     /// When triggered, the AI may bet or call despite low hand strength.
     /// </summary>
     [Range(0f, 1f)]
-    public float bluffChance = 0.3f;
+    public float bluffChance = 0.5f;
 
     // Describes the enemy's combat style (used for flavor / other systems).
     public string combatStyle = "Melee";
