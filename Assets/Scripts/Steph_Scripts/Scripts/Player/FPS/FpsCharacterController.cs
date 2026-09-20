@@ -41,12 +41,22 @@ public class FpsCharacterController : MonoBehaviour
     public bool IsGrounded =>
         characterController.isGrounded;
 
+    /// <summary>
+    /// The camera's transform, including any applied recoil pitch.
+    /// Use this (not a weapon's own firePoint) as the source of
+    /// truth for where a hitscan shot is actually aimed.
+    /// </summary>
     public Transform CameraTransform =>
         cameraParent != null
             ? cameraParent.transform
             : transform;
 
-
+    /// <summary>
+    /// How many degrees of rotation one unit of look input produces
+    /// this frame. An AI uses this to convert a desired turn in
+    /// degrees into the same look input a mouse would generate, so
+    /// it's bound by the same sensitivity the player is.
+    /// </summary>
     public float LookDegreesPerInputUnit =>
         movementSettings != null
             ? movementSettings.lookSensitivity * 0.1f
@@ -65,9 +75,18 @@ public class FpsCharacterController : MonoBehaviour
         moveInput.y > 0f;
 
 
+    // =========================================================
+    // RECOIL
+    // =========================================================
+
     private Vector2 recoilTarget;
     private Vector2 currentRecoil;
 
+    /// <summary>
+    /// Adds weapon recoil.
+    /// Vertical = upward camera kick.
+    /// Horizontal = sideways camera kick.
+    /// </summary>
     public void AddRecoil(
         float vertical,
         float horizontal)
@@ -82,6 +101,10 @@ public class FpsCharacterController : MonoBehaviour
         currentRecoil = Vector2.zero;
     }
 
+
+    // =========================================================
+    // MOVEMENT API
+    // =========================================================
 
     public void SetMoveInput(Vector2 input)
     {
@@ -133,20 +156,45 @@ public class FpsCharacterController : MonoBehaviour
     }
 
 
+    // =========================================================
+    // WEAPON API
+    // =========================================================
+
     private bool fireRequested;
 
     public Weapon EquippedWeapon => weapon;
+
+    public FpsMovementSettings MovementSettings => movementSettings;
+
+    /// <summary>
+    /// Swaps in a new settings asset at runtime. Same reasoning as
+    /// Weapon.SetSettings - pass a cloned copy, never the shared
+    /// asset itself, once you've modified any field on it.
+    /// </summary>
+    public void SetMovementSettings(FpsMovementSettings settings)
+    {
+        movementSettings = settings;
+    }
 
     public bool HasWeapon => weapon != null;
 
     public bool IsFiring => fireRequested;
 
+    /// <summary>
+    /// Holds or releases the trigger. This is the only way either
+    /// the player or the AI is allowed to shoot - both go through
+    /// here, so fire rate, spray pattern and recoil behave
+    /// identically for both.
+    /// </summary>
     public void SetFireInput(bool held)
     {
         fireRequested = held;
     }
 
-
+    /// <summary>
+    /// Swaps the held weapon at runtime. Releases the old trigger
+    /// so a burst can't leak across the swap.
+    /// </summary>
     public void EquipWeapon(Weapon newWeapon)
     {
         if (weapon != null)
@@ -195,6 +243,10 @@ public class FpsCharacterController : MonoBehaviour
     }
 
 
+    // =========================================================
+    // UNITY
+    // =========================================================
+
     private void Awake()
     {
         characterController =
@@ -232,6 +284,11 @@ public class FpsCharacterController : MonoBehaviour
 
         jumpRequested = false;
     }
+
+
+    // =========================================================
+    // FRICTION
+    // =========================================================
 
     private void ApplyFriction()
     {
@@ -273,6 +330,11 @@ public class FpsCharacterController : MonoBehaviour
         velocity.x *= newSpeed;
         velocity.z *= newSpeed;
     }
+
+
+    // =========================================================
+    // MOVEMENT
+    // =========================================================
 
     private void HandleMovement()
     {
@@ -390,6 +452,9 @@ public class FpsCharacterController : MonoBehaviour
     }
 
 
+    // =========================================================
+    // JUMP
+    // =========================================================
 
     private void HandleJump()
     {
@@ -417,6 +482,9 @@ public class FpsCharacterController : MonoBehaviour
     }
 
 
+    // =========================================================
+    // LOOK
+    // =========================================================
 
     private void HandleLook()
     {
@@ -446,6 +514,9 @@ public class FpsCharacterController : MonoBehaviour
     }
 
 
+    // =========================================================
+    // RECOIL
+    // =========================================================
 
     private void HandleRecoil()
     {
@@ -468,7 +539,9 @@ public class FpsCharacterController : MonoBehaviour
                 Time.deltaTime
             );
 
-
+        // -----------------------------------------------------
+        // HORIZONTAL RECOIL
+        // -----------------------------------------------------
 
         if (Mathf.Abs(currentRecoil.x) > 0.001f)
         {
@@ -478,16 +551,21 @@ public class FpsCharacterController : MonoBehaviour
             );
         }
 
-
+        // -----------------------------------------------------
+        // VERTICAL RECOIL
+        // -----------------------------------------------------
 
         float recoilPitch =
             currentRecoil.y;
 
-
+        // Calculate what the camera pitch would be
+        // after applying recoil.
         float targetPitch =
             rotationX -
             recoilPitch;
 
+        // Prevent recoil from going beyond
+        // the vertical look limit.
         targetPitch =
             Mathf.Clamp(
                 targetPitch,
@@ -533,9 +611,4 @@ public class FpsCharacterController : MonoBehaviour
                 0f
             );
     }
-
-}
-public interface IDamagable
-{
-    void TakeDamage(int amount);
 }

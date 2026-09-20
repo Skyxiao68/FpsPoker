@@ -47,8 +47,6 @@ public class Health : MonoBehaviour, IDamagable
 
         OnDamaged?.Invoke(amount, CurrentHealth);
 
-        print(CurrentHealth+" health remaining");
-
         if (CurrentHealth <= 0)
             Die();
     }
@@ -62,6 +60,15 @@ public class Health : MonoBehaviour, IDamagable
             Mathf.Min(CurrentHealth + amount, maxHealth);
     }
 
+    public void SetMaxHealth(int newMax, bool refill = true)
+    {
+        maxHealth = Mathf.Max(1, newMax);
+
+        CurrentHealth =
+            refill
+                ? maxHealth
+                : Mathf.Min(CurrentHealth, maxHealth);
+    }
 
     public void ResetHealth()
     {
@@ -102,5 +109,8 @@ public class Health : MonoBehaviour, IDamagable
                 behaviour.enabled = !disabled;
         }
     }
-
+}
+public interface IDamagable
+{
+    void TakeDamage(int amount);
 }
