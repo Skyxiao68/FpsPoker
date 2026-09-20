@@ -165,6 +165,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PokerGameTester
   poker: {fileID: 251720994}
   ui: {fileID: 0}
+  bridge: {fileID: 251720993}
+  postCombatDelay: 3
 --- !u!1 &147553464
 GameObject:
   m_ObjectHideFlags: 0
@@ -323,6 +325,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PokerCombatBridge
   poker: {fileID: 251720994}
+  showdownRevealDelay: 3
 --- !u!114 &251720994
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -537,6 +540,7 @@ MonoBehaviour:
   pokerSceneName: Card
   combatSceneName: FPS
   startingChips: 1000
+  startingEnemyChips: 1000
 --- !u!4 &1149759426
 Transform:
   m_ObjectHideFlags: 0
