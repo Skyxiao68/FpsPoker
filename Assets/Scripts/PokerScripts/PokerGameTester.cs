@@ -8,9 +8,11 @@ using UnityEngine;
 public class PokerGameTester : MonoBehaviour
 {
     // Reference to the core poker game logic.
+    [SerializeField]
     private PokerGameManager poker;
 
     // Reference to the dynamically built poker UI.
+    [SerializeField]
     private PokerUI ui;
 
     // Parameters that define the current enemy AI behavior and identity.
@@ -22,9 +24,6 @@ public class PokerGameTester : MonoBehaviour
     /// </summary>
     void Start()
     {
-        // Add the game manager component to this GameObject.
-        poker = gameObject.AddComponent<PokerGameManager>();
-
         // Create a separate GameObject for the UI and attach the PokerUI component.
         GameObject uiGO = new GameObject("PokerUI");
         uiGO.transform.SetParent(transform);
@@ -37,6 +36,8 @@ public class PokerGameTester : MonoBehaviour
                 $"Match Over：{poker.Result} | Player {poker.PlayerChips} | Enemy {poker.EnemyChips}"
             );
         };
+
+        Debug.Log($"[PokerTester] poker entity ID = {poker.GetEntityId()}");
 
         // Generate the first enemy for the first hand.
         enemyParams = EnemyGenerator.GenerateRandom();
