@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 /// <summary>
@@ -15,6 +16,13 @@ public class PokerGameTester : MonoBehaviour
     [SerializeField]
     private PokerUI ui;
 
+    [SerializeField]
+    private PokerCombatBridge bridge;
+
+    [Tooltip("从战斗返回后,等多少再开新局(让玩家看到结果)")]
+    [SerializeField]
+    private float postCombatDelay = 1.5f;
+
     // Parameters that define the current enemy AI behavior and identity.
     private EnemyAIParameters enemyParams;
 
@@ -24,29 +32,52 @@ public class PokerGameTester : MonoBehaviour
     /// </summary>
     void Start()
     {
-        // Create a separate GameObject for the UI and attach the PokerUI component.
+
         GameObject uiGO = new GameObject("PokerUI");
         uiGO.transform.SetParent(transform);
         ui = uiGO.AddComponent<PokerUI>();
 
-        // Log the result and chip counts whenever a hand ends.
-        poker.OnHandEnded += () =>
-        {
-            Debug.Log(
-                $"Match Over：{poker.Result} | Player {poker.PlayerChips} | Enemy {poker.EnemyChips}"
-            );
-        };
 
-        Debug.Log($"[PokerTester] poker entity ID = {poker.GetEntityId()}");
-
+        //进入扑克场景时，解锁鼠标并显示光标
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        // Initialize the UI and connect the "Next Game" button to StartNewHand.
-        ui.Initialize(poker);
-        ui.SetNextHandCallback(StartNewHand);
+        if (poker == null)
+        {
+            Debug.LogError("[PokerTester] poker is null");
+            return;
+        }
 
-        // Start the first hand.
+        Debug.Log($"[PokerTester] poker entity ID = {poker.GetEntityId()}");
+
+        poker.OnHandEnded += () =>
+        {
+            Debug.Log($"牌局结束：{poker.Result} | 玩家 {poker.PlayerChips} | 敌人 {poker.EnemyChips}");
+        };
+        if (ui != null)
+        {
+            ui.Initialize(poker);
+            ui.SetNextHandCallback(StartNewHand);
+        }
+
+        //从战斗场景返回后，延迟开新局
+        bool fromCombat = bridge != null && bridge.ProcessedCombatResult;
+        if (fromCombat)
+        {
+            Debug.Log($"[PokerTester] 从战斗返回，延迟 {postCombatDelay} 秒后开新局");
+             StartCoroutine(DelayedStartNewHand(postCombatDelay));
+        }
+        else
+        {
+            StartNewHand();
+        }
+
+        
+    }
+
+    private IEnumerator DelayedStartNewHand(float delay)
+    {
+        yield return new WaitForSeconds(delay);
         StartNewHand();
     }
 

@@ -20,14 +20,20 @@ public class GameFlowManager : MonoBehaviour
 
     [Header("Scenes")]
     [Tooltip("Exact scene name as it appears in Build Settings.")]
-    [SerializeField] private string pokerSceneName = "PokerScene";
+    [SerializeField]
+    private string pokerSceneName = "PokerScene";
 
     [Tooltip("Exact scene name as it appears in Build Settings.")]
-    [SerializeField] private string combatSceneName = "CombatScene";
+    [SerializeField]
+    private string combatSceneName = "CombatScene";
 
     [Header("Economy")]
     [Tooltip("Used only the very first time the run starts.")]
-    [SerializeField] private int startingChips = 1000;
+    [SerializeField]
+    private int startingChips = 1000;
+
+    [SerializeField]
+    int startingEnemyChips = 1000;
 
     /// <summary>
     /// The player's persistent chip total. -1 means "not yet
@@ -35,6 +41,7 @@ public class GameFlowManager : MonoBehaviour
     /// rather than 0.
     /// </summary>
     public int PlayerChips { get; set; } = -1;
+    public int EnemyChips { get; set; } = -1;
 
     private CombatHandoff? pendingHandoff;
     private PendingResult? pendingResult;
@@ -60,7 +67,14 @@ public class GameFlowManager : MonoBehaviour
         DontDestroyOnLoad(gameObject);
 
         if (PlayerChips < 0)
+        {
             PlayerChips = startingChips;
+        }
+
+        if (EnemyChips < 0)
+        {
+            EnemyChips = startingEnemyChips;
+        }
     }
 
     // =========================================================
@@ -75,13 +89,16 @@ public class GameFlowManager : MonoBehaviour
     /// </summary>
     public void BeginCombat(
         int currentPlayerChips,
+        int currentEnemyChips,
         CombatStats playerStats,
         CombatStats enemyStats,
         int pot,
         string enemyName,
-        string enemyCombatStyle)
+        string enemyCombatStyle
+    )
     {
         PlayerChips = currentPlayerChips;
+        EnemyChips = currentEnemyChips;
 
         pendingHandoff = new CombatHandoff
         {
@@ -89,7 +106,7 @@ public class GameFlowManager : MonoBehaviour
             enemyStats = enemyStats,
             pot = pot,
             enemyName = enemyName,
-            enemyCombatStyle = enemyCombatStyle
+            enemyCombatStyle = enemyCombatStyle,
         };
 
         SceneManager.LoadScene(combatSceneName);
@@ -125,11 +142,7 @@ public class GameFlowManager : MonoBehaviour
     /// </summary>
     public void ReportCombatResult(CombatWinner winner, int pot)
     {
-        pendingResult = new PendingResult
-        {
-            winner = winner,
-            pot = pot
-        };
+        pendingResult = new PendingResult { winner = winner, pot = pot };
 
         SceneManager.LoadScene(pokerSceneName);
     }
