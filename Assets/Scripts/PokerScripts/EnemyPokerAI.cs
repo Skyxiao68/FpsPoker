@@ -23,24 +23,24 @@ public class EnemyAIParameters
     /// Higher values make the AI more cautious.
     /// </summary>
     [Range(0f, 1f)]
-    public float foldTendency = 0.1f;
+    public float foldTendency = 0.3f;
 
     /// <summary>
     /// Size of bets relative to the pot (0 = small bets, 1 = large bets).
     /// Higher aggression produces bigger raise amounts.
     /// </summary>
     [Range(0f, 1f)]
-    public float aggression = 0.7f;
+    public float aggression = 0.5f;
 
     /// <summary>
     /// Probability of bluffing when holding a weak hand (0 = never bluff, 1 = always bluff).
     /// When triggered, the AI may bet or call despite low hand strength.
     /// </summary>
     [Range(0f, 1f)]
-    public float bluffChance = 0.5f;
+    public float bluffChance = 0.1f;
 
     // Describes the enemy's combat style (used for flavor / other systems).
-    public string combatStyle = "Melee";
+    public string combatStyle = "Ranged";
 }
 
 /// <summary>
@@ -87,7 +87,8 @@ public static class EnemyPokerAI
         int currentBet,
         int enemyChips,
         bool playerRaised,
-        int playerRaiseAmount
+        int playerRaiseAmount,
+        float playerAggression = 0.5f
     )
     {
         EnemyDecision decision = new EnemyDecision();
@@ -104,7 +105,7 @@ public static class EnemyPokerAI
 
         // Step 3: Street caution factor - AI becomes more cautious on later streets.
         // More community cards means more information, so the AI plays tighter.
-        float streetCaution = GetStreetCaution(street);
+        float caution = GetStreetCaution(street);
 
         // Step 4: Determine if this is a bluffing scenario (weak hand + bluff chance triggers).
         bool isBluff = Random.value < p.bluffChance && strength < 0.4f;
@@ -112,65 +113,149 @@ public static class EnemyPokerAI
         // Step 5: Make the decision based on whether the player raised or not.
         if (playerRaised)
         {
-            // Reacting to player's raise: check if hand strength justifies calling.
-            float foldThreshold = potOdds + streetCaution + (1f - p.raiseTendency) * 0.3f;
-            if (isBluff)
-                foldThreshold -= 0.5f; // Bluffing makes the AI more willing to continue.
-
-            if (strength < foldThreshold)
-            {
-                decision.action = EnemyAction.Fold;
-                return decision;
-            }
-
-            // Hand is strong enough to call; aggressive AIs with strong hands may re-raise.
-            if (strength > 0.75f && Random.value < p.aggression * 0.5f)
-            {
-                int reRaise = CalculateRaiseAmount(p, pot, street, enemyChips);
-                if (reRaise > playerRaiseAmount && enemyChips >= reRaise)
-                {
-                    decision.action = EnemyAction.Raise;
-                    decision.raiseAmount = reRaise;
-                    return decision;
-                }
-            }
-
-            // Otherwise, call (match) the player's raise.
-            decision.action = EnemyAction.Raise;
-            decision.raiseAmount = playerRaiseAmount;
-            return decision;
+            return DecideAgainstRaise(
+                p,
+                strength,
+                potOdds,
+                caution,
+                playerAggression,
+                isBluff,
+                pot,
+                street,
+                enemyChips,
+                playerRaiseAmount
+            );
         }
         else
         {
-            // Player did not raise: AI decides whether to bet or check.
-            float raiseThreshold = 1f - p.raiseTendency - streetCaution;
-
-            // Adjust threshold based on hand strength.
-            if (strength > 0.7f)
-                raiseThreshold -= 0.3f; // Very strong: much more likely to bet.
-            else if (strength > 0.5f)
-                raiseThreshold -= 0.15f; // Decent: somewhat more likely to bet.
-            else if (strength < 0.3f)
-                raiseThreshold += 0.2f; // Weak: less likely to bet.
-
-            if (isBluff)
-                raiseThreshold -= 0.25f; // Bluffing increases the chance to bet.
-
-            if (Random.value > raiseThreshold)
-            {
-                int raiseAmount = CalculateRaiseAmount(p, pot, street, enemyChips);
-                if (raiseAmount > 0 && enemyChips >= raiseAmount)
-                {
-                    decision.action = EnemyAction.Raise;
-                    decision.raiseAmount = raiseAmount;
-                    return decision;
-                }
-            }
-
-            // If not raising, the AI checks.
-            decision.action = EnemyAction.Check;
-            return decision;
+            return DecideWhenUnraised(p, strength, caution, isBluff, pot, street, enemyChips);
         }
+    }
+
+    /// <summary>
+    /// Decision-making logic when the player has raised.
+    /// </summary>
+    private static EnemyDecision DecideAgainstRaise(
+        EnemyAIParameters p,
+        float strength,
+        float potOdds,
+        float caution,
+        float playerAggression,
+        bool isBluff,
+        int pot,
+        Street street,
+        int enemyChips,
+        int playerRaiseAmount
+    )
+    {
+        EnemyDecision d = new EnemyDecision();
+        d.handStrength = strength;
+
+        // ---------- 计算 fold 阈值 ----------
+        // 基线：底池赔率 + 街道谨慎
+        float foldThreshold = potOdds * 0.8f + caution;
+
+        // 玩家越激进 → AI 越不应该 fold（怀疑玩家在诈唬）
+        // 最高降低 0.25
+        foldThreshold -= playerAggression * 0.25f;
+
+        // 手牌强度修正
+        if (strength > 0.6f)
+            foldThreshold -= 0.15f;
+        else if (strength < 0.3f)
+            foldThreshold += 0.1f;
+
+        // 底池相对筹码大小：底池越大越值得跟注
+        float potRatio = (float)pot / Mathf.Max(1, enemyChips);
+        foldThreshold -= Mathf.Clamp01(potRatio) * 0.15f;
+
+        // 加注成本太高时，稍微保守
+        float costRatio = (float)playerRaiseAmount / Mathf.Max(1, enemyChips);
+        if (costRatio > 0.4f)
+            foldThreshold += 0.1f;
+
+        // 敌人人格微调
+        foldThreshold += (p.foldTendency - 0.5f) * 0.3f;
+        foldThreshold -= (p.raiseTendency - 0.5f) * 0.15f;
+
+        // 如果已经诈唬，进一步降低 fold 概率（继续演）
+        if (isBluff)
+            foldThreshold -= 0.15f;
+
+        // 钳制在合理范围，避免极端
+        foldThreshold = Mathf.Clamp(foldThreshold, 0.02f, 0.65f);
+
+        // ---------- 决策 ----------
+        // Fold：手牌实在弱且成本高
+        if (strength < foldThreshold)
+        {
+            d.action = EnemyAction.Fold;
+            d.raiseAmount = 0;
+            return d;
+        }
+
+        // 反加：手牌很强，且敌人激进，且有概率
+        bool canAffordReRaise = enemyChips > playerRaiseAmount * 2;
+        bool strongHand = strength > 0.72f;
+        if (strongHand && canAffordReRaise && Random.value < p.aggression * 0.35f)
+        {
+            int reRaise = CalculateReRaiseAmount(p, pot, street, enemyChips, playerRaiseAmount);
+            if (reRaise > playerRaiseAmount)
+            {
+                d.action = EnemyAction.Raise;
+                d.raiseAmount = reRaise;
+                return d;
+            }
+        }
+
+        // 默认：跟注（用 Raise 表达，金额 = 玩家的加注额）
+        d.action = EnemyAction.Raise;
+        d.raiseAmount = playerRaiseAmount;
+        return d;
+    }
+
+    /// <summary>
+    /// Decision-making logic when the player has not raised.
+    /// </summary>
+    private static EnemyDecision DecideWhenUnraised(
+        EnemyAIParameters p,
+        float strength,
+        float caution,
+        bool isBluff,
+        int pot,
+        Street street,
+        int enemyChips
+    )
+    {
+        EnemyDecision d = new EnemyDecision();
+        d.handStrength = strength;
+
+        float raiseThreshold = 1f - p.raiseTendency - caution;
+
+        if (strength > 0.7f)
+            raiseThreshold -= 0.3f;
+        else if (strength > 0.5f)
+            raiseThreshold -= 0.15f;
+        else if (strength < 0.3f)
+            raiseThreshold += 0.2f;
+
+        if (isBluff)
+            raiseThreshold -= 0.25f;
+
+        if (Random.value > raiseThreshold)
+        {
+            int raiseAmount = CalculateRaiseAmount(p, pot, street, enemyChips);
+            if (raiseAmount > 0 && enemyChips >= raiseAmount)
+            {
+                d.action = EnemyAction.Raise;
+                d.raiseAmount = raiseAmount;
+                return d;
+            }
+        }
+
+        d.action = EnemyAction.Check;
+        d.raiseAmount = 0;
+        return d;
     }
 
     /// <summary>
@@ -178,43 +263,47 @@ public static class EnemyPokerAI
     /// Higher aggression and later streets produce larger bets.
     /// </summary>
     private static int CalculateRaiseAmount(
-        EnemyAIParameters p,
-        int pot,
-        Street street,
-        int enemyChips
-    )
+        EnemyAIParameters p, int pot, Street street, int enemyChips)
     {
-        // Base ratio depends on aggression: 0.3 to 0.7 of the pot.
         float baseRatio = 0.3f + p.aggression * 0.4f;
-
-        // Street multiplier: bets grow on later streets.
-        float streetMult = 1f;
-        switch (street)
-        {
-            case Street.PreFlop:
-                streetMult = 0.6f;
-                break;
-            case Street.Flop:
-                streetMult = 1.0f;
-                break;
-            case Street.Turn:
-                streetMult = 1.3f;
-                break;
-            case Street.River:
-                streetMult = 1.6f;
-                break;
-        }
-
+        float streetMult = GetStreetMultiplier(street);
         int amount = Mathf.RoundToInt(pot * baseRatio * streetMult);
-
-        // Ensure a minimum bet of 5 chips.
         amount = Mathf.Max(amount, 5);
-
-        // Cannot bet more than available chips.
         amount = Mathf.Min(amount, enemyChips);
-
         return amount;
     }
+
+    /// <summary>
+    /// Calculates the re-raise amount based on pot size, street, AI aggression, and remaining chips.
+    /// Higher aggression and later streets produce larger bets.
+    /// </summary>
+      private static int CalculateReRaiseAmount(
+        EnemyAIParameters p, int pot, Street street, int enemyChips, int playerRaiseAmount)
+    {
+        float baseRatio = 0.5f + p.aggression * 0.5f;
+        float streetMult = GetStreetMultiplier(street);
+        int amount = Mathf.RoundToInt(pot * baseRatio * streetMult);
+        amount = Mathf.Max(amount, playerRaiseAmount + 5);
+        amount = Mathf.Min(amount, enemyChips);
+        return amount;
+    }
+
+    /// <summary>
+    /// Returns a multiplier for raise size based on the current betting street.
+    /// </summary>
+    private static float GetStreetMultiplier(Street street)
+    {
+        switch (street)
+        {
+            case Street.PreFlop: return 0.6f;
+            case Street.Flop:    return 1.0f;
+            case Street.Turn:    return 1.3f;
+            case Street.River:   return 1.6f;
+            default:             return 1.0f;
+        }
+    }
+
+
 
     /// <summary>
     /// Returns a caution value that increases with each betting street.
@@ -224,18 +313,14 @@ public static class EnemyPokerAI
     {
         switch (street)
         {
-            case Street.PreFlop:
-                return 0f;
-            case Street.Flop:
-                return 0.05f;
-            case Street.Turn:
-                return 0.1f;
-            case Street.River:
-                return 0.15f;
-            default:
-                return 0f;
+            case Street.PreFlop: return 0f;
+            case Street.Flop:    return 0.05f;
+            case Street.Turn:    return 0.1f;
+            case Street.River:   return 0.15f;
+            default:             return 0f;
         }
     }
+
 
     /// <summary>
     /// Public method to evaluate the strength of a hand (returns 0.0 to 1.0).

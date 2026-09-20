@@ -70,6 +70,8 @@ public class PokerGameManager : MonoBehaviour
     private Deck deck; // The shuffled deck used for the current hand.
     private EnemyAIParameters enemyParams; // Reference to current enemy AI parameters.
     private bool playerHasRaised = false; // Tracks whether the player raised this street.
+    private int playerRaiseCount = 0; // Tracks how many raises the player has made this street.
+    private int playerTotalActions = 0; // Tracks total actions taken by the player this street.
 
     [Tooltip("Delay between each community card being revealed (seconds)")]
     public float dealDelay = 0.6f; // Visual delay between dealing community cards.
@@ -113,6 +115,8 @@ public class PokerGameManager : MonoBehaviour
         CurrentBet = 0;
         playerHasRaised = false;
         AwaitingPlayerMatch = false;
+        playerRaiseCount = 0;
+        playerTotalActions = 0;
         IsDealing = false;
         Result = PokerResult.None;
         PlayerBestHand = null;
@@ -185,6 +189,8 @@ public class PokerGameManager : MonoBehaviour
 
         LogMessage($"Player checks ({CurrentStreet})");
 
+        playerTotalActions++;
+
         // Hand over control to the enemy AI.
         State = PokerState.EnemyTurn;
         OnStateChanged?.Invoke();
@@ -218,6 +224,9 @@ public class PokerGameManager : MonoBehaviour
         Pot += amount;
         CurrentBet = amount;
         playerHasRaised = true;
+
+        playerRaiseCount++;
+        playerTotalActions++;
 
         LogMessage($"Player raises {amount} ({CurrentStreet}), pot {Pot}");
 
@@ -254,6 +263,7 @@ public class PokerGameManager : MonoBehaviour
         PlayerChips -= CurrentBet;
         Pot += CurrentBet;
         LogMessage($"Player matches the raise {CurrentBet}, pot {Pot}");
+        playerTotalActions++;
 
         // Betting for this street is resolved - advance to the next street.
         AwaitingPlayerMatch = false;
@@ -269,6 +279,8 @@ public class PokerGameManager : MonoBehaviour
             return;
 
         LogMessage($"Player folds, losing the pot {Pot}");
+
+        playerTotalActions++;
 
         // Enemy takes the pot.
         EnemyChips += Pot;
@@ -288,6 +300,18 @@ public class PokerGameManager : MonoBehaviour
         return State == PokerState.PlayerTurn && !IsDealing;
     }
 
+    /// <summary>
+    /// 返回玩家最近的激进度（0-1）。
+    /// 0 = 从不加注，1 = 每次行动都加注。
+    /// 前 3 次行动之前返回 0.5（中立）。
+    /// </summary>
+    public float GetPlayerAggression()
+    {
+        if (playerTotalActions < 3)
+            return 0.5f;
+        return Mathf.Clamp01((float)playerRaiseCount / playerTotalActions);
+    }
+
     // ========== Enemy AI Turn ==========
 
     /// <summary>
@@ -305,7 +329,8 @@ public class PokerGameManager : MonoBehaviour
             CurrentBet,
             EnemyChips,
             playerRaised,
-            raiseAmount
+            raiseAmount,
+            GetPlayerAggression()
         );
 
         // Log AI reasoning for debugging.
@@ -580,11 +605,9 @@ public class PokerGameManager : MonoBehaviour
         return a.tiebreakers.Length - b.tiebreakers.Length;
     }
 
-    
     // 供桥接层使用的 API
     // 这些方法都是纯数据操作，不包含任何战斗逻辑。
     // 由 PokerCombatBridge（或任何外部系统）调用。
-    
 
     /// <summary>恢复玩家筹码（例如从战斗场景返回后）。</summary>
     public void RestorePlayerChips(int chips)
