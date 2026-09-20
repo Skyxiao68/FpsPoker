@@ -10,39 +10,52 @@ public static class CombatStatsFactory
     public static CombatStats Compute(
         List<Card> holeCards,
         HandResult bestHand,
-        List<Card> communityCards)
+        List<Card> communityCards
+    )
     {
-        float spades = 0f, hearts = 0f, clubs = 0f, diamonds = 0f;
+        float spades = 0f,
+            hearts = 0f,
+            clubs = 0f,
+            diamonds = 0f;
 
         if (holeCards != null)
             foreach (Card c in holeCards)
+            {
                 Accumulate(c, ref spades, ref hearts, ref clubs, ref diamonds);
-
+            }
         if (communityCards != null)
             foreach (Card c in communityCards)
+            {
                 Accumulate(c, ref spades, ref hearts, ref clubs, ref diamonds);
-
+            }
         float mult = bestHand != null ? bestHand.GetMultiplier() : 1f;
 
         return new CombatStats
         {
-            attack    = spades   * mult,
-            health    = hearts   * mult,
-            fireRate  = clubs    * mult,
-            moveSpeed = diamonds * mult
+            attack = spades * mult,
+            health = hearts * mult,
+            fireRate = clubs * mult,
+            moveSpeed = diamonds * mult,
         };
     }
 
     /// <summary>按花色把牌面数值累加到对应属性。</summary>
-    private static void Accumulate(
-        Card c, ref float s, ref float h, ref float cl, ref float d)
+    private static void Accumulate(Card c, ref float s, ref float h, ref float cl, ref float d)
     {
         switch (c.Suit)
         {
-            case Suit.Spades:   s  += c.GetAttributeValue(); break;
-            case Suit.Hearts:   h  += c.GetAttributeValue(); break;
-            case Suit.Clubs:    cl += c.GetAttributeValue(); break;
-            case Suit.Diamonds: d  += c.GetAttributeValue(); break;
+            case Suit.Spades:
+                s += c.GetAttributeValue();
+                break;
+            case Suit.Hearts:
+                h += c.GetAttributeValue();
+                break;
+            case Suit.Clubs:
+                cl += c.GetAttributeValue();
+                break;
+            case Suit.Diamonds:
+                d += c.GetAttributeValue();
+                break;
         }
     }
 }

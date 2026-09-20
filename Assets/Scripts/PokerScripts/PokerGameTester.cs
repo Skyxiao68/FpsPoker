@@ -39,9 +39,8 @@ public class PokerGameTester : MonoBehaviour
 
         Debug.Log($"[PokerTester] poker entity ID = {poker.GetEntityId()}");
 
-        // Generate the first enemy for the first hand.
-        enemyParams = EnemyGenerator.GenerateRandom();
-        Debug.Log($"[Enemy] {EnemyGenerator.Describe(enemyParams)}");
+        Cursor.lockState = CursorLockMode.None;
+        Cursor.visible = true;
 
         // Initialize the UI and connect the "Next Game" button to StartNewHand.
         ui.Initialize(poker);

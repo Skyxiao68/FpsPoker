@@ -522,51 +522,50 @@ public class PokerGameManager : MonoBehaviour
     /// Resolves the showdown: evaluates both hands, compares them, and awards the pot.
     /// </summary>
     private void ResolveShowdown()
+{
+    CurrentStreet = Street.Showdown;
+
+    // Combine each player's hole cards with the community cards.
+    List<Card> playerAll = new List<Card>(PlayerHand);
+    playerAll.AddRange(CommunityCards);
+    PlayerBestHand = HandEvaluator.Evaluate(playerAll);
+
+    List<Card> enemyAll = new List<Card>(EnemyHand);
+    enemyAll.AddRange(CommunityCards);
+    EnemyBestHand = HandEvaluator.Evaluate(enemyAll);
+
+    LogMessage($"Player's best hand: {PlayerBestHand.GetDisplayName()}");
+    LogMessage($"Enemy's best hand: {EnemyBestHand.GetDisplayName()}");
+
+    // Compare hands: >0 player wins, <0 enemy wins, 0 tie.
+    int cmp = CompareHands(PlayerBestHand, EnemyBestHand);
+
+    if (cmp == 0)
     {
-        CurrentStreet = Street.Showdown;
-
-        // Combine each player's hole cards with the community cards.
-        List<Card> playerAll = new List<Card>(PlayerHand);
-        playerAll.AddRange(CommunityCards);
-        PlayerBestHand = HandEvaluator.Evaluate(playerAll);
-
-        List<Card> enemyAll = new List<Card>(EnemyHand);
-        enemyAll.AddRange(CommunityCards);
-        EnemyBestHand = HandEvaluator.Evaluate(enemyAll);
-
-        LogMessage($"Player's best hand: {PlayerBestHand.GetDisplayName()}");
-        LogMessage($"Enemy's best hand: {EnemyBestHand.GetDisplayName()}");
-
-        // Compare hands: >0 player wins, <0 enemy wins, 0 tie.
-        int cmp = CompareHands(PlayerBestHand, EnemyBestHand);
-
-        if (cmp > 0)
-        {
-            PlayerChips += Pot;
-            LogMessage($"Showdown: Player wins, receives pot {Pot}");
-            Result = PokerResult.PlayerWinsShowdown;
-        }
-        else if (cmp < 0)
-        {
-            EnemyChips += Pot;
-            LogMessage($"Showdown: Enemy wins, receives pot {Pot}");
-            Result = PokerResult.EnemyWinsShowdown;
-        }
-        else
-        {
-            // Split the pot as evenly as possible (player gets the odd chip).
-            int half = Pot / 2;
-            PlayerChips += half;
-            EnemyChips += Pot - half;
-            LogMessage("Showdown: Tie, split pot");
-            Result = PokerResult.TieShowdown;
-        }
-
+        // Tie: settle immediately, no combat.
+        int half = Pot / 2;
+        PlayerChips += half;
+        EnemyChips += Pot - half;
         Pot = 0;
+        LogMessage("Showdown: Tie, split pot");
+        Result = PokerResult.TieShowdown;
         State = PokerState.HandEnded;
         OnStateChanged?.Invoke();
         OnHandEnded?.Invoke();
+        return;
     }
+
+    // Non-tie: record the winner, KEEP the pot frozen, and wait for
+    // the bridge to hand off to combat (or settle directly if no bridge).
+    Result = cmp > 0
+        ? PokerResult.PlayerWinsShowdown
+        : PokerResult.EnemyWinsShowdown;
+
+    State = PokerState.Showdown;
+    LogMessage($"Showdown resolved: {Result}. Pot {Pot} waiting for combat handoff.");
+    OnStateChanged?.Invoke();
+    OnHandEnded?.Invoke();
+}
 
     /// <summary>
     /// Compares two hand results using their tiebreaker arrays.

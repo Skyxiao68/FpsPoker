@@ -21228,7 +21228,11 @@ MonoBehaviour:
   playerController: {fileID: 1833852514}
   enemySpawnPoint: {fileID: 1833852512}
   enemyPrefabs:
-  - combatStyleKey: '"Ranged"'
+  - combatStyleKey: Ranged
+    prefab: {fileID: 1218645635}
+  - combatStyleKey: Dodge
+    prefab: {fileID: 1218645635}
+  - combatStyleKey: Melee
     prefab: {fileID: 1218645635}
   debugPlayerStats:
     attack: 10
