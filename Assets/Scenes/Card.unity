@@ -294,11 +294,6 @@ MonoBehaviour:
   m_ShadowLayerMask: 1
   m_RenderingLayers: 1
   m_ShadowRenderingLayers: 1
---- !u!1 &250113339 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 292439762166216515, guid: 6c238dff863e28c418a8c7fd18e3360e, type: 3}
-  m_PrefabInstance: {fileID: 1235177493}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1 &251720992
 GameObject:
   m_ObjectHideFlags: 0
@@ -573,26 +568,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: PauseMenuCanvas
       objectReference: {fileID: 0}
-    - target: {fileID: 292439762166216515, guid: 6c238dff863e28c418a8c7fd18e3360e, type: 3}
-      propertyPath: m_IsActive
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1415355524166226838, guid: 6c238dff863e28c418a8c7fd18e3360e, type: 3}
-      propertyPath: m_UiScaleMode
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 1415355524166226838, guid: 6c238dff863e28c418a8c7fd18e3360e, type: 3}
-      propertyPath: m_ReferenceResolution.x
-      value: 1920
-      objectReference: {fileID: 0}
-    - target: {fileID: 1415355524166226838, guid: 6c238dff863e28c418a8c7fd18e3360e, type: 3}
-      propertyPath: m_ReferenceResolution.y
-      value: 1080
-      objectReference: {fileID: 0}
-    - target: {fileID: 5919578923420542043, guid: 6c238dff863e28c418a8c7fd18e3360e, type: 3}
-      propertyPath: pausePanel
-      value: 
-      objectReference: {fileID: 250113339}
     - target: {fileID: 6348219510020256823, guid: 6c238dff863e28c418a8c7fd18e3360e, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -673,14 +648,6 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
-    - target: {fileID: 6376186177174462472, guid: 6c238dff863e28c418a8c7fd18e3360e, type: 3}
-      propertyPath: m_IsActive
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 7000898015060720430, guid: 6c238dff863e28c418a8c7fd18e3360e, type: 3}
-      propertyPath: m_SortingOrder
-      value: -1
-      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
@@ -734,10 +701,10 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0cd44c1031e13a943bb63640046fad76, type: 3}
   m_Name: 
   m_EditorClassIdentifier: UnityEngine.UI::UnityEngine.UI.CanvasScaler
-  m_UiScaleMode: 0
+  m_UiScaleMode: 1
   m_ReferencePixelsPerUnit: 100
   m_ScaleFactor: 1
-  m_ReferenceResolution: {x: 800, y: 600}
+  m_ReferenceResolution: {x: 1920, y: 1080}
   m_ScreenMatchMode: 0
   m_MatchWidthOrHeight: 0
   m_PhysicalUnit: 3
