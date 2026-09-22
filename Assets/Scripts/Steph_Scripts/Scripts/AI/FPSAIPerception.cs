@@ -17,8 +17,11 @@ public class FpsAiPerception : MonoBehaviour
     [Tooltip("Layers that block line of sight.")]
     [SerializeField] private LayerMask obstructionMask;
 
-    [Tooltip("How far up from the target's origin to aim.")]
-    [SerializeField] private float targetHeightOffset = 1.2f;
+    [Tooltip("How far up from the target's origin to check for line of sight (avoids ground clipping).")]
+    [SerializeField] private float visibilityHeightOffset = 1.5f;
+
+    [Tooltip("How far up from the target's origin to actually aim the weapon.")]
+    [SerializeField] private float aimHeightOffset = 1.0f;
 
     [Tooltip("Seconds between expensive target scans.")]
     [SerializeField] private float scanInterval = 0.2f;
@@ -53,7 +56,7 @@ public class FpsAiPerception : MonoBehaviour
     /// </summary>
     public Vector3 AimPoint =>
         target != null
-            ? target.position + Vector3.up * targetHeightOffset
+            ? target.position + Vector3.up * aimHeightOffset
             : lastKnownPosition;
 
     public float DistanceToTarget =>
@@ -137,7 +140,7 @@ public class FpsAiPerception : MonoBehaviour
         Vector3 eyePosition = Eyes.position;
 
         Vector3 toTarget =
-            (target.position + Vector3.up * targetHeightOffset) -
+            (target.position + Vector3.up * visibilityHeightOffset) -
             eyePosition;
 
         float distance = toTarget.magnitude;
