@@ -2,17 +2,11 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>
-/// Dynamically builds the poker game UI using Unity's UI system.
-/// Creates a canvas with all necessary text fields, buttons, and input fields.
-/// Subscribes to PokerGameManager events to update the display in real-time.
-/// </summary>
 public class PokerUI : MonoBehaviour
 {
-    // Reference to the poker game logic manager.
     private PokerGameManager poker;
 
-    // UI text elements for displaying game state.
+    // Text fields.
     private Text potText;
     private Text playerChipsText;
     private Text enemyChipsText;
@@ -23,385 +17,326 @@ public class PokerUI : MonoBehaviour
     private Text playerHandTypeText;
     private Text enemyHandTypeText;
     private Text messageText;
+    private Text enemyNameText;
+    private Text raiseValueText;
 
-    // UI interactive elements.
+    // Buttons.
     private Button checkButton;
     private Button raiseButton;
     private Button foldButton;
     private Button matchButton;
     private Button nextHandButton;
-    private InputField raiseInput;
 
-    // Callback invoked when the "Next Game" button is clicked.
+    // Slider.
+    private Slider raiseSlider;
+
+    // Containers.
+    private GameObject quickBetRow;
+    private GameObject actionRow;
+    private GameObject nextHandRow;
+
+    // Callback.
     private System.Action onNextHand;
 
-    // Text element that displays the enemy's name.
-    private Text enemyNameText;
+    // Constants.
+    private const int MinRaise = 1;
+    private const int StepAmount = 10;
+    private const int DefaultRaise = 10;
 
-    /// <summary>
-    /// Initializes the UI by building it and subscribing to game manager events.
-    /// </summary>
+    // Tracking for slider reset on street change.
+    private Street lastStreet = Street.PreFlop;
+    private bool hasInitialized = false;
+
     public void Initialize(PokerGameManager manager)
     {
         poker = manager;
         BuildUI();
 
-        // Refresh the UI whenever the game state changes.
         poker.OnStateChanged += RefreshUI;
-
-        // Show temporary game messages at the bottom of the screen.
         poker.OnMessage += (msg) =>
         {
             messageText.text = msg;
         };
-
-        // Refresh the UI when a hand ends.
         poker.OnHandEnded += RefreshUI;
 
         RefreshUI();
     }
 
-    /// <summary>
-    /// Sets the callback that is called when the "Next Game" button is clicked.
-    /// </summary>
     public void SetNextHandCallback(System.Action callback)
     {
         onNextHand = callback;
     }
 
-    /// <summary>
-    /// Builds the entire poker UI at runtime.
-    /// </summary>
+    // =========================================================
+    // BUILD UI
+    // =========================================================
     private void BuildUI()
     {
-        // Create the root canvas GameObject.
         GameObject canvasGO = new GameObject("PokerCanvas");
         Canvas canvas = canvasGO.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 100;
 
-        // Configure canvas scaling so the UI adapts to different screen sizes.
         CanvasScaler scaler = canvasGO.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1280, 720);
 
-        // Add a GraphicRaycaster so UI buttons and input fields can receive clicks.
         canvasGO.AddComponent<GraphicRaycaster>();
         canvasGO.transform.SetParent(transform);
 
-        // Create a full-screen background panel.
         CreatePanel(canvasGO.transform, new Color(0.1f, 0.15f, 0.1f), Vector2.zero, Vector2.one);
 
-        // Top info: pot amount.
-        potText = CreateText(
-            canvasGO.transform,
-            "PotText",
-            "Pot：0",
-            new Vector2(0.05f, 0.9f),
-            new Vector2(0.35f, 0.98f),
-            TextAnchor.MiddleLeft,
-            44
-        );
+        // ---- Message bar at the very top ----
+        CreatePanel(canvasGO.transform,
+            new Color(0f, 0f, 0f, 0.55f),
+            new Vector2(0.0f, 0.94f), new Vector2(1.0f, 1.0f));
 
-        // Top info: player chip count.
-        playerChipsText = CreateText(
-            canvasGO.transform,
-            "PlayerChipsText",
-            "Player：0",
-            new Vector2(0.4f, 0.9f),
-            new Vector2(0.65f, 0.98f),
-            TextAnchor.MiddleCenter,
-            38
-        );
+        messageText = CreateText(canvasGO.transform, "Message", "",
+            new Vector2(0.02f, 0.94f), new Vector2(0.98f, 1.0f), TextAnchor.MiddleCenter, 26);
 
-        // Top info: enemy chip count.
-        enemyChipsText = CreateText(
-            canvasGO.transform,
-            "EnemyChipsText",
-            "Enemy：0",
-            new Vector2(0.7f, 0.9f),
-            new Vector2(0.95f, 0.98f),
-            TextAnchor.MiddleRight,
-            38
-        );
+        // ---- Top info ----
+        potText = CreateText(canvasGO.transform, "PotText", "Pot: 0",
+            new Vector2(0.10f, 0.87f), new Vector2(0.36f, 0.94f), TextAnchor.MiddleCenter, 34);
+        playerChipsText = CreateText(canvasGO.transform, "PlayerChipsText", "Player: 0",
+            new Vector2(0.37f, 0.87f), new Vector2(0.63f, 0.94f), TextAnchor.MiddleCenter, 34);
+        enemyChipsText = CreateText(canvasGO.transform, "EnemyChipsText", "Enemy: 0",
+            new Vector2(0.64f, 0.87f), new Vector2(0.90f, 0.94f), TextAnchor.MiddleCenter, 34);
 
-        // Label for the enemy hand area.
-        CreateText(
-            canvasGO.transform,
-            "EnemyLabel",
-            "Enemy Hand",
-            new Vector2(0.4f, 0.78f),
-            new Vector2(0.6f, 0.83f),
-            TextAnchor.MiddleCenter,
-            32
-        );
+        // ---- Enemy ----
+        enemyNameText = CreateText(canvasGO.transform, "EnemyNameText", "",
+            new Vector2(0.2f, 0.80f), new Vector2(0.8f, 0.87f), TextAnchor.MiddleCenter, 32);
 
-        // Enemy name display.
-        enemyNameText = CreateText(
-            canvasGO.transform,
-            "EnemyNameText",
-            "",
-            new Vector2(0.35f, 0.84f),
-            new Vector2(0.65f, 0.89f),
-            TextAnchor.MiddleCenter,
-            38
-        );
+        CreateText(canvasGO.transform, "EnemyLabel", "Enemy Hand",
+            new Vector2(0.4f, 0.75f), new Vector2(0.6f, 0.80f), TextAnchor.MiddleCenter, 22);
 
-        // Enemy hand cards. Hidden as "?? ??" until showdown or hand end.
-        enemyHandText = CreateText(
-            canvasGO.transform,
-            "EnemyHand",
-            "?? ??",
-            new Vector2(0.3f, 0.68f),
-            new Vector2(0.7f, 0.78f),
-            TextAnchor.MiddleCenter,
-            48
-        );
+        enemyHandText = CreateText(canvasGO.transform, "EnemyHand", "?? ??",
+            new Vector2(0.3f, 0.65f), new Vector2(0.7f, 0.75f), TextAnchor.MiddleCenter, 48);
 
-        // Enemy best hand type display.
-        enemyHandTypeText = CreateText(
-            canvasGO.transform,
-            "EnemyHandType",
-            "",
-            new Vector2(0.3f, 0.63f),
-            new Vector2(0.7f, 0.68f),
-            TextAnchor.MiddleCenter,
-            32
-        );
+        enemyHandTypeText = CreateText(canvasGO.transform, "EnemyHandType", "",
+            new Vector2(0.3f, 0.60f), new Vector2(0.7f, 0.65f), TextAnchor.MiddleCenter, 26);
 
-        // Label for the community cards area.
-        CreateText(
-            canvasGO.transform,
-            "CommunityLabel",
-            "Community Cards",
-            new Vector2(0.4f, 0.55f),
-            new Vector2(0.6f, 0.6f),
-            TextAnchor.MiddleCenter,
-            32
-        );
+        // ---- Community ----
+        CreateText(canvasGO.transform, "CommunityLabel", "Community Cards",
+            new Vector2(0.4f, 0.54f), new Vector2(0.6f, 0.60f), TextAnchor.MiddleCenter, 22);
 
-        // Community cards display.
-        communityText = CreateText(
-            canvasGO.transform,
-            "Community",
-            "",
-            new Vector2(0.05f, 0.44f),
-            new Vector2(0.95f, 0.55f),
-            TextAnchor.MiddleCenter,
-            56
-        );
+        communityText = CreateText(canvasGO.transform, "Community", "",
+            new Vector2(0.05f, 0.44f), new Vector2(0.95f, 0.54f), TextAnchor.MiddleCenter, 52);
 
-        // Label for the player hand area.
-        CreateText(
-            canvasGO.transform,
-            "PlayerLabel",
-            "Player Hand",
-            new Vector2(0.4f, 0.36f),
-            new Vector2(0.6f, 0.41f),
-            TextAnchor.MiddleCenter,
-            32
-        );
+        // ---- Player ----
+        CreateText(canvasGO.transform, "PlayerLabel", "Player Hand",
+            new Vector2(0.4f, 0.38f), new Vector2(0.6f, 0.44f), TextAnchor.MiddleCenter, 22);
 
-        // Player hand cards display.
-        playerHandText = CreateText(
-            canvasGO.transform,
-            "PlayerHand",
-            "",
-            new Vector2(0.3f, 0.26f),
-            new Vector2(0.7f, 0.36f),
-            TextAnchor.MiddleCenter,
-            56
-        );
+        playerHandText = CreateText(canvasGO.transform, "PlayerHand", "",
+            new Vector2(0.3f, 0.28f), new Vector2(0.7f, 0.38f), TextAnchor.MiddleCenter, 52);
 
-        // Player best hand type display.
-        playerHandTypeText = CreateText(
-            canvasGO.transform,
-            "PlayerHandType",
-            "",
-            new Vector2(0.3f, 0.21f),
-            new Vector2(0.7f, 0.26f),
-            TextAnchor.MiddleCenter,
-            32
-        );
+        playerHandTypeText = CreateText(canvasGO.transform, "PlayerHandType", "",
+            new Vector2(0.3f, 0.23f), new Vector2(0.7f, 0.28f), TextAnchor.MiddleCenter, 26);
 
-        // Current stage / state / bet information.
-        stateText = CreateText(
-            canvasGO.transform,
-            "StateText",
-            "",
-            new Vector2(0.05f, 0.15f),
-            new Vector2(0.95f, 0.2f),
-            TextAnchor.MiddleCenter,
-            34
-        );
+        // ---- State ----
+        stateText = CreateText(canvasGO.transform, "StateText", "",
+            new Vector2(0.05f, 0.17f), new Vector2(0.95f, 0.23f), TextAnchor.MiddleCenter, 24);
 
-        // Bottom action buttons and raise input.
-        float btnY0 = 0.04f,
-            btnY1 = 0.13f;
+        // =========================================================
+        // Quick bet row
+        // =========================================================
+        quickBetRow = new GameObject("QuickBetRow");
+        quickBetRow.transform.SetParent(canvasGO.transform, false);
+        RectTransform qbrRT = quickBetRow.AddComponent<RectTransform>();
+        qbrRT.anchorMin = Vector2.zero;
+        qbrRT.anchorMax = Vector2.one;
+        qbrRT.offsetMin = Vector2.zero;
+        qbrRT.offsetMax = Vector2.zero;
 
-        // Check button.
-        checkButton = CreateButton(
-            canvasGO.transform,
-            "CheckBtn",
-            "Check",
-            new Vector2(0.05f, btnY0),
-            new Vector2(0.18f, btnY1),
-            () => poker.PlayerCheck()
-        );
+        float qbY0 = 0.09f, qbY1 = 0.15f;
 
-        // Raise amount input field.
-        raiseInput = CreateInputField(
-            canvasGO.transform,
-            "RaiseInput",
-            "10",
-            new Vector2(0.20f, btnY0),
-            new Vector2(0.30f, btnY1)
-        );
+        CreateButton(quickBetRow.transform, "Btn33", "33%",
+            new Vector2(0.03f, qbY0), new Vector2(0.09f, qbY1),
+            new Color(0.15f, 0.35f, 0.65f),
+            () => SetSliderToFraction(0.33f));
 
-        // Raise button. Parses the input field and sends the raise amount.
-        raiseButton = CreateButton(
-            canvasGO.transform,
-            "RaiseBtn",
-            "Raise",
-            new Vector2(0.31f, btnY0),
-            new Vector2(0.44f, btnY1),
-            () =>
-            {
-                int amt = 10;
-                int.TryParse(raiseInput.text, out amt);
-                poker.PlayerRaise(amt);
-            }
-        );
+        CreateButton(quickBetRow.transform, "Btn50", "50%",
+            new Vector2(0.10f, qbY0), new Vector2(0.16f, qbY1),
+            new Color(0.15f, 0.35f, 0.65f),
+            () => SetSliderToFraction(0.50f));
 
-        // Match button. Used when the player must match the enemy's raise.
-        matchButton = CreateButton(
-            canvasGO.transform,
-            "MatchBtn",
-            "Match",
-            new Vector2(0.46f, btnY0),
-            new Vector2(0.59f, btnY1),
-            () => poker.PlayerMatchRaise()
-        );
+        CreateButton(quickBetRow.transform, "Btn75", "75%",
+            new Vector2(0.17f, qbY0), new Vector2(0.23f, qbY1),
+            new Color(0.15f, 0.35f, 0.65f),
+            () => SetSliderToFraction(0.75f));
 
-        // Fold button.
-        foldButton = CreateButton(
-            canvasGO.transform,
-            "FoldBtn",
-            "Fold",
-            new Vector2(0.61f, btnY0),
-            new Vector2(0.74f, btnY1),
-            () => poker.PlayerFold()
-        );
+        CreateButton(quickBetRow.transform, "BtnMax", "Max",
+            new Vector2(0.24f, qbY0), new Vector2(0.30f, qbY1),
+            new Color(0.15f, 0.35f, 0.65f),
+            () => SetSliderToFraction(1.0f));
 
-        // Next game button. Invokes the callback set by SetNextHandCallback.
-        nextHandButton = CreateButton(
-            canvasGO.transform,
-            "NextHandBtn",
-            "Next Game",
-            new Vector2(0.76f, btnY0),
-            new Vector2(0.95f, btnY1),
-            () => onNextHand?.Invoke()
-        );
+        raiseSlider = CreateSlider(quickBetRow.transform, "RaiseSlider",
+            new Vector2(0.33f, qbY0), new Vector2(0.74f, qbY1),
+            MinRaise, 100, DefaultRaise);
 
-        // Bottom message text.
-        messageText = CreateText(
-            canvasGO.transform,
-            "Message",
-            "",
-            new Vector2(0.05f, 0.0f),
-            new Vector2(0.95f, 0.035f),
-            TextAnchor.MiddleCenter,
-            18
-        );
+        raiseValueText = CreateText(quickBetRow.transform, "RaiseValueText", DefaultRaise.ToString(),
+            new Vector2(0.74f, qbY0), new Vector2(0.82f, qbY1), TextAnchor.MiddleCenter, 24);
+
+        raiseSlider.onValueChanged.AddListener((value) =>
+        {
+            raiseValueText.text = Mathf.RoundToInt(value).ToString();
+        });
+
+        CreateButton(quickBetRow.transform, "BtnMinus", "-",
+            new Vector2(0.83f, qbY0), new Vector2(0.89f, qbY1),
+            new Color(0.25f, 0.25f, 0.25f),
+            () => AdjustSlider(-StepAmount));
+
+        CreateButton(quickBetRow.transform, "BtnPlus", "+",
+            new Vector2(0.90f, qbY0), new Vector2(0.96f, qbY1),
+            new Color(0.25f, 0.25f, 0.25f),
+            () => AdjustSlider(StepAmount));
+
+        // =========================================================
+        // Action row
+        // =========================================================
+        actionRow = new GameObject("ActionRow");
+        actionRow.transform.SetParent(canvasGO.transform, false);
+        RectTransform arRT = actionRow.AddComponent<RectTransform>();
+        arRT.anchorMin = Vector2.zero;
+        arRT.anchorMax = Vector2.one;
+        arRT.offsetMin = Vector2.zero;
+        arRT.offsetMax = Vector2.zero;
+
+        float aY0 = 0.01f, aY1 = 0.08f;
+
+        foldButton = CreateButton(actionRow.transform, "FoldBtn", "Fold",
+            new Vector2(0.03f, aY0), new Vector2(0.25f, aY1),
+            new Color(0.72f, 0.22f, 0.17f),
+            () => poker.PlayerFold());
+
+        checkButton = CreateButton(actionRow.transform, "CheckBtn", "Check",
+            new Vector2(0.26f, aY0), new Vector2(0.48f, aY1),
+            new Color(0.12f, 0.54f, 0.31f),
+            () => poker.PlayerCheck());
+
+        raiseButton = CreateButton(actionRow.transform, "RaiseBtn", "Raise",
+            new Vector2(0.49f, aY0), new Vector2(0.71f, aY1),
+            new Color(0.85f, 0.55f, 0.11f),
+            () => poker.PlayerRaise(Mathf.RoundToInt(raiseSlider.value)));
+
+        matchButton = CreateButton(actionRow.transform, "MatchBtn", "Match",
+            new Vector2(0.72f, aY0), new Vector2(0.94f, aY1),
+            new Color(0.2f, 0.45f, 0.7f),
+            () => poker.PlayerMatchRaise());
+
+        // =========================================================
+        // Next hand row
+        // =========================================================
+        nextHandRow = new GameObject("NextHandRow");
+        nextHandRow.transform.SetParent(canvasGO.transform, false);
+        RectTransform nhrRT = nextHandRow.AddComponent<RectTransform>();
+        nhrRT.anchorMin = Vector2.zero;
+        nhrRT.anchorMax = Vector2.one;
+        nhrRT.offsetMin = Vector2.zero;
+        nhrRT.offsetMax = Vector2.zero;
+
+        nextHandButton = CreateButton(nextHandRow.transform, "NextHandBtn", "Next Game",
+            new Vector2(0.03f, 0.01f), new Vector2(0.94f, 0.08f),
+            new Color(0.2f, 0.6f, 0.35f),
+            () => onNextHand?.Invoke());
+
+        nextHandRow.SetActive(false);
     }
 
-    /// <summary>
-    /// Refreshes all UI text and button interactability based on the current game state.
-    /// </summary>
+    // =========================================================
+    // REFRESH
+    // =========================================================
     private void RefreshUI()
     {
-        if (poker == null)
-        {
-            return;
-        }
+        if (poker == null) return;
 
-        // Update pot and chip displays.
-        potText.text = $"Pot：{poker.Pot}";
-        playerChipsText.text = $"Player：{poker.PlayerChips}";
-        enemyChipsText.text = $"Enemy：{poker.EnemyChips}";
+        potText.text = $"Pot: {poker.Pot}";
+        playerChipsText.text = $"Player: {poker.PlayerChips}";
+        enemyChipsText.text = $"Enemy: {poker.EnemyChips}";
 
-        // Update enemy name if enemy parameters are available.
         if (poker.EnemyParams != null && enemyNameText != null)
-        {
             enemyNameText.text = poker.EnemyParams.enemyName;
-        }
 
-        // Show a dealing indicator while cards are being dealt.
-        string dealingStr = poker.IsDealing ? "（Dealing…）" : "";
+        string dealingStr = poker.IsDealing ? " (Dealing...)" : "";
         stateText.text =
-            $"Stage：{poker.CurrentStreet}    State：{poker.State}{dealingStr}    "
-            + $"Current Bet：{poker.CurrentBet}    Community Cards：{poker.CommunityCards.Count}";
+            $"Stage: {poker.CurrentStreet}    State: {poker.State}{dealingStr}    " +
+            $"Bet: {poker.CurrentBet}    Community: {poker.CommunityCards.Count}/5";
 
-        // Update player hand and community cards.
         playerHandText.text = CardStr(poker.PlayerHand);
         communityText.text = CardStr(poker.CommunityCards);
 
-        // Reveal the enemy hand only when the hand is over or at showdown.
         bool revealEnemy =
-            poker.State == PokerState.Showdown
-            || poker.State == PokerState.HandEnded
-            || poker.State == PokerState.PlayerFolded
-            || poker.State == PokerState.EnemyFolded;
+            poker.State == PokerState.Showdown ||
+            poker.State == PokerState.HandEnded ||
+            poker.State == PokerState.PlayerFolded ||
+            poker.State == PokerState.EnemyFolded;
 
-        // Show enemy cards or hide them with question marks.
         enemyHandText.text = revealEnemy ? CardStr(poker.EnemyHand) : "?? ??";
 
-        // Show player's best hand type.
-        playerHandTypeText.text =
-            poker.PlayerBestHand != null
-                ? $"Hand Type：{poker.PlayerBestHand.GetDisplayName()}"
-                : "";
+        playerHandTypeText.text = poker.PlayerBestHand != null
+            ? $"Hand Type: {poker.PlayerBestHand.GetDisplayName()}" : "";
 
-        // Show enemy's best hand type only when the enemy hand is revealed.
-        enemyHandTypeText.text =
-            revealEnemy && poker.EnemyBestHand != null
-                ? $"Hand Type：{poker.EnemyBestHand.GetDisplayName()}"
-                : "";
+        enemyHandTypeText.text = revealEnemy && poker.EnemyBestHand != null
+            ? $"Hand Type: {poker.EnemyBestHand.GetDisplayName()}" : "";
 
-        // Determine whether it is currently the player's turn.
         bool isPlayerTurn = poker.State == PokerState.PlayerTurn && !poker.IsDealing;
-
-        // If the player is awaiting a match, they must Match or Fold.
         bool mustMatch = poker.AwaitingPlayerMatch;
 
-        // Enable or disable action buttons based on the current situation.
         checkButton.interactable = isPlayerTurn && !mustMatch;
         raiseButton.interactable = isPlayerTurn && !mustMatch;
         matchButton.interactable = isPlayerTurn && mustMatch;
         foldButton.interactable = isPlayerTurn;
 
-        // Determine whether the hand is over.
         bool handOver =
-            poker.State == PokerState.HandEnded
-            || poker.State == PokerState.PlayerFolded
-            || poker.State == PokerState.EnemyFolded;
+            poker.State == PokerState.HandEnded ||
+            poker.State == PokerState.PlayerFolded ||
+            poker.State == PokerState.EnemyFolded;
 
-        // The Next Game button is only clickable after the hand is over.
-        nextHandButton.interactable = handOver;
+        quickBetRow.SetActive(!handOver);
+        actionRow.SetActive(!handOver);
+        nextHandRow.SetActive(handOver);
+
+        // ---- Slider bounds ----
+        int maxRaise = Mathf.Max(MinRaise, poker.PlayerChips);
+        raiseSlider.minValue = MinRaise;
+        raiseSlider.maxValue = maxRaise;
+
+        // ---- Reset slider to DefaultRaise on street change or first init ----
+        if (!hasInitialized || poker.CurrentStreet != lastStreet)
+        {
+            lastStreet = poker.CurrentStreet;
+            hasInitialized = true;
+
+            float resetValue = Mathf.Clamp(DefaultRaise, MinRaise, maxRaise);
+            raiseSlider.value = resetValue;
+        }
+
+        if (raiseSlider.value > maxRaise)
+            raiseSlider.value = maxRaise;
+
+        raiseValueText.text = Mathf.RoundToInt(raiseSlider.value).ToString();
     }
 
-    /// <summary>
-    /// Helper method that creates a Text element with anchor-based positioning.
-    /// </summary>
-    private Text CreateText(
-        Transform parent,
-        string name,
-        string content,
-        Vector2 anchorMin,
-        Vector2 anchorMax,
-        TextAnchor align,
-        int fontSize
-    )
+    // =========================================================
+    // SLIDER HELPERS
+    // =========================================================
+    private void SetSliderToFraction(float fraction)
+    {
+        float target = Mathf.Lerp(raiseSlider.minValue, raiseSlider.maxValue, fraction);
+        raiseSlider.value = Mathf.Round(target);
+    }
+
+    private void AdjustSlider(int delta)
+    {
+        float target = raiseSlider.value + delta;
+        raiseSlider.value = Mathf.Clamp(target, raiseSlider.minValue, raiseSlider.maxValue);
+    }
+
+    // =========================================================
+    // UI BUILDERS
+    // =========================================================
+    private Text CreateText(Transform parent, string name, string content,
+        Vector2 anchorMin, Vector2 anchorMax, TextAnchor align, int fontSize)
     {
         GameObject go = new GameObject(name);
         go.transform.SetParent(parent, false);
@@ -412,39 +347,40 @@ public class PokerUI : MonoBehaviour
         text.fontSize = fontSize;
         text.color = Color.white;
         text.alignment = align;
+        text.horizontalOverflow = HorizontalWrapMode.Overflow;
+        text.verticalOverflow = VerticalWrapMode.Overflow;
 
         RectTransform rt = go.GetComponent<RectTransform>();
         rt.anchorMin = anchorMin;
         rt.anchorMax = anchorMax;
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
-
         return text;
     }
 
-    /// <summary>
-    /// Helper method that creates a Button with a text label and click action.
-    /// </summary>
-    private Button CreateButton(
-        Transform parent,
-        string name,
-        string label,
-        Vector2 anchorMin,
-        Vector2 anchorMax,
-        UnityEngine.Events.UnityAction onClick
-    )
+    private Button CreateButton(Transform parent, string name, string label,
+        Vector2 anchorMin, Vector2 anchorMax, Color normalColor,
+        UnityEngine.Events.UnityAction onClick)
     {
         GameObject go = new GameObject(name);
         go.transform.SetParent(parent, false);
 
-        // Button background image.
         Image img = go.AddComponent<Image>();
-        img.color = new Color(0.2f, 0.3f, 0.25f);
+        img.color = normalColor;
 
-        // Button component and click listener.
         Button btn = go.AddComponent<Button>();
         btn.targetGraphic = img;
         btn.onClick.AddListener(onClick);
+
+        ColorBlock cb = btn.colors;
+        cb.normalColor = normalColor;
+        cb.highlightedColor = Brighten(normalColor, 1.25f);
+        cb.pressedColor = Darken(normalColor, 0.7f);
+        cb.selectedColor = normalColor;
+        cb.disabledColor = new Color(0.15f, 0.15f, 0.15f, 1f);
+        cb.colorMultiplier = 1f;
+        cb.fadeDuration = 0.1f;
+        btn.colors = cb;
 
         RectTransform rt = go.GetComponent<RectTransform>();
         rt.anchorMin = anchorMin;
@@ -452,99 +388,119 @@ public class PokerUI : MonoBehaviour
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
 
-        // Create the button label text.
-        Text txt = CreateText(
-            go.transform,
-            "Label",
-            label,
-            Vector2.zero,
-            Vector2.one,
-            TextAnchor.MiddleCenter,
-            20
-        );
-
-        // Prevent the label from blocking clicks on the button.
+        Text txt = CreateText(go.transform, "Label", label,
+            Vector2.zero, Vector2.one, TextAnchor.MiddleCenter, 22);
         txt.raycastTarget = false;
 
         return btn;
     }
 
-    /// <summary>
-    /// Helper method that creates an InputField for entering the raise amount.
-    /// </summary>
-    private InputField CreateInputField(
-        Transform parent,
-        string name,
-        string defaultText,
-        Vector2 anchorMin,
-        Vector2 anchorMax
-    )
+    private Slider CreateSlider(Transform parent, string name,
+        Vector2 anchorMin, Vector2 anchorMax,
+        float minValue, float maxValue, float initialValue)
     {
-        GameObject go = new GameObject(name);
-        go.transform.SetParent(parent, false);
+        GameObject sliderGO = new GameObject(name);
+        sliderGO.transform.SetParent(parent, false);
 
-        // Input field background image.
-        Image img = go.AddComponent<Image>();
-        img.color = new Color(0.15f, 0.15f, 0.15f);
+        RectTransform sliderRT = sliderGO.AddComponent<RectTransform>();
+        sliderRT.anchorMin = anchorMin;
+        sliderRT.anchorMax = anchorMax;
+        sliderRT.offsetMin = Vector2.zero;
+        sliderRT.offsetMax = Vector2.zero;
 
-        // InputField component. Only allows integer numbers.
-        InputField input = go.AddComponent<InputField>();
-        input.text = defaultText;
-        input.contentType = InputField.ContentType.IntegerNumber;
+        Slider slider = sliderGO.AddComponent<Slider>();
 
-        RectTransform rt = go.GetComponent<RectTransform>();
-        rt.anchorMin = anchorMin;
-        rt.anchorMax = anchorMax;
-        rt.offsetMin = Vector2.zero;
-        rt.offsetMax = Vector2.zero;
+        GameObject bgGO = new GameObject("Background");
+        bgGO.transform.SetParent(sliderGO.transform, false);
+        Image bgImg = bgGO.AddComponent<Image>();
+        bgImg.color = new Color(0.15f, 0.15f, 0.15f);
+        RectTransform bgRT = bgGO.GetComponent<RectTransform>();
+        bgRT.anchorMin = new Vector2(0f, 0.4f);
+        bgRT.anchorMax = new Vector2(1f, 0.6f);
+        bgRT.offsetMin = Vector2.zero;
+        bgRT.offsetMax = Vector2.zero;
 
-        // Create the text component used by the InputField.
-        Text txt = CreateText(
-            go.transform,
-            "Text",
-            defaultText,
-            Vector2.zero,
-            Vector2.one,
-            TextAnchor.MiddleCenter,
-            20
-        );
-        input.textComponent = txt;
+        GameObject fillAreaGO = new GameObject("Fill Area");
+        fillAreaGO.transform.SetParent(sliderGO.transform, false);
+        RectTransform fillAreaRT = fillAreaGO.AddComponent<RectTransform>();
+        fillAreaRT.anchorMin = new Vector2(0f, 0.4f);
+        fillAreaRT.anchorMax = new Vector2(1f, 0.6f);
+        fillAreaRT.offsetMin = new Vector2(8f, 0f);
+        fillAreaRT.offsetMax = new Vector2(-8f, 0f);
 
-        return input;
+        GameObject fillGO = new GameObject("Fill");
+        fillGO.transform.SetParent(fillAreaGO.transform, false);
+        Image fillImg = fillGO.AddComponent<Image>();
+        fillImg.color = new Color(0.35f, 0.6f, 0.45f);
+        RectTransform fillRT = fillGO.GetComponent<RectTransform>();
+        fillRT.anchorMin = Vector2.zero;
+        fillRT.anchorMax = Vector2.one;
+        fillRT.offsetMin = Vector2.zero;
+        fillRT.offsetMax = Vector2.zero;
+
+        GameObject handleAreaGO = new GameObject("Handle Slide Area");
+        handleAreaGO.transform.SetParent(sliderGO.transform, false);
+        RectTransform handleAreaRT = handleAreaGO.AddComponent<RectTransform>();
+        handleAreaRT.anchorMin = Vector2.zero;
+        handleAreaRT.anchorMax = Vector2.one;
+        handleAreaRT.offsetMin = new Vector2(8f, 0f);
+        handleAreaRT.offsetMax = new Vector2(-8f, 0f);
+
+        GameObject handleGO = new GameObject("Handle");
+        handleGO.transform.SetParent(handleAreaGO.transform, false);
+        Image handleImg = handleGO.AddComponent<Image>();
+        handleImg.color = new Color(0.95f, 0.95f, 0.95f);
+        RectTransform handleRT = handleGO.GetComponent<RectTransform>();
+        handleRT.sizeDelta = new Vector2(24f, 0f);
+
+        slider.fillRect = fillRT;
+        slider.handleRect = handleRT;
+        slider.targetGraphic = handleImg;
+        slider.direction = Slider.Direction.LeftToRight;
+        slider.minValue = minValue;
+        slider.maxValue = maxValue;
+        slider.value = Mathf.Clamp(initialValue, minValue, maxValue);
+
+        return slider;
     }
 
-    /// <summary>
-    /// Helper method that creates a full-stretch Image panel.
-    /// </summary>
-    private Image CreatePanel(Transform parent, Color color, Vector2 anchorMin, Vector2 anchorMax)
+    private Image CreatePanel(Transform parent, Color color,
+        Vector2 anchorMin, Vector2 anchorMax)
     {
         GameObject go = new GameObject("Panel");
         go.transform.SetParent(parent, false);
-
         Image img = go.AddComponent<Image>();
         img.color = color;
-
         RectTransform rt = go.GetComponent<RectTransform>();
         rt.anchorMin = anchorMin;
         rt.anchorMax = anchorMax;
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
-
         return img;
     }
 
-    /// <summary>
-    /// Converts a list of Card objects into a display string.
-    /// </summary>
+    // =========================================================
+    // UTILS
+    // =========================================================
+    private Color Brighten(Color c, float factor)
+    {
+        return new Color(
+            Mathf.Clamp01(c.r * factor),
+            Mathf.Clamp01(c.g * factor),
+            Mathf.Clamp01(c.b * factor),
+            c.a);
+    }
+
+    private Color Darken(Color c, float factor)
+    {
+        return new Color(c.r * factor, c.g * factor, c.b * factor, c.a);
+    }
+
     private string CardStr(List<Card> cards)
     {
-        if (cards == null || cards.Count == 0)
-            return "";
-
+        if (cards == null || cards.Count == 0) return "";
         string s = "";
-        foreach (Card c in cards)
-            s += c.ToString() + "  ";
-
+        foreach (Card c in cards) s += c.ToString() + "  ";
         return s;
     }
 }

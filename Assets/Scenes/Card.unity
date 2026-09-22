@@ -539,8 +539,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::GameFlowManager
   pokerSceneName: Card
   combatSceneName: FPS
-  startingChips: 1000
-  startingEnemyChips: 1000
+  startingChips: 100
+  startingEnemyChips: 100
 --- !u!4 &1149759426
 Transform:
   m_ObjectHideFlags: 0
