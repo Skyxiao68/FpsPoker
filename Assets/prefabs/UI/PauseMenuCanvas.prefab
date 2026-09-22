@@ -116,7 +116,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 91fa0b886aa4f9a4d89b3a652c528e63, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PauseMenuManager
-  pausePanel: {fileID: 0}
+  pausePanel: {fileID: 6376186177174462472}
   mainMenuSceneName: StartScreen
   pauseKey: 27
   buttonClickSound: {fileID: 0}
