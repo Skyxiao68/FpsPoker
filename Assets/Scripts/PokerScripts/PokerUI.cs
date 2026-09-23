@@ -87,54 +87,155 @@ public class PokerUI : MonoBehaviour
         CreatePanel(canvasGO.transform, new Color(0.1f, 0.15f, 0.1f), Vector2.zero, Vector2.one);
 
         // ---- Message bar at the very top ----
-        CreatePanel(canvasGO.transform,
+        CreatePanel(
+            canvasGO.transform,
             new Color(0f, 0f, 0f, 0.55f),
-            new Vector2(0.0f, 0.94f), new Vector2(1.0f, 1.0f));
+            new Vector2(0.0f, 0.94f),
+            new Vector2(1.0f, 1.0f)
+        );
 
-        messageText = CreateText(canvasGO.transform, "Message", "",
-            new Vector2(0.02f, 0.94f), new Vector2(0.98f, 1.0f), TextAnchor.MiddleCenter, 26);
+        messageText = CreateText(
+            canvasGO.transform,
+            "Message",
+            "",
+            new Vector2(0.02f, 0.94f),
+            new Vector2(0.98f, 1.0f),
+            TextAnchor.MiddleCenter,
+            26
+        );
 
         // ---- Top info ----
-        potText = CreateText(canvasGO.transform, "PotText", "Pot: 0",
-            new Vector2(0.10f, 0.87f), new Vector2(0.36f, 0.94f), TextAnchor.MiddleCenter, 34);
-        playerChipsText = CreateText(canvasGO.transform, "PlayerChipsText", "Player: 0",
-            new Vector2(0.37f, 0.87f), new Vector2(0.63f, 0.94f), TextAnchor.MiddleCenter, 34);
-        enemyChipsText = CreateText(canvasGO.transform, "EnemyChipsText", "Enemy: 0",
-            new Vector2(0.64f, 0.87f), new Vector2(0.90f, 0.94f), TextAnchor.MiddleCenter, 34);
+        potText = CreateText(
+            canvasGO.transform,
+            "PotText",
+            "Pot: 0",
+            new Vector2(0.10f, 0.87f),
+            new Vector2(0.36f, 0.94f),
+            TextAnchor.MiddleCenter,
+            34
+        );
+        playerChipsText = CreateText(
+            canvasGO.transform,
+            "PlayerChipsText",
+            "Player: 0",
+            new Vector2(0.37f, 0.87f),
+            new Vector2(0.63f, 0.94f),
+            TextAnchor.MiddleCenter,
+            34
+        );
+        enemyChipsText = CreateText(
+            canvasGO.transform,
+            "EnemyChipsText",
+            "Enemy: 0",
+            new Vector2(0.64f, 0.87f),
+            new Vector2(0.90f, 0.94f),
+            TextAnchor.MiddleCenter,
+            34
+        );
 
         // ---- Enemy ----
-        enemyNameText = CreateText(canvasGO.transform, "EnemyNameText", "",
-            new Vector2(0.2f, 0.80f), new Vector2(0.8f, 0.87f), TextAnchor.MiddleCenter, 32);
+        enemyNameText = CreateText(
+            canvasGO.transform,
+            "EnemyNameText",
+            "",
+            new Vector2(0.2f, 0.80f),
+            new Vector2(0.8f, 0.87f),
+            TextAnchor.MiddleCenter,
+            32
+        );
 
-        CreateText(canvasGO.transform, "EnemyLabel", "Enemy Hand",
-            new Vector2(0.4f, 0.75f), new Vector2(0.6f, 0.80f), TextAnchor.MiddleCenter, 22);
+        CreateText(
+            canvasGO.transform,
+            "EnemyLabel",
+            "Enemy Hand",
+            new Vector2(0.4f, 0.75f),
+            new Vector2(0.6f, 0.80f),
+            TextAnchor.MiddleCenter,
+            22
+        );
 
-        enemyHandText = CreateText(canvasGO.transform, "EnemyHand", "?? ??",
-            new Vector2(0.3f, 0.65f), new Vector2(0.7f, 0.75f), TextAnchor.MiddleCenter, 48);
+        enemyHandText = CreateText(
+            canvasGO.transform,
+            "EnemyHand",
+            "?? ??",
+            new Vector2(0.3f, 0.65f),
+            new Vector2(0.7f, 0.75f),
+            TextAnchor.MiddleCenter,
+            48
+        );
 
-        enemyHandTypeText = CreateText(canvasGO.transform, "EnemyHandType", "",
-            new Vector2(0.3f, 0.60f), new Vector2(0.7f, 0.65f), TextAnchor.MiddleCenter, 26);
+        enemyHandTypeText = CreateText(
+            canvasGO.transform,
+            "EnemyHandType",
+            "",
+            new Vector2(0.3f, 0.60f),
+            new Vector2(0.7f, 0.65f),
+            TextAnchor.MiddleCenter,
+            26
+        );
 
         // ---- Community ----
-        CreateText(canvasGO.transform, "CommunityLabel", "Community Cards",
-            new Vector2(0.4f, 0.54f), new Vector2(0.6f, 0.60f), TextAnchor.MiddleCenter, 22);
+        CreateText(
+            canvasGO.transform,
+            "CommunityLabel",
+            "Community Cards",
+            new Vector2(0.4f, 0.54f),
+            new Vector2(0.6f, 0.60f),
+            TextAnchor.MiddleCenter,
+            22
+        );
 
-        communityText = CreateText(canvasGO.transform, "Community", "",
-            new Vector2(0.05f, 0.44f), new Vector2(0.95f, 0.54f), TextAnchor.MiddleCenter, 52);
+        communityText = CreateText(
+            canvasGO.transform,
+            "Community",
+            "",
+            new Vector2(0.05f, 0.44f),
+            new Vector2(0.95f, 0.54f),
+            TextAnchor.MiddleCenter,
+            52
+        );
 
         // ---- Player ----
-        CreateText(canvasGO.transform, "PlayerLabel", "Player Hand",
-            new Vector2(0.4f, 0.38f), new Vector2(0.6f, 0.44f), TextAnchor.MiddleCenter, 22);
+        CreateText(
+            canvasGO.transform,
+            "PlayerLabel",
+            "Player Hand",
+            new Vector2(0.4f, 0.38f),
+            new Vector2(0.6f, 0.44f),
+            TextAnchor.MiddleCenter,
+            22
+        );
 
-        playerHandText = CreateText(canvasGO.transform, "PlayerHand", "",
-            new Vector2(0.3f, 0.28f), new Vector2(0.7f, 0.38f), TextAnchor.MiddleCenter, 52);
+        playerHandText = CreateText(
+            canvasGO.transform,
+            "PlayerHand",
+            "",
+            new Vector2(0.3f, 0.28f),
+            new Vector2(0.7f, 0.38f),
+            TextAnchor.MiddleCenter,
+            52
+        );
 
-        playerHandTypeText = CreateText(canvasGO.transform, "PlayerHandType", "",
-            new Vector2(0.3f, 0.23f), new Vector2(0.7f, 0.28f), TextAnchor.MiddleCenter, 26);
+        playerHandTypeText = CreateText(
+            canvasGO.transform,
+            "PlayerHandType",
+            "",
+            new Vector2(0.3f, 0.23f),
+            new Vector2(0.7f, 0.28f),
+            TextAnchor.MiddleCenter,
+            26
+        );
 
         // ---- State ----
-        stateText = CreateText(canvasGO.transform, "StateText", "",
-            new Vector2(0.05f, 0.17f), new Vector2(0.95f, 0.23f), TextAnchor.MiddleCenter, 24);
+        stateText = CreateText(
+            canvasGO.transform,
+            "StateText",
+            "",
+            new Vector2(0.05f, 0.17f),
+            new Vector2(0.95f, 0.23f),
+            TextAnchor.MiddleCenter,
+            24
+        );
 
         // =========================================================
         // Quick bet row
@@ -147,49 +248,95 @@ public class PokerUI : MonoBehaviour
         qbrRT.offsetMin = Vector2.zero;
         qbrRT.offsetMax = Vector2.zero;
 
-        float qbY0 = 0.09f, qbY1 = 0.15f;
+        float qbY0 = 0.09f,
+            qbY1 = 0.15f;
 
-        CreateButton(quickBetRow.transform, "Btn33", "33%",
-            new Vector2(0.03f, qbY0), new Vector2(0.09f, qbY1),
+        CreateButton(
+            quickBetRow.transform,
+            "Btn33",
+            "33%",
+            new Vector2(0.03f, qbY0),
+            new Vector2(0.09f, qbY1),
             new Color(0.15f, 0.35f, 0.65f),
-            () => SetSliderToFraction(0.33f));
+            () => SetSliderToFraction(0.33f)
+        );
 
-        CreateButton(quickBetRow.transform, "Btn50", "50%",
-            new Vector2(0.10f, qbY0), new Vector2(0.16f, qbY1),
+        CreateButton(
+            quickBetRow.transform,
+            "Btn50",
+            "50%",
+            new Vector2(0.10f, qbY0),
+            new Vector2(0.16f, qbY1),
             new Color(0.15f, 0.35f, 0.65f),
-            () => SetSliderToFraction(0.50f));
+            () => SetSliderToFraction(0.50f)
+        );
 
-        CreateButton(quickBetRow.transform, "Btn75", "75%",
-            new Vector2(0.17f, qbY0), new Vector2(0.23f, qbY1),
+        CreateButton(
+            quickBetRow.transform,
+            "Btn75",
+            "75%",
+            new Vector2(0.17f, qbY0),
+            new Vector2(0.23f, qbY1),
             new Color(0.15f, 0.35f, 0.65f),
-            () => SetSliderToFraction(0.75f));
+            () => SetSliderToFraction(0.75f)
+        );
 
-        CreateButton(quickBetRow.transform, "BtnMax", "Max",
-            new Vector2(0.24f, qbY0), new Vector2(0.30f, qbY1),
+        CreateButton(
+            quickBetRow.transform,
+            "BtnMax",
+            "Max",
+            new Vector2(0.24f, qbY0),
+            new Vector2(0.30f, qbY1),
             new Color(0.15f, 0.35f, 0.65f),
-            () => SetSliderToFraction(1.0f));
+            () => SetSliderToFraction(1.0f)
+        );
 
-        raiseSlider = CreateSlider(quickBetRow.transform, "RaiseSlider",
-            new Vector2(0.33f, qbY0), new Vector2(0.74f, qbY1),
-            MinRaise, 100, DefaultRaise);
+        raiseSlider = CreateSlider(
+            quickBetRow.transform,
+            "RaiseSlider",
+            new Vector2(0.33f, qbY0),
+            new Vector2(0.74f, qbY1),
+            MinRaise,
+            100,
+            DefaultRaise
+        );
 
-        raiseValueText = CreateText(quickBetRow.transform, "RaiseValueText", DefaultRaise.ToString(),
-            new Vector2(0.74f, qbY0), new Vector2(0.82f, qbY1), TextAnchor.MiddleCenter, 24);
+        raiseValueText = CreateText(
+            quickBetRow.transform,
+            "RaiseValueText",
+            DefaultRaise.ToString(),
+            new Vector2(0.74f, qbY0),
+            new Vector2(0.82f, qbY1),
+            TextAnchor.MiddleCenter,
+            24
+        );
 
-        raiseSlider.onValueChanged.AddListener((value) =>
-        {
-            raiseValueText.text = Mathf.RoundToInt(value).ToString();
-        });
+        raiseSlider.onValueChanged.AddListener(
+            (value) =>
+            {
+                raiseValueText.text = Mathf.RoundToInt(value).ToString();
+            }
+        );
 
-        CreateButton(quickBetRow.transform, "BtnMinus", "-",
-            new Vector2(0.83f, qbY0), new Vector2(0.89f, qbY1),
+        CreateButton(
+            quickBetRow.transform,
+            "BtnMinus",
+            "-",
+            new Vector2(0.83f, qbY0),
+            new Vector2(0.89f, qbY1),
             new Color(0.25f, 0.25f, 0.25f),
-            () => AdjustSlider(-StepAmount));
+            () => AdjustSlider(-StepAmount)
+        );
 
-        CreateButton(quickBetRow.transform, "BtnPlus", "+",
-            new Vector2(0.90f, qbY0), new Vector2(0.96f, qbY1),
+        CreateButton(
+            quickBetRow.transform,
+            "BtnPlus",
+            "+",
+            new Vector2(0.90f, qbY0),
+            new Vector2(0.96f, qbY1),
             new Color(0.25f, 0.25f, 0.25f),
-            () => AdjustSlider(StepAmount));
+            () => AdjustSlider(StepAmount)
+        );
 
         // =========================================================
         // Action row
@@ -202,27 +349,48 @@ public class PokerUI : MonoBehaviour
         arRT.offsetMin = Vector2.zero;
         arRT.offsetMax = Vector2.zero;
 
-        float aY0 = 0.01f, aY1 = 0.08f;
+        float aY0 = 0.01f,
+            aY1 = 0.08f;
 
-        foldButton = CreateButton(actionRow.transform, "FoldBtn", "Fold",
-            new Vector2(0.03f, aY0), new Vector2(0.25f, aY1),
+        foldButton = CreateButton(
+            actionRow.transform,
+            "FoldBtn",
+            "Fold",
+            new Vector2(0.03f, aY0),
+            new Vector2(0.25f, aY1),
             new Color(0.72f, 0.22f, 0.17f),
-            () => poker.PlayerFold());
+            () => poker.PlayerFold()
+        );
 
-        checkButton = CreateButton(actionRow.transform, "CheckBtn", "Check",
-            new Vector2(0.26f, aY0), new Vector2(0.48f, aY1),
+        checkButton = CreateButton(
+            actionRow.transform,
+            "CheckBtn",
+            "Check",
+            new Vector2(0.26f, aY0),
+            new Vector2(0.48f, aY1),
             new Color(0.12f, 0.54f, 0.31f),
-            () => poker.PlayerCheck());
+            () => poker.PlayerCheck()
+        );
 
-        raiseButton = CreateButton(actionRow.transform, "RaiseBtn", "Raise",
-            new Vector2(0.49f, aY0), new Vector2(0.71f, aY1),
+        raiseButton = CreateButton(
+            actionRow.transform,
+            "RaiseBtn",
+            "Raise",
+            new Vector2(0.49f, aY0),
+            new Vector2(0.71f, aY1),
             new Color(0.85f, 0.55f, 0.11f),
-            () => poker.PlayerRaise(Mathf.RoundToInt(raiseSlider.value)));
+            () => poker.PlayerRaise(Mathf.RoundToInt(raiseSlider.value))
+        );
 
-        matchButton = CreateButton(actionRow.transform, "MatchBtn", "Match",
-            new Vector2(0.72f, aY0), new Vector2(0.94f, aY1),
+        matchButton = CreateButton(
+            actionRow.transform,
+            "MatchBtn",
+            "Match",
+            new Vector2(0.72f, aY0),
+            new Vector2(0.94f, aY1),
             new Color(0.2f, 0.45f, 0.7f),
-            () => poker.PlayerMatchRaise());
+            () => poker.PlayerMatchRaise()
+        );
 
         // =========================================================
         // Next hand row
@@ -235,10 +403,15 @@ public class PokerUI : MonoBehaviour
         nhrRT.offsetMin = Vector2.zero;
         nhrRT.offsetMax = Vector2.zero;
 
-        nextHandButton = CreateButton(nextHandRow.transform, "NextHandBtn", "Next Game",
-            new Vector2(0.03f, 0.01f), new Vector2(0.94f, 0.08f),
+        nextHandButton = CreateButton(
+            nextHandRow.transform,
+            "NextHandBtn",
+            "Next Game",
+            new Vector2(0.03f, 0.01f),
+            new Vector2(0.94f, 0.08f),
             new Color(0.2f, 0.6f, 0.35f),
-            () => onNextHand?.Invoke());
+            () => onNextHand?.Invoke()
+        );
 
         nextHandRow.SetActive(false);
     }
@@ -248,7 +421,8 @@ public class PokerUI : MonoBehaviour
     // =========================================================
     private void RefreshUI()
     {
-        if (poker == null) return;
+        if (poker == null)
+            return;
 
         potText.text = $"Pot: {poker.Pot}";
         playerChipsText.text = $"Player: {poker.PlayerChips}";
@@ -259,47 +433,57 @@ public class PokerUI : MonoBehaviour
 
         string dealingStr = poker.IsDealing ? " (Dealing...)" : "";
         stateText.text =
-            $"Stage: {poker.CurrentStreet}    State: {poker.State}{dealingStr}    " +
-            $"Bet: {poker.CurrentBet}    Community: {poker.CommunityCards.Count}/5";
+            $"Stage: {poker.CurrentStreet}    State: {poker.State}{dealingStr}    "
+            + $"Bet: {poker.CurrentBet}    Community: {poker.CommunityCards.Count}/5";
 
         playerHandText.text = CardStr(poker.PlayerHand);
         communityText.text = CardStr(poker.CommunityCards);
 
         bool revealEnemy =
-            poker.State == PokerState.Showdown ||
-            poker.State == PokerState.HandEnded ||
-            poker.State == PokerState.PlayerFolded ||
-            poker.State == PokerState.EnemyFolded;
+            poker.State == PokerState.Showdown
+            || poker.State == PokerState.HandEnded
+            || poker.State == PokerState.PlayerFolded
+            || poker.State == PokerState.EnemyFolded;
 
         enemyHandText.text = revealEnemy ? CardStr(poker.EnemyHand) : "?? ??";
 
-        playerHandTypeText.text = poker.PlayerBestHand != null
-            ? $"Hand Type: {poker.PlayerBestHand.GetDisplayName()}" : "";
+        playerHandTypeText.text =
+            poker.PlayerBestHand != null
+                ? $"Hand Type: {poker.PlayerBestHand.GetDisplayName()}"
+                : "";
 
-        enemyHandTypeText.text = revealEnemy && poker.EnemyBestHand != null
-            ? $"Hand Type: {poker.EnemyBestHand.GetDisplayName()}" : "";
+        enemyHandTypeText.text =
+            revealEnemy && poker.EnemyBestHand != null
+                ? $"Hand Type: {poker.EnemyBestHand.GetDisplayName()}"
+                : "";
 
         bool isPlayerTurn = poker.State == PokerState.PlayerTurn && !poker.IsDealing;
         bool mustMatch = poker.AwaitingPlayerMatch;
+
+        int maxRaise = poker.GetPlayerMaxRaise();
+        bool canRaise = maxRaise >= MinRaise;
 
         checkButton.interactable = isPlayerTurn && !mustMatch;
         raiseButton.interactable = isPlayerTurn && !mustMatch;
         matchButton.interactable = isPlayerTurn && mustMatch;
         foldButton.interactable = isPlayerTurn;
 
-        bool handOver =
-            poker.State == PokerState.HandEnded ||
-            poker.State == PokerState.PlayerFolded ||
-            poker.State == PokerState.EnemyFolded;
 
-        quickBetRow.SetActive(!handOver);
+        bool handOver =
+            poker.State == PokerState.HandEnded
+            || poker.State == PokerState.PlayerFolded
+            || poker.State == PokerState.EnemyFolded;
+
+        //// 无法加注时（maxRaise == 0），隐藏整条快捷下注行
+        quickBetRow.SetActive(!handOver & canRaise);
         actionRow.SetActive(!handOver);
         nextHandRow.SetActive(handOver);
 
         // ---- Slider bounds ----
-        int maxRaise = Mathf.Max(MinRaise, poker.PlayerChips);
+        int sliderMax = Mathf.Max(MinRaise, maxRaise);
         raiseSlider.minValue = MinRaise;
         raiseSlider.maxValue = maxRaise;
+        raiseSlider.interactable = canRaise && isPlayerTurn && !mustMatch;
 
         // ---- Reset slider to DefaultRaise on street change or first init ----
         if (!hasInitialized || poker.CurrentStreet != lastStreet)
@@ -314,7 +498,27 @@ public class PokerUI : MonoBehaviour
         if (raiseSlider.value > maxRaise)
             raiseSlider.value = maxRaise;
 
-        raiseValueText.text = Mathf.RoundToInt(raiseSlider.value).ToString();
+        raiseValueText.text = canRaise ? Mathf.RoundToInt(raiseSlider.value).ToString() : "-";
+
+        // 把快捷下注按钮的可交互状态跟 canRaise 绑定
+        SetQuickBetButtonsInteractable(canRaise && isPlayerTurn && !mustMatch);
+    }
+
+    /// <summary>
+    /// 根据是否能加注，动态改变加注按钮的文字。
+    /// 能加注时显示 Raise，不能加注时显示 Check（但仍然禁用，避免误导）。
+    /// </summary>
+
+
+    private void SetQuickBetButtonsInteractable(bool on)
+    {
+        if (quickBetRow == null)
+            return;
+        foreach (Button b in quickBetRow.GetComponentsInChildren<Button>(true))
+        {
+            // 滑块的加减按钮也在这里，
+            b.interactable = on;
+        }
     }
 
     // =========================================================
@@ -335,8 +539,15 @@ public class PokerUI : MonoBehaviour
     // =========================================================
     // UI BUILDERS
     // =========================================================
-    private Text CreateText(Transform parent, string name, string content,
-        Vector2 anchorMin, Vector2 anchorMax, TextAnchor align, int fontSize)
+    private Text CreateText(
+        Transform parent,
+        string name,
+        string content,
+        Vector2 anchorMin,
+        Vector2 anchorMax,
+        TextAnchor align,
+        int fontSize
+    )
     {
         GameObject go = new GameObject(name);
         go.transform.SetParent(parent, false);
@@ -358,9 +569,15 @@ public class PokerUI : MonoBehaviour
         return text;
     }
 
-    private Button CreateButton(Transform parent, string name, string label,
-        Vector2 anchorMin, Vector2 anchorMax, Color normalColor,
-        UnityEngine.Events.UnityAction onClick)
+    private Button CreateButton(
+        Transform parent,
+        string name,
+        string label,
+        Vector2 anchorMin,
+        Vector2 anchorMax,
+        Color normalColor,
+        UnityEngine.Events.UnityAction onClick
+    )
     {
         GameObject go = new GameObject(name);
         go.transform.SetParent(parent, false);
@@ -388,16 +605,29 @@ public class PokerUI : MonoBehaviour
         rt.offsetMin = Vector2.zero;
         rt.offsetMax = Vector2.zero;
 
-        Text txt = CreateText(go.transform, "Label", label,
-            Vector2.zero, Vector2.one, TextAnchor.MiddleCenter, 22);
+        Text txt = CreateText(
+            go.transform,
+            "Label",
+            label,
+            Vector2.zero,
+            Vector2.one,
+            TextAnchor.MiddleCenter,
+            22
+        );
         txt.raycastTarget = false;
 
         return btn;
     }
 
-    private Slider CreateSlider(Transform parent, string name,
-        Vector2 anchorMin, Vector2 anchorMax,
-        float minValue, float maxValue, float initialValue)
+    private Slider CreateSlider(
+        Transform parent,
+        string name,
+        Vector2 anchorMin,
+        Vector2 anchorMax,
+        float minValue,
+        float maxValue,
+        float initialValue
+    )
     {
         GameObject sliderGO = new GameObject(name);
         sliderGO.transform.SetParent(parent, false);
@@ -464,8 +694,7 @@ public class PokerUI : MonoBehaviour
         return slider;
     }
 
-    private Image CreatePanel(Transform parent, Color color,
-        Vector2 anchorMin, Vector2 anchorMax)
+    private Image CreatePanel(Transform parent, Color color, Vector2 anchorMin, Vector2 anchorMax)
     {
         GameObject go = new GameObject("Panel");
         go.transform.SetParent(parent, false);
@@ -488,7 +717,8 @@ public class PokerUI : MonoBehaviour
             Mathf.Clamp01(c.r * factor),
             Mathf.Clamp01(c.g * factor),
             Mathf.Clamp01(c.b * factor),
-            c.a);
+            c.a
+        );
     }
 
     private Color Darken(Color c, float factor)
@@ -498,9 +728,11 @@ public class PokerUI : MonoBehaviour
 
     private string CardStr(List<Card> cards)
     {
-        if (cards == null || cards.Count == 0) return "";
+        if (cards == null || cards.Count == 0)
+            return "";
         string s = "";
-        foreach (Card c in cards) s += c.ToString() + "  ";
+        foreach (Card c in cards)
+            s += c.ToString() + "  ";
         return s;
     }
 }
