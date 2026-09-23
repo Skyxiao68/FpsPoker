@@ -72,6 +72,7 @@ public class Weapon : MonoBehaviour
     // down an identical fire path.
 
     private bool triggerHeld;
+    private bool hasFiredThisPress; // Track if we've fired during the current semi-auto pull
 
     /// <summary>
     /// Holds or releases the trigger. Called by
@@ -79,6 +80,12 @@ public class Weapon : MonoBehaviour
     /// </summary>
     public void SetTriggerHeld(bool held)
     {
+        // If the trigger was just pulled this frame, reset our semi-auto lockout
+        if (held && !triggerHeld)
+        {
+            hasFiredThisPress = false;
+        }
+        
         triggerHeld = held;
     }
 
@@ -90,7 +97,23 @@ public class Weapon : MonoBehaviour
 
         if (triggerHeld)
         {
-            Fire();
+            // Default to full-auto if settings are missing to prevent errors
+            bool isAuto = weaponSettings != null ? weaponSettings.isAutomatic : true;
+
+            if (isAuto)
+            {
+                // Full Auto: Fire continuously as long as trigger is held
+                Fire(); 
+            }
+            else
+            {
+                // Semi Auto: Only fire once per trigger press
+                if (!hasFiredThisPress)
+                {
+                    Fire();
+                    hasFiredThisPress = true; // Lock out until trigger is released and pulled again
+                }
+            }
         }
     }
 
