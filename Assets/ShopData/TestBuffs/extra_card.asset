@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 772491752b440df43ba4ab6847460aad, type: 3}
+  m_Name: extra_card
+  m_EditorClassIdentifier: Assembly-CSharp::PokerShop.ShopItem
+  id: extra_card
+  displayName: Extra Starting Card
+  description: Start the round with one extra card.
+  icon: {fileID: 0}
+  price: 80
+  category: Cards
+  tier: 
+  maxOwned: 1
+  hidden: 0
+  payload: {fileID: 11400000, guid: 977ac9bdbabf5cf49a27eff48ead772f, type: 2}
