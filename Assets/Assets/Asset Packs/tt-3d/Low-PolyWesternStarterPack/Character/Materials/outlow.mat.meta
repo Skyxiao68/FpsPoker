@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: 2aae3938064c6cd44af3b0b88d9060ca
+guid: b537de10b8f653c43b129a79466edba9
 NativeFormatImporter:
   externalObjects: {}
   mainObjectFileID: 2100000
@@ -8,8 +8,8 @@ NativeFormatImporter:
   assetBundleVariant: 
 AssetOrigin:
   serializedVersion: 1
-  productId: 385474
-  packageName: Wild West Low Poly Pack
+  productId: 383104
+  packageName: Low Poly Western Starter Pack
   packageVersion: 1.0
-  assetPath: Assets/Done_4/Materials/plane.mat
-  uploadId: 929872
+  assetPath: Assets/tt-3d/Low-PolyWesternStarterPack/Character/Materials/outlow.mat
+  uploadId: 923624
