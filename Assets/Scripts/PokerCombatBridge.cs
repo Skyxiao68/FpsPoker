@@ -1,5 +1,5 @@
-using UnityEngine;
 using System.Collections;
+using UnityEngine;
 
 /// <summary>
 /// 连接扑克系统与战斗系统的唯一脚本。
@@ -17,20 +17,9 @@ public class PokerCombatBridge : MonoBehaviour
     [SerializeField]
     private PokerGameManager poker;
 
-    [Tooltip("摊牌后到进入战斗前的展示时间，(秒)")]
-    [SerializeField]
-    private float showdownRevealDelay = 3.0f;
-
-    /// <summary>
-    /// True 表示这个场景刚从战斗场景回来并处理了战斗结果。
-    /// PokerGameTester 可以据此决定是否延迟开新局。
-    /// </summary>
-    public bool ProcessedCombatResult { get; private set; } = false;
     private bool settlingDirectly = false;
 
-    
     // 生命周期（用 Awake 确保先于 PokerGameTester.Start 执行）
-    
 
     private void Awake()
     {
@@ -62,7 +51,6 @@ public class PokerCombatBridge : MonoBehaviour
         {
             Debug.Log($"[Bridge] 收到战斗结果：{winner}, pot {pot}");
             ApplyCombatResult(winner, pot);
-            ProcessedCombatResult = true; 
         }
 
         Debug.Log("[Bridge] Awake 完成，已恢复筹码和处理战斗结果");
@@ -80,59 +68,70 @@ public class PokerCombatBridge : MonoBehaviour
             poker.OnHandEnded -= HandleHandEnded;
     }
 
-    
     // 扑克 → 战斗
-    
 
     private void HandleHandEnded()
+{
+    //  任何牌局结束都同步一次筹码到 GFM
+    if (GameFlowManager.Instance != null)
     {
-        if (settlingDirectly)
-            return;
+        GameFlowManager.Instance.PlayerChips = poker.PlayerChips;
+        GameFlowManager.Instance.EnemyChips = poker.EnemyChips;
+        Debug.Log($"[Bridge] 筹码同步 → Player={poker.PlayerChips}, Enemy={poker.EnemyChips}");
+    }
 
-        // 弃牌和平局已经在 PokerGameManager 内部结算
-        if (
-            poker.Result != PokerResult.PlayerWinsShowdown
-            && poker.Result != PokerResult.EnemyWinsShowdown
-        )
-            return;
+    if (settlingDirectly) return;
 
-        if (GameFlowManager.Instance == null)
+    if (poker.Result != PokerResult.PlayerWinsShowdown
+        && poker.Result != PokerResult.EnemyWinsShowdown)
+        return;
+
+    if (GameFlowManager.Instance == null)
+    {
+        SettleDirectly();
+        return;
+    }
+
+    ShowdownPanel();
+}
+
+    private ShowdownPanelUI showdownPanel;
+
+    private void ShowdownPanel()
+    {
+        // 首次创建
+        if (showdownPanel == null)
         {
-            SettleDirectly();
-            return;
+            GameObject panelGO = new GameObject("ShowdownPanel");
+            panelGO.transform.SetParent(transform);
+            showdownPanel = panelGO.AddComponent<ShowdownPanelUI>();
         }
 
-        StartCoroutine(ShowdownThenCombat());
+        showdownPanel.Show(poker, OnEnterCombatClicked);
 
+        Debug.Log("[Bridge] 摊牌面板已显示，等待玩家点击 Enter Combat");
     }
-    private IEnumerator ShowdownThenCombat()
+
+    /// <summary>
+    /// 玩家在结算面板里点击 Enter Combat 时触发。
+    /// </summary>
+    private void OnEnterCombatClicked()
     {
-        // 打出摊牌信息供玩家查看
-        Debug.Log($"[Bridge] === 摊牌结果 ===");
-        Debug.Log($"[Bridge] 玩家牌型：{poker.PlayerBestHand.GetDisplayName()}");
-        Debug.Log($"[Bridge] 敌人牌型：{poker.EnemyBestHand.GetDisplayName()}");
-        Debug.Log($"[Bridge] 底池：{poker.Pot}");
-        Debug.Log($"[Bridge] {showdownRevealDelay} 秒后进入战斗...");
+        Debug.Log("[Bridge] 玩家点击 Enter Combat，开始进入战斗");
 
-        // UI 订阅者可以在 OnMessage 里显示摊牌信息
-        // PokerUI 会自动显示敌人手牌（因为 State == Showdown）
-
-        // 等一会，让玩家看清双方手牌
-        yield return new WaitForSeconds(showdownRevealDelay);
-
-        // 计算 CombatStats（用最佳 5 张）
+        // 计算 CombatStats
         CombatStats playerStats = CombatStatsFactory.Compute(poker.PlayerBestHand);
         CombatStats enemyStats = CombatStatsFactory.Compute(poker.EnemyBestHand);
 
         int pot = poker.Pot;
-        string enemyName = poker.EnemyParams != null
-            ? poker.EnemyParams.enemyName : "Enemy";
-        string enemyStyle = poker.EnemyParams != null
-            ? poker.EnemyParams.combatStyle : "Melee";
+        string enemyName = poker.EnemyParams != null ? poker.EnemyParams.enemyName : "Enemy";
+        string enemyStyle = poker.EnemyParams != null ? poker.EnemyParams.combatStyle : "Melee";
 
-        Debug.Log($"[Bridge] BeginCombat: pot={pot}, " +
-                  $"playerChips={poker.PlayerChips}, enemyChips={poker.EnemyChips}, " +
-                  $"style={enemyStyle}");
+        Debug.Log(
+            $"[Bridge] BeginCombat: pot={pot}, "
+                + $"playerChips={poker.PlayerChips}, enemyChips={poker.EnemyChips}, "
+                + $"style={enemyStyle}"
+        );
 
         poker.MarkReadyForCombat();
 
@@ -147,30 +146,36 @@ public class PokerCombatBridge : MonoBehaviour
         );
     }
 
-  
     // 战斗 → 扑克
-   
+
     private void ApplyCombatResult(CombatWinner winner, int pot)
+{
+    poker.SetPendingPot(pot);
+
+    settlingDirectly = true;
+    if (winner == CombatWinner.Player)
     {
-        poker.SetPendingPot(pot);
-
-        settlingDirectly = true;
-        if (winner == CombatWinner.Player)
-        {
-            poker.CreditPotToPlayer();
-            Debug.Log($"[Bridge] 玩家战斗胜利，底池 {pot} 归玩家。");
-        }
-        else
-        {
-            poker.ForfeitPot();
-            Debug.Log($"[Bridge] 玩家战斗失败，底池 {pot} 被没收。");
-        }
-        settlingDirectly = false;
+        poker.CreditPotToPlayer();
+        Debug.Log($"[Bridge] 玩家战斗胜利，底池 {pot} 归玩家。");
     }
+    else
+    {
+        poker.ForfeitPot();
+        Debug.Log($"[Bridge] 玩家战斗失败，底池 {pot} 被没收。");
+    }
+    settlingDirectly = false;
 
-   
+    //  显式同步筹码到 GameFlowManager（不依赖 OnHandEnded 事件）
+    if (GameFlowManager.Instance != null)
+    {
+        GameFlowManager.Instance.PlayerChips = poker.PlayerChips;
+        GameFlowManager.Instance.EnemyChips = poker.EnemyChips;
+        Debug.Log($"[Bridge] ApplyCombatResult → 同步 GFM: " +
+                  $"Player={poker.PlayerChips}, Enemy={poker.EnemyChips}");
+    }
+}
+
     // 独立测试模式的直接结算
-    
 
     private void SettleDirectly()
     {

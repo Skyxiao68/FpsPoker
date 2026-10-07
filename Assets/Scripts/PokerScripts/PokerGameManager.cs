@@ -143,6 +143,7 @@ public class PokerGameManager : MonoBehaviour
             LogMessage("Enemy has insufficient chips, player advances");
             State = PokerState.HandEnded;
             OnStateChanged?.Invoke();
+            OnHandEnded?.Invoke();
             return;
         }
 
@@ -447,7 +448,6 @@ public class PokerGameManager : MonoBehaviour
             return;
         }
 
-
         // Execute the re-raise and give the turn back to the player.
         EnemyChips -= aiAmount;
         Pot += aiAmount;
@@ -481,7 +481,7 @@ public class PokerGameManager : MonoBehaviour
         if (amount > maxRaise)
         {
             amount = maxRaise;
-            LogMessage($"Enemy raise {amount} exceeds max {maxRaise}, capping to max"); 
+            LogMessage($"Enemy raise {amount} exceeds max {maxRaise}, capping to max");
         }
 
         // Deduct chips from enemy and add to pot.
@@ -527,28 +527,36 @@ public class PokerGameManager : MonoBehaviour
     /// </summary>
     private void AdvanceStreet()
     {
+        if (IsDealing)
+        {
+            Debug.LogWarning("[Poker] AdvanceStreet 被调用，但正在发牌中，忽略");
+            return;
+        }
+
         // Reset per-street betting state.
         CurrentBet = 0;
         playerHasRaised = false;
         AwaitingPlayerMatch = false;
 
+        IsDealing = true;
+        State = PokerState.Dealing;
+        OnStateChanged?.Invoke();
+
         // Move to the next street and deal cards accordingly.
         switch (CurrentStreet)
         {
             case Street.PreFlop:
-                // Deal 3 cards for the Flop.
                 StartCoroutine(DealCommunityCards(3, Street.Flop));
                 break;
             case Street.Flop:
-                // Deal 1 card for the Turn.
                 StartCoroutine(DealCommunityCards(1, Street.Turn));
                 break;
             case Street.Turn:
-                // Deal 1 card for the River.
                 StartCoroutine(DealCommunityCards(1, Street.River));
                 break;
             case Street.River:
-                // No more cards - resolve the showdown.
+
+                IsDealing = false;
                 ResolveShowdown();
                 break;
         }
@@ -559,9 +567,7 @@ public class PokerGameManager : MonoBehaviour
     /// </summary>
     private IEnumerator DealCommunityCards(int count, Street nextStreet)
     {
-        // Mark as dealing so the player can't act.
-        IsDealing = true;
-        State = PokerState.Dealing;
+        CurrentStreet = nextStreet;
         OnStateChanged?.Invoke();
 
         // Reveal each card with a delay between them.
@@ -574,8 +580,6 @@ public class PokerGameManager : MonoBehaviour
             OnStateChanged?.Invoke();
         }
 
-        // Update the street and hand the turn back to the player.
-        CurrentStreet = nextStreet;
         IsDealing = false;
         StartPlayerTurn();
     }

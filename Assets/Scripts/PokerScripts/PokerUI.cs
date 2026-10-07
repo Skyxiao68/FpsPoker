@@ -543,9 +543,26 @@ public class PokerUI : MonoBehaviour
         string s = "";
         foreach (Card c in cards)
         {
-            bool isRed = c.Suit == Suit.Hearts || c.Suit == Suit.Diamonds;
-            string colorHex = isRed ? "#FF5555" : "#FFFFFF";
-            s += $"<color={colorHex}>{c}</color>  ";
+            string hex;
+            switch (c.Suit)
+            {
+                case Suit.Spades:
+                    hex = "#A0A0A0";
+                    break;
+                case Suit.Hearts:
+                    hex = "#FF8080";
+                    break;
+                case Suit.Clubs:
+                    hex = "#90E0FF";
+                    break;
+                case Suit.Diamonds:
+                    hex = "#FFD060";
+                    break;
+                default:
+                    hex = "#FFFFFF";
+                    break;
+            }
+            s += $"<color={hex}>{c}</color>  ";
         }
         return s;
     }
