@@ -305,6 +305,10 @@ public class ShowdownPanelUI : MonoBehaviour
             return;
         }
 
+        // ---- 检查红桃皇后 ----
+        bool heartsBecomeAttack =
+            PlayerInventory.Instance != null && PlayerInventory.Instance.Has(ItemId.QueenOfHearts);
+
         // ---- 累加各花色 ----
         float spades = 0,
             hearts = 0,
@@ -331,6 +335,10 @@ public class ShowdownPanelUI : MonoBehaviour
         }
 
         float mult = bestHand.GetMultiplier();
+
+        // ---- 应用物品效果后的"有效累加值"（用于 Base/Final 行） ----
+        float effSpades = spades + (heartsBecomeAttack ? hearts : 0);
+        float effHearts = heartsBecomeAttack ? 0 : hearts;
 
         // ---- 四色配色：与手牌颜色一致 ----
         string cSpade = HexForSuit(Suit.Spades);
@@ -363,16 +371,29 @@ public class ShowdownPanelUI : MonoBehaviour
 
         string line = "";
         line += $"<color={cS}>♠ Spades   x{nSpade}   ATK +{spades}{parenSpade}</color>\n";
-        line += $"<color={cH}>♥ Hearts   x{nHeart}   HP  +{hearts}{parenHeart}</color>\n";
+
+        if (heartsBecomeAttack)
+        {
+            // 红桃行改标 ATK，并注明来自红桃皇后
+            line +=
+                $"<color={cH}>♥ Hearts   x{nHeart}   ATK +{hearts}{parenHeart}</color>"
+                + $"   <color=#AAAAAA>← Queen of Hearts</color>\n";
+        }
+        else
+        {
+            line += $"<color={cH}>♥ Hearts   x{nHeart}   HP  +{hearts}{parenHeart}</color>\n";
+        }
+
         line += $"<color={cC}>♣ Clubs    x{nClub}   ROF +{clubs}{parenClub}</color>\n";
         line += $"<color={cD}>♦ Diamonds x{nDiamond}   SPD +{diamonds}{parenDiamond}</color>";
         buffBreakdownText.text = line;
 
         // ---- Base / Mult / Final ----
-        baseLineText.text = $"Base    ATK {spades}   HP {hearts}   ROF {clubs}   SPD {diamonds}";
+        baseLineText.text =
+            $"Base    ATK {effSpades}   HP {effHearts}   ROF {clubs}   SPD {diamonds}";
         multLineText.text = $"Mult    x{mult:F2}   ({bestHand.GetDisplayName()})";
         finalLineText.text =
-            $"<b>Final   ATK {spades * mult:F1}   HP {hearts * mult:F1}   "
+            $"<b>Final   ATK {effSpades * mult:F1}   HP {effHearts * mult:F1}   "
             + $"ROF {clubs * mult:F1}   SPD {diamonds * mult:F1}</b>";
         finalLineText.color = new Color(1f, 0.9f, 0.4f);
     }

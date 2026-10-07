@@ -32,11 +32,21 @@ public class PokerSceneBootstrap : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
+        GameObject uiGO = null;
         if (ui == null)
         {
-            GameObject uiGO = new GameObject("PokerUI");
+            uiGO = new GameObject("PokerUI");
             uiGO.transform.SetParent(transform);
             ui = uiGO.AddComponent<PokerUI>();
+        }
+        else
+        {
+            uiGO = ui.gameObject;
+        }
+
+        if (uiGO.GetComponent<CheatGloveOverlay>() == null)
+        {
+            uiGO.AddComponent<CheatGloveOverlay>();
         }
 
         if (poker == null)

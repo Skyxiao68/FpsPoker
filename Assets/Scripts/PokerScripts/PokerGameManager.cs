@@ -46,6 +46,18 @@ public class PokerGameManager : MonoBehaviour
     /// </summary>
     public bool AwaitingPlayerMatch { get; private set; } = false;
 
+    private int swapsRemainingThisHand = 0;
+
+    /// <summary>本手牌剩余的换牌次数</summary>
+    public int SwapsRemaining => swapsRemainingThisHand;
+
+    /// <summary>当前是否可以换牌</summary>
+    public bool CanSwapCard =>
+        State == PokerState.PlayerTurn
+        && !IsDealing
+        && !AwaitingPlayerMatch
+        && swapsRemainingThisHand > 0;
+
     // ========== Chip and Betting State ==========
 
     public int PlayerChips { get; private set; } // Player's remaining chips.
@@ -166,9 +178,42 @@ public class PokerGameManager : MonoBehaviour
 
         LogMessage($"Player hand: {CardListToString(PlayerHand)}");
 
+        swapsRemainingThisHand =
+            (
+                PlayerInventory.Instance != null
+                && PlayerInventory.Instance.Has(ItemId.CardSwapTicket)
+            )
+                ? 1
+                : 0;
+
         // Begin the Pre-Flop betting round with the player acting first.
         CurrentStreet = Street.PreFlop;
         StartPlayerTurn();
+    }
+
+    /// <summary>
+    /// 玩家花一次换牌机会，把第 index 张手牌换成新牌。
+    /// </summary>
+    public void PlayerSwapCard(int handIndex)
+    {
+        if (!CanSwapCard)
+        {
+            LogMessage("现在不能换牌");
+            return;
+        }
+        if (handIndex < 0 || handIndex >= PlayerHand.Count)
+        {
+            LogMessage("换牌索引无效");
+            return;
+        }
+
+        Card oldCard = PlayerHand[handIndex];
+        Card newCard = deck.Draw();
+        PlayerHand[handIndex] = newCard;
+        swapsRemainingThisHand--;
+
+        LogMessage($"换牌：{oldCard} → {newCard}（剩余 {swapsRemainingThisHand} 次）");
+        OnStateChanged?.Invoke();
     }
 
     /// <summary>玩家最大可加注额：受对手筹码限制，保证敌人总能跟注</summary>

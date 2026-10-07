@@ -48,6 +48,12 @@ public class PokerUI : MonoBehaviour
     private Street lastStreet = Street.PreFlop;
     private bool hasInitialized = false;
 
+    private Button swapButton;
+    private GameObject swapChoiceRow;
+    private Transform canvasRoot;
+    private Button swapCard1Button;
+    private Button swapCard2Button;
+
     public void Initialize(PokerGameManager manager)
     {
         poker = manager;
@@ -75,6 +81,7 @@ public class PokerUI : MonoBehaviour
     {
         // ---------- Canvas ----------
         GameObject canvasGO = new GameObject("PokerCanvas");
+        canvasRoot = canvasGO.transform;
         Canvas canvas = canvasGO.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvas.sortingOrder = 100;
@@ -273,6 +280,17 @@ public class PokerUI : MonoBehaviour
             16
         );
         playerHandTypeText.color = new Color(0.8f, 0.8f, 0.8f);
+
+        // ---- Swap 按钮：放在玩家面板上方 ----
+        swapButton = CreateButton(
+            canvasGO.transform,
+            "SwapBtn",
+            "Swap",
+            new Vector2(0.72f, 0.38f),
+            new Vector2(0.98f, 0.43f),
+            new Color(0.45f, 0.30f, 0.65f),
+            () => OnSwapClicked()
+        );
 
         // ---------- 状态栏 ----------
         stateText = CreateText(
@@ -508,6 +526,17 @@ public class PokerUI : MonoBehaviour
         matchButton.interactable = isPlayerTurn && mustMatch;
         foldButton.interactable = isPlayerTurn;
 
+        // Swap 按钮：只有在可以换牌时才亮
+        if (swapButton != null)
+        {
+            swapButton.interactable = poker.CanSwapCard;
+        }
+
+        if (swapChoiceRow != null && swapChoiceRow.activeSelf && !poker.CanSwapCard)
+        {
+            swapChoiceRow.SetActive(false);
+        }
+
         bool handOver =
             poker.State == PokerState.HandEnded
             || poker.State == PokerState.PlayerFolded
@@ -657,6 +686,170 @@ public class PokerUI : MonoBehaviour
     {
         float target = raiseSlider.value + delta;
         raiseSlider.value = Mathf.Clamp(target, raiseSlider.minValue, raiseSlider.maxValue);
+    }
+
+    /// <summary>
+    /// 点击 Swap 按钮：显示换牌选择弹窗，让玩家选换哪张。
+    /// </summary>
+    private void OnSwapClicked()
+    {
+        Debug.Log(
+            $"[Swap] 按钮被点击。CanSwapCard={poker.CanSwapCard}, "
+                + $"SwapsRemaining={poker.SwapsRemaining}"
+        );
+
+        if (swapChoiceRow == null)
+            BuildSwapChoiceRow();
+
+        // 已经显示 → 关闭
+        if (swapChoiceRow.activeSelf)
+        {
+            swapChoiceRow.SetActive(false);
+            return;
+        }
+
+        RefreshSwapChoiceContent();
+        swapChoiceRow.SetActive(true);
+    }
+
+    private void BuildSwapChoiceRow()
+    {
+        swapChoiceRow = new GameObject("SwapChoiceRow");
+        swapChoiceRow.transform.SetParent(swapButton.transform.parent, false);
+        RectTransform rt = swapChoiceRow.AddComponent<RectTransform>();
+        rt.anchorMin = Vector2.zero;
+        rt.anchorMax = Vector2.one;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+
+        // ---- 全屏暗色遮罩（点击外部也不关闭，但视觉上聚焦弹窗） ----
+        CreatePanel(
+            swapChoiceRow.transform,
+            new Color(0f, 0f, 0f, 0.55f),
+            Vector2.zero,
+            Vector2.one
+        );
+
+        // ---- 中央卡片 ----
+        CreatePanel(
+            swapChoiceRow.transform,
+            new Color(0.12f, 0.16f, 0.14f, 0.98f),
+            new Vector2(0.28f, 0.35f),
+            new Vector2(0.72f, 0.65f)
+        );
+
+        // ---- 标题 ----
+        CreateText(
+            swapChoiceRow.transform,
+            "SwapTitle",
+            "Swap which one？",
+            new Vector2(0.28f, 0.58f),
+            new Vector2(0.72f, 0.64f),
+            TextAnchor.MiddleCenter,
+            26
+        );
+
+        // ---- 提示 ----
+        CreateText(
+            swapChoiceRow.transform,
+            "SwapHint",
+            "Discard 1 hand card and draw a new one from the deck",
+            new Vector2(0.28f, 0.53f),
+            new Vector2(0.72f, 0.58f),
+            TextAnchor.MiddleCenter,
+            16
+        ).color = new Color(0.65f, 0.65f, 0.65f);
+
+        // ---- 卡片 1 ----
+        swapCard1Button = CreateButton(
+            swapChoiceRow.transform,
+            "SwapCard1",
+            "—",
+            new Vector2(0.31f, 0.41f),
+            new Vector2(0.49f, 0.51f),
+            new Color(0.45f, 0.30f, 0.65f),
+            () =>
+            {
+                poker.PlayerSwapCard(0);
+                swapChoiceRow.SetActive(false);
+            }
+        );
+
+        // ---- 卡片 2 ----
+        swapCard2Button = CreateButton(
+            swapChoiceRow.transform,
+            "SwapCard2",
+            "—",
+            new Vector2(0.51f, 0.41f),
+            new Vector2(0.69f, 0.51f),
+            new Color(0.45f, 0.30f, 0.65f),
+            () =>
+            {
+                poker.PlayerSwapCard(1);
+                swapChoiceRow.SetActive(false);
+            }
+        );
+
+        // ---- 取消按钮 ----
+        CreateButton(
+            swapChoiceRow.transform,
+            "SwapCancel",
+            "Cancel",
+            new Vector2(0.42f, 0.36f),
+            new Vector2(0.58f, 0.40f),
+            new Color(0.25f, 0.25f, 0.25f),
+            () => swapChoiceRow.SetActive(false)
+        );
+
+        swapChoiceRow.SetActive(false);
+    }
+
+    /// <summary>每次打开时把当前手牌信息填进两个按钮的 label</summary>
+    private void RefreshSwapChoiceContent()
+    {
+        if (swapCard1Button == null || swapCard2Button == null)
+            return;
+
+        SetButtonLabel(swapCard1Button, LabelForHandIndex(0));
+        SetButtonLabel(swapCard2Button, LabelForHandIndex(1));
+    }
+
+    private string LabelForHandIndex(int i)
+    {
+        var hand = poker.PlayerHand;
+        if (hand == null || i >= hand.Count)
+            return "—";
+        var c = hand[i];
+        string hex;
+        switch (c.Suit)
+        {
+            case Suit.Spades:
+                    hex = "#A0A0A0";
+                    break;
+                case Suit.Hearts:
+                    hex = "#FF8080";
+                    break;
+                case Suit.Clubs:
+                    hex = "#90E0FF";
+                    break;
+                case Suit.Diamonds:
+                    hex = "#FFD060";
+                    break;
+                default:
+                    hex = "#FFFFFF";
+                    break;
+        }
+        return $"Swap <color={hex}>{c}</color>";
+    }
+
+    private void SetButtonLabel(Button btn, string text)
+    {
+        var labelT = btn.transform.Find("Label");
+        if (labelT == null)
+            return;
+        var txt = labelT.GetComponent<Text>();
+        if (txt != null)
+            txt.text = text;
     }
 
     // =========================================================

@@ -71,29 +71,32 @@ public class PokerCombatBridge : MonoBehaviour
     // 扑克 → 战斗
 
     private void HandleHandEnded()
-{
-    //  任何牌局结束都同步一次筹码到 GFM
-    if (GameFlowManager.Instance != null)
     {
-        GameFlowManager.Instance.PlayerChips = poker.PlayerChips;
-        GameFlowManager.Instance.EnemyChips = poker.EnemyChips;
-        Debug.Log($"[Bridge] 筹码同步 → Player={poker.PlayerChips}, Enemy={poker.EnemyChips}");
+        //  任何牌局结束都同步一次筹码到 GFM
+        if (GameFlowManager.Instance != null)
+        {
+            GameFlowManager.Instance.PlayerChips = poker.PlayerChips;
+            GameFlowManager.Instance.EnemyChips = poker.EnemyChips;
+            Debug.Log($"[Bridge] 筹码同步 → Player={poker.PlayerChips}, Enemy={poker.EnemyChips}");
+        }
+
+        if (settlingDirectly)
+            return;
+
+        if (
+            poker.Result != PokerResult.PlayerWinsShowdown
+            && poker.Result != PokerResult.EnemyWinsShowdown
+        )
+            return;
+
+        if (GameFlowManager.Instance == null)
+        {
+            SettleDirectly();
+            return;
+        }
+
+        ShowdownPanel();
     }
-
-    if (settlingDirectly) return;
-
-    if (poker.Result != PokerResult.PlayerWinsShowdown
-        && poker.Result != PokerResult.EnemyWinsShowdown)
-        return;
-
-    if (GameFlowManager.Instance == null)
-    {
-        SettleDirectly();
-        return;
-    }
-
-    ShowdownPanel();
-}
 
     private ShowdownPanelUI showdownPanel;
 
@@ -120,8 +123,8 @@ public class PokerCombatBridge : MonoBehaviour
         Debug.Log("[Bridge] 玩家点击 Enter Combat，开始进入战斗");
 
         // 计算 CombatStats
-        CombatStats playerStats = CombatStatsFactory.Compute(poker.PlayerBestHand);
-        CombatStats enemyStats = CombatStatsFactory.Compute(poker.EnemyBestHand);
+        CombatStats playerStats = ItemEffectBridge.GetCombatStats(poker.PlayerBestHand);
+        CombatStats enemyStats = CombatStatsFactory.Compute(poker.EnemyBestHand); // 敌人不应用玩家物品
 
         int pot = poker.Pot;
         string enemyName = poker.EnemyParams != null ? poker.EnemyParams.enemyName : "Enemy";
@@ -149,31 +152,33 @@ public class PokerCombatBridge : MonoBehaviour
     // 战斗 → 扑克
 
     private void ApplyCombatResult(CombatWinner winner, int pot)
-{
-    poker.SetPendingPot(pot);
+    {
+        poker.SetPendingPot(pot);
 
-    settlingDirectly = true;
-    if (winner == CombatWinner.Player)
-    {
-        poker.CreditPotToPlayer();
-        Debug.Log($"[Bridge] 玩家战斗胜利，底池 {pot} 归玩家。");
-    }
-    else
-    {
-        poker.ForfeitPot();
-        Debug.Log($"[Bridge] 玩家战斗失败，底池 {pot} 被没收。");
-    }
-    settlingDirectly = false;
+        settlingDirectly = true;
+        if (winner == CombatWinner.Player)
+        {
+            poker.CreditPotToPlayer();
+            Debug.Log($"[Bridge] 玩家战斗胜利，底池 {pot} 归玩家。");
+        }
+        else
+        {
+            poker.ForfeitPot();
+            Debug.Log($"[Bridge] 玩家战斗失败，底池 {pot} 被没收。");
+        }
+        settlingDirectly = false;
 
-    //  显式同步筹码到 GameFlowManager（不依赖 OnHandEnded 事件）
-    if (GameFlowManager.Instance != null)
-    {
-        GameFlowManager.Instance.PlayerChips = poker.PlayerChips;
-        GameFlowManager.Instance.EnemyChips = poker.EnemyChips;
-        Debug.Log($"[Bridge] ApplyCombatResult → 同步 GFM: " +
-                  $"Player={poker.PlayerChips}, Enemy={poker.EnemyChips}");
+        //  显式同步筹码到 GameFlowManager（不依赖 OnHandEnded 事件）
+        if (GameFlowManager.Instance != null)
+        {
+            GameFlowManager.Instance.PlayerChips = poker.PlayerChips;
+            GameFlowManager.Instance.EnemyChips = poker.EnemyChips;
+            Debug.Log(
+                $"[Bridge] ApplyCombatResult → 同步 GFM: "
+                    + $"Player={poker.PlayerChips}, Enemy={poker.EnemyChips}"
+            );
+        }
     }
-}
 
     // 独立测试模式的直接结算
 
