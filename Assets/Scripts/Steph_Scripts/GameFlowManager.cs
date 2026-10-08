@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -17,6 +19,7 @@ using UnityEngine.SceneManagement;
 public class GameFlowManager : MonoBehaviour
 {
     public static GameFlowManager Instance { get; private set; }
+    public const int MaxPowerCards = 3;
 
     [Header("Scenes")]
     [Tooltip("Exact scene name as it appears in Build Settings.")]
@@ -42,6 +45,61 @@ public class GameFlowManager : MonoBehaviour
     /// </summary>
     public int PlayerChips { get; set; } = -1;
     public int EnemyChips { get; set; } = -1;
+
+    // The shop owns pricing and purchase UI. This inventory only tracks
+    // equipped cards across the poker/combat scene boundary.
+    private readonly List<PowerCardDefinition> ownedPowerCards =
+        new List<PowerCardDefinition>(MaxPowerCards);
+
+    public IReadOnlyList<PowerCardDefinition> OwnedPowerCards =>
+        ownedPowerCards.AsReadOnly();
+
+    public bool CanAcquirePowerCard(PowerCardDefinition card)
+    {
+        if (card == null || string.IsNullOrWhiteSpace(card.CardId) ||
+            ownedPowerCards.Count >= MaxPowerCards)
+            return false;
+
+        foreach (PowerCardDefinition owned in ownedPowerCards)
+        {
+            if (owned != null && string.Equals(
+                owned.CardId, card.CardId, StringComparison.Ordinal))
+                return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>Call after the shop approves a purchase.</summary>
+    public bool TryAcquirePowerCard(PowerCardDefinition card)
+    {
+        if (!CanAcquirePowerCard(card))
+            return false;
+
+        ownedPowerCards.Add(card);
+        return true;
+    }
+
+    public bool TryRemovePowerCard(string cardId)
+    {
+        for (int i = 0; i < ownedPowerCards.Count; i++)
+        {
+            PowerCardDefinition card = ownedPowerCards[i];
+            if (card != null && string.Equals(
+                card.CardId, cardId, StringComparison.Ordinal))
+            {
+                ownedPowerCards.RemoveAt(i);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public void ClearPowerCards()
+    {
+        ownedPowerCards.Clear();
+    }
 
     private CombatHandoff? pendingHandoff;
     private PendingResult? pendingResult;
@@ -104,6 +162,7 @@ public class GameFlowManager : MonoBehaviour
         {
             playerStats = playerStats,
             enemyStats = enemyStats,
+            playerPowerCards = ownedPowerCards.ToArray(),
             pot = pot,
             enemyName = enemyName,
             enemyCombatStyle = enemyCombatStyle,

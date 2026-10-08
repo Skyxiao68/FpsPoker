@@ -43,6 +43,8 @@ public class CombatSceneController : MonoBehaviour
 
     [SerializeField] private int debugPot = 20;
     [SerializeField] private string debugEnemyCombatStyle = "Ranged";
+    [Tooltip("Only used when this combat scene is opened directly. Up to three cards apply to the player.")]
+    [SerializeField] private PowerCardDefinition[] debugPowerCards;
 
     private int currentPot;
     private Health enemyHealth;
@@ -54,7 +56,25 @@ public class CombatSceneController : MonoBehaviour
 
         currentPot = handoff.pot;
 
-        ApplyStats(playerHealth, playerController, handoff.playerStats);
+        CombatStats playerStats = PowerCardCombatHandler.Apply(
+            handoff.playerStats, handoff.playerPowerCards);
+
+        if (handoff.playerPowerCards != null)
+        {
+            int count = Mathf.Min(
+                handoff.playerPowerCards.Length, GameFlowManager.MaxPowerCards);
+            if (count > 0)
+                Debug.Log($"[Power Cards] Player stats: {handoff.playerStats} -> {playerStats}");
+
+            for (int i = 0; i < count; i++)
+            {
+                PowerCardDefinition card = handoff.playerPowerCards[i];
+                if (card != null)
+                    Debug.Log($"[Power Cards] Applied {card.DisplayName} ({card.CardId})");
+            }
+        }
+
+        ApplyStats(playerHealth, playerController, playerStats);
 
         SpawnEnemy(handoff);
     }
@@ -81,6 +101,7 @@ public class CombatSceneController : MonoBehaviour
         {
             playerStats = debugPlayerStats,
             enemyStats = debugEnemyStats,
+            playerPowerCards = debugPowerCards,
             pot = debugPot,
             enemyName = "Debug Enemy",
             enemyCombatStyle = debugEnemyCombatStyle

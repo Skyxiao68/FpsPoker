@@ -21349,8 +21349,12 @@ MonoBehaviour:
     health: 150
     fireRate: 5
     moveSpeed: 2
-  debugPot: 20
-  debugEnemyCombatStyle: Ranged
+    debugPot: 20
+    debugEnemyCombatStyle: Ranged
+    debugPowerCards:
+    - {fileID: 11400000, guid: e6c2d12670544761a0283d28fe4e0f04, type: 2}
+    - {fileID: 11400000, guid: db209c1b6059442cb97f7c68eab51eb5, type: 2}
+    - {fileID: 11400000, guid: 74de2bc19e8b45e0b872d3ce8a796e8a, type: 2}
 --- !u!4 &1058858655
 Transform:
   m_ObjectHideFlags: 0
