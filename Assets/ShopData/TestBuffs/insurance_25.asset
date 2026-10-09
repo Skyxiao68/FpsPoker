@@ -16,9 +16,9 @@ MonoBehaviour:
   displayName: Basic Insurance
   description: Reduce losses from a defeat by 25%.
   icon: {fileID: 0}
-  price: 60
+  price: 90
   category: Protection
-  tier: 
+  tier: silver
   maxOwned: 1
   hidden: 0
   payload: {fileID: 11400000, guid: 7dad9f3e521eba640b92c6929804e6b9, type: 2}

@@ -18,7 +18,7 @@ MonoBehaviour:
   icon: {fileID: 0}
   price: 50
   category: Cards
-  tier: 
+  tier: bronze
   maxOwned: 2
   hidden: 0
   payload: {fileID: 11400000, guid: 4aa6a8002eb5e4a40803c39f13d178ad, type: 2}

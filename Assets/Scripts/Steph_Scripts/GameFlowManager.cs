@@ -27,6 +27,10 @@ public class GameFlowManager : MonoBehaviour
     [SerializeField]
     private string combatSceneName = "CombatScene";
 
+    [Tooltip("Exact scene name as it appears in Build Settings.")]
+    [SerializeField]
+    private string shopSceneName = "ShopScene";
+
     [Header("Economy")]
     [Tooltip("Used only the very first time the run starts.")]
     [SerializeField]
@@ -39,7 +43,7 @@ public class GameFlowManager : MonoBehaviour
     [SerializeField]
     private int buyIn = 10;
 
-    public int BuyIn => buyIn;
+    public int CurrentBuyIn => buyIn;
 
     /// <summary>
     /// The player's persistent chip total. -1 means "not yet
@@ -55,12 +59,18 @@ public class GameFlowManager : MonoBehaviour
     /// </summary>
     public bool ReturnedFromCombat { get; private set; } = false;
 
+    /// <summary>是否从商店场景返回</summary>
+    public bool ReturnedFromShop { get; private set; } = false;
+
     /// <summary>
     /// 当前正在面对的敌人。
     /// null 表示还没有生成过，需要由扑克场景决定何时首次生成。
     /// 由 GameFlowManager 持有，跨场景保留。
     /// </summary>
     public EnemyAIParameters CurrentEnemy { get; private set; }
+
+    /// <summary>玩家进商店的次数，每次进店 +1。用来驱动稀有度递增</summary>
+    public int ShopVisitCount { get; private set; } = 0;
 
     private CombatHandoff? pendingHandoff;
     private PendingResult? pendingResult;
@@ -195,13 +205,36 @@ public class GameFlowManager : MonoBehaviour
         ReturnedFromCombat = false;
     }
 
+    public void BeginShop()
+    {
+        ReturnedFromShop = false; // 刚离开扑克，还没回来
+        SceneManager.LoadScene(shopSceneName);
+    }
+
+    public void ReportShopResult()
+    {
+        ReturnedFromShop = true;
+        SceneManager.LoadScene(pokerSceneName);
+    }
+
+    public void ClearReturnedFromShop()
+    {
+        ReturnedFromShop = false;
+    }
+
     /// <summary>
     /// 推进到下一个敌人：生成随机敌人并记录下来。
     /// 由扑克场景的 Bootstrap 在合适的时机（牌局结束时）调用。
     /// </summary>
-    public void AdvanceToNextEnemy()
+    public void AdvanceToNextEncounter()
     {
         CurrentEnemy = EnemyGenerator.GenerateRandom();
         Debug.Log($"[GameFlow] 推进到新敌人: {EnemyGenerator.Describe(CurrentEnemy)}");
+    }
+
+    public void IncrementShopVisit()
+    {
+        ShopVisitCount++;
+        Debug.Log($"[GameFlow] 商店访问次数 = {ShopVisitCount}");
     }
 }

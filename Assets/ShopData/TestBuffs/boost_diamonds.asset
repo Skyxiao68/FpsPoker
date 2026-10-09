@@ -18,7 +18,7 @@ MonoBehaviour:
   icon: {fileID: 0}
   price: 70
   category: Suits
-  tier: 
+  tier: bronze
   maxOwned: 1
   hidden: 0
   payload: {fileID: 11400000, guid: 77924b5cd3f43fc439306c46e85d6c36, type: 2}

@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 772491752b440df43ba4ab6847460aad, type: 3}
-  m_Name: extra_card
+  m_Name: queen_of_hearts
   m_EditorClassIdentifier: Assembly-CSharp::PokerShop.ShopItem
-  id: extra_card
-  displayName: Extra Starting Card
-  description: Start the round with one extra card.
+  id: queen_of_hearts
+  displayName: Queen of Hearts
+  description: Hearts now grant Attack instead of HP.
   icon: {fileID: 0}
-  price: 100
-  category: Cards
-  tier: silver
+  price: 200
+  category: Suits
+  tier: gold
   maxOwned: 1
   hidden: 0
-  payload: {fileID: 11400000, guid: 977ac9bdbabf5cf49a27eff48ead772f, type: 2}
+  payload: {fileID: 11400000, guid: 6be9cd4a4c1f69b46aea6bef64170ccb, type: 2}

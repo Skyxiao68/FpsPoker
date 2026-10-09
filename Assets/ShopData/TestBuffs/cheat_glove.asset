@@ -10,15 +10,15 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 772491752b440df43ba4ab6847460aad, type: 3}
-  m_Name: extra_card
+  m_Name: cheat_glove
   m_EditorClassIdentifier: Assembly-CSharp::PokerShop.ShopItem
-  id: extra_card
-  displayName: Extra Starting Card
-  description: Start the round with one extra card.
+  id: cheat_glove
+  displayName: Cheat Glove
+  description: See one of the enemy's cards.
   icon: {fileID: 0}
-  price: 100
+  price: 60
   category: Cards
-  tier: silver
+  tier: bronze
   maxOwned: 1
   hidden: 0
-  payload: {fileID: 11400000, guid: 977ac9bdbabf5cf49a27eff48ead772f, type: 2}
+  payload: {fileID: 11400000, guid: c140a0d72a25a2b418bed9cb63c2195b, type: 2}

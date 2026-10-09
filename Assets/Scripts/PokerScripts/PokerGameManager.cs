@@ -179,13 +179,9 @@ public class PokerGameManager : MonoBehaviour
         LogMessage($"Player hand: {CardListToString(PlayerHand)}");
 
         swapsRemainingThisHand =
-            (
-                PlayerInventory.Instance != null
-                && PlayerInventory.Instance.Has(ItemId.CardSwapTicket)
-            )
-                ? 1
+            PlayerInventory.Instance != null
+                ? PlayerInventory.Instance.GetCount(ItemId.CardSwapTicket)
                 : 0;
-
         // Begin the Pre-Flop betting round with the player acting first.
         CurrentStreet = Street.PreFlop;
         StartPlayerTurn();
