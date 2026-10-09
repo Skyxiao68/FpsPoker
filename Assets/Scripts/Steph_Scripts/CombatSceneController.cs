@@ -84,6 +84,8 @@ public class CombatSceneController : MonoBehaviour
             pot = debugPot,
             enemyName = "Debug Enemy",
             enemyCombatStyle = debugEnemyCombatStyle
+
+            
         };
     }
 
@@ -94,6 +96,7 @@ public class CombatSceneController : MonoBehaviour
     private void SpawnEnemy(CombatHandoff handoff)
     {
         GameObject prefab = FindPrefabFor(handoff.enemyCombatStyle);
+        
 
         if (prefab == null)
         {

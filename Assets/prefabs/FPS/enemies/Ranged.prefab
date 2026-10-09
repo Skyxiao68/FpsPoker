@@ -4871,7 +4871,7 @@ MonoBehaviour:
   obstructionMask:
     serializedVersion: 2
     m_Bits: 503
-  targetHeightOffset: 1.2
+  targetHeightOffset: 1
   scanInterval: 0.2
 --- !u!114 &8421301799209160080
 MonoBehaviour:
