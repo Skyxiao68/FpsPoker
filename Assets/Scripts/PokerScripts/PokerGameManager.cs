@@ -46,6 +46,18 @@ public class PokerGameManager : MonoBehaviour
     /// </summary>
     public bool AwaitingPlayerMatch { get; private set; } = false;
 
+    private int swapsRemainingThisHand = 0;
+
+    /// <summary>本手牌剩余的换牌次数</summary>
+    public int SwapsRemaining => swapsRemainingThisHand;
+
+    /// <summary>当前是否可以换牌</summary>
+    public bool CanSwapCard =>
+        State == PokerState.PlayerTurn
+        && !IsDealing
+        && !AwaitingPlayerMatch
+        && swapsRemainingThisHand > 0;
+
     // ========== Chip and Betting State ==========
 
     public int PlayerChips { get; private set; } // Player's remaining chips.
@@ -143,6 +155,7 @@ public class PokerGameManager : MonoBehaviour
             LogMessage("Enemy has insufficient chips, player advances");
             State = PokerState.HandEnded;
             OnStateChanged?.Invoke();
+            OnHandEnded?.Invoke();
             return;
         }
 
@@ -165,9 +178,38 @@ public class PokerGameManager : MonoBehaviour
 
         LogMessage($"Player hand: {CardListToString(PlayerHand)}");
 
+        swapsRemainingThisHand =
+            PlayerInventory.Instance != null
+                ? PlayerInventory.Instance.GetCount(ItemId.CardSwapTicket)
+                : 0;
         // Begin the Pre-Flop betting round with the player acting first.
         CurrentStreet = Street.PreFlop;
         StartPlayerTurn();
+    }
+
+    /// <summary>
+    /// 玩家花一次换牌机会，把第 index 张手牌换成新牌。
+    /// </summary>
+    public void PlayerSwapCard(int handIndex)
+    {
+        if (!CanSwapCard)
+        {
+            LogMessage("现在不能换牌");
+            return;
+        }
+        if (handIndex < 0 || handIndex >= PlayerHand.Count)
+        {
+            LogMessage("换牌索引无效");
+            return;
+        }
+
+        Card oldCard = PlayerHand[handIndex];
+        Card newCard = deck.Draw();
+        PlayerHand[handIndex] = newCard;
+        swapsRemainingThisHand--;
+
+        LogMessage($"换牌：{oldCard} → {newCard}（剩余 {swapsRemainingThisHand} 次）");
+        OnStateChanged?.Invoke();
     }
 
     /// <summary>玩家最大可加注额：受对手筹码限制，保证敌人总能跟注</summary>
@@ -447,7 +489,6 @@ public class PokerGameManager : MonoBehaviour
             return;
         }
 
-
         // Execute the re-raise and give the turn back to the player.
         EnemyChips -= aiAmount;
         Pot += aiAmount;
@@ -481,7 +522,7 @@ public class PokerGameManager : MonoBehaviour
         if (amount > maxRaise)
         {
             amount = maxRaise;
-            LogMessage($"Enemy raise {amount} exceeds max {maxRaise}, capping to max"); 
+            LogMessage($"Enemy raise {amount} exceeds max {maxRaise}, capping to max");
         }
 
         // Deduct chips from enemy and add to pot.
@@ -527,28 +568,36 @@ public class PokerGameManager : MonoBehaviour
     /// </summary>
     private void AdvanceStreet()
     {
+        if (IsDealing)
+        {
+            Debug.LogWarning("[Poker] AdvanceStreet 被调用，但正在发牌中，忽略");
+            return;
+        }
+
         // Reset per-street betting state.
         CurrentBet = 0;
         playerHasRaised = false;
         AwaitingPlayerMatch = false;
 
+        IsDealing = true;
+        State = PokerState.Dealing;
+        OnStateChanged?.Invoke();
+
         // Move to the next street and deal cards accordingly.
         switch (CurrentStreet)
         {
             case Street.PreFlop:
-                // Deal 3 cards for the Flop.
                 StartCoroutine(DealCommunityCards(3, Street.Flop));
                 break;
             case Street.Flop:
-                // Deal 1 card for the Turn.
                 StartCoroutine(DealCommunityCards(1, Street.Turn));
                 break;
             case Street.Turn:
-                // Deal 1 card for the River.
                 StartCoroutine(DealCommunityCards(1, Street.River));
                 break;
             case Street.River:
-                // No more cards - resolve the showdown.
+
+                IsDealing = false;
                 ResolveShowdown();
                 break;
         }
@@ -559,9 +608,7 @@ public class PokerGameManager : MonoBehaviour
     /// </summary>
     private IEnumerator DealCommunityCards(int count, Street nextStreet)
     {
-        // Mark as dealing so the player can't act.
-        IsDealing = true;
-        State = PokerState.Dealing;
+        CurrentStreet = nextStreet;
         OnStateChanged?.Invoke();
 
         // Reveal each card with a delay between them.
@@ -574,8 +621,6 @@ public class PokerGameManager : MonoBehaviour
             OnStateChanged?.Invoke();
         }
 
-        // Update the street and hand the turn back to the player.
-        CurrentStreet = nextStreet;
         IsDealing = false;
         StartPlayerTurn();
     }
