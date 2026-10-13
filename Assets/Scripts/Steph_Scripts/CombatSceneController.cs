@@ -86,7 +86,7 @@ public class CombatSceneController : MonoBehaviour
             }
         }
 
-        ApplyStats(playerHealth, playerController, playerStats);
+        ApplyStats(playerHealth, playerController, playerStats, 100);
         FPS_HUD playerHud = playerController != null
             ? playerController.GetComponent<FPS_HUD>() : null;
         if (playerHud != null)
@@ -344,12 +344,15 @@ public class CombatSceneController : MonoBehaviour
     private void ApplyStats(
         Health health,
         FpsCharacterController controller,
-        CombatStats stats)
+        CombatStats stats,
+        int minimumHealth = 1)
     {
         if (health != null)
         {
             int bonusHealth = Mathf.RoundToInt(stats.health);
-            health.SetMaxHealth(health.MaxHealth + bonusHealth);
+            long totalHealth = (long)Mathf.Max(minimumHealth, health.MaxHealth) + bonusHealth;
+            health.SetMaxHealth((int)System.Math.Max(minimumHealth,
+                System.Math.Min(int.MaxValue, totalHealth)));
         }
 
         if (controller == null)
@@ -381,15 +384,17 @@ public class CombatSceneController : MonoBehaviour
                 (1f + stats.fireRate / 100f)
             );
 
-        // Clubs/fire-rate buff also determines total shots per magazine.
-        // Keep the weapon's authored capacity when there is no buff.
-        if (stats.fireRate > 0f)
-            runtimeSettings.magazineSize = Mathf.Max(1, Mathf.FloorToInt(stats.fireRate));
+        // Clubs/fire-rate buff can expand the magazine, but a small buff
+        // must never replace the weapon's authored capacity.
+        int baseCapacity = Mathf.Max(1, weapon.Settings.magazineSize);
+        int buffCapacity = stats.fireRate > 0f
+            ? Mathf.FloorToInt(stats.fireRate) : 0;
+        runtimeSettings.magazineSize = Mathf.Max(baseCapacity, buffCapacity);
 
         // Each extra shot adds only a small reload penalty. The authored
         // reload time remains the baseline for this weapon.
         runtimeSettings.reloadTime = weapon.Settings.reloadTime +
-            0.12f * Mathf.Max(0, runtimeSettings.magazineSize - 1);
+            0.12f * (runtimeSettings.magazineSize - baseCapacity);
 
         weapon.SetSettings(runtimeSettings);
     }

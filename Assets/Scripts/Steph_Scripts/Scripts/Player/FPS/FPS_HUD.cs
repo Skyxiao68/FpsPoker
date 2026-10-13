@@ -32,6 +32,10 @@ public class FPS_HUD : MonoBehaviour
             health.OnDamaged += UpdateHealth;
         if (healthText != null)
         {
+            RectTransform healthRect = healthText.rectTransform;
+            healthRect.sizeDelta = new Vector2(
+                Mathf.Max(260f, healthRect.sizeDelta.x), healthRect.sizeDelta.y);
+
             // Add ammo beside the existing health HUD at runtime, so the
             // scene/prefab does not need another serialized UI reference.
             ammoText = Instantiate(healthText, healthText.transform.parent, false);
@@ -249,7 +253,8 @@ public class FPS_HUD : MonoBehaviour
         if (healthText == null)
             return;
 
-        string display = health != null ? health.CurrentHealth.ToString() : "";
+        string display = health != null
+            ? "HP " + health.CurrentHealth + "/" + health.MaxHealth : "";
         if (display != lastHealthDisplay)
         {
             healthText.text = display;

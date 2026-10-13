@@ -119,11 +119,11 @@ public class FpsOwnedItemsHud : MonoBehaviour
             return;
 
         overlayCanvas.sortingOrder = poker ? 150 : 20;
-        Vector2 corner = poker ? Vector2.one : Vector2.zero;
+        Vector2 corner = poker ? Vector2.one : new Vector2(0f, 1f);
         panel.anchorMin = panel.anchorMax = corner;
         panel.pivot = corner;
         panel.anchoredPosition = poker
-            ? new Vector2(-18f, -60f) : new Vector2(24f, 24f);
+            ? new Vector2(-18f, -60f) : new Vector2(24f, -24f);
         panel.sizeDelta = poker
             ? new Vector2(340f, 230f) : new Vector2(440f, 230f);
         FindCatalog();
