@@ -1,4 +1,5 @@
 using System.Collections;
+using PokerShop;
 using UnityEngine;
 
 /// <summary>
@@ -16,6 +17,9 @@ public class PokerCombatBridge : MonoBehaviour
 {
     [SerializeField]
     private PokerGameManager poker;
+
+    [SerializeField]
+    private ShopCatalog fpsItemCatalog;
 
     private bool settlingDirectly = false;
 
@@ -124,6 +128,8 @@ public class PokerCombatBridge : MonoBehaviour
 
         // 计算 CombatStats
         CombatStats playerStats = ItemEffectBridge.GetCombatStats(poker.PlayerBestHand);
+        FpsItemDefinition[] fpsItems = FpsItemCombatHandler.GetOwnedItems(
+            fpsItemCatalog, PlayerInventory.Instance);
         CombatStats enemyStats = CombatStatsFactory.Compute(poker.EnemyBestHand); // 敌人不应用玩家物品
 
         int pot = poker.Pot;
@@ -145,7 +151,8 @@ public class PokerCombatBridge : MonoBehaviour
             enemyStats,
             pot,
             enemyName,
-            enemyStyle
+            enemyStyle,
+            fpsItems
         );
     }
 

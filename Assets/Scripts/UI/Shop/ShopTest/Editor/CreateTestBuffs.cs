@@ -69,6 +69,13 @@ public static class CreateTestBuffs
             catalog.items.Add(item);
         }
 
+        foreach (string id in new[] { "deadeye", "quickstep", "iron_heart" })
+        {
+            var item = AssetDatabase.LoadAssetAtPath<ShopItem>($"{Dir}/{id}.asset");
+            if (item != null)
+                catalog.items.Add(item);
+        }
+
         EditorUtility.SetDirty(catalog);
         AssetDatabase.SaveAssets();
         EditorUtility.FocusProjectWindow();

@@ -11,8 +11,9 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c17d2188371044e9a575bd179fe8ca2e, type: 3}
   m_Name: Deadeye
-  m_EditorClassIdentifier: Assembly-CSharp::PowerCardDefinition
-  cardId: deadeye
+  m_EditorClassIdentifier: Assembly-CSharp::FpsItemDefinition
+  fpsItemId: deadeye
+  itemId: 4
   displayName: Deadeye
   description: Adds 8 damage to each FPS weapon hit.
   bonusStats:

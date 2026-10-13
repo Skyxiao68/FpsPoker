@@ -123,7 +123,8 @@ public class GameFlowManager : MonoBehaviour
         CombatStats enemyStats,
         int pot,
         string enemyName,
-        string enemyCombatStyle
+        string enemyCombatStyle,
+        FpsItemDefinition[] playerFpsItems
     )
     {
         PlayerChips = currentPlayerChips;
@@ -133,6 +134,7 @@ public class GameFlowManager : MonoBehaviour
         {
             playerStats = playerStats,
             enemyStats = enemyStats,
+            playerFpsItems = playerFpsItems,
             pot = pot,
             enemyName = enemyName,
             enemyCombatStyle = enemyCombatStyle,

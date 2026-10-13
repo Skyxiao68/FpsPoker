@@ -10,13 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: c17d2188371044e9a575bd179fe8ca2e, type: 3}
-  m_Name: Quickstep
-  m_EditorClassIdentifier: Assembly-CSharp::PowerCardDefinition
-  cardId: quickstep
-  displayName: Quickstep
-  description: Adds 2 move speed and 20 attack speed in the FPS duel.
+  m_Name: IronHeart
+  m_EditorClassIdentifier: Assembly-CSharp::FpsItemDefinition
+  fpsItemId: iron_heart
+  itemId: 6
+  displayName: Iron Heart
+  description: Adds 35 maximum health in the FPS duel.
   bonusStats:
     attack: 0
-    health: 0
-    fireRate: 20
-    moveSpeed: 2
+    health: 35
+    fireRate: 0
+    moveSpeed: 0

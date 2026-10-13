@@ -47,6 +47,9 @@ namespace PokerShopBridge
             { "double_swap",     ItemId.CardSwapTicket },
             { "cheat_glove",     ItemId.CheatGlove },
             { "queen_of_hearts", ItemId.QueenOfHearts },
+            { "deadeye",         ItemId.Deadeye },
+            { "quickstep",       ItemId.Quickstep },
+            { "iron_heart",      ItemId.IronHeart },
         };
 
         // 跨场景保留的购买计数
@@ -68,6 +71,11 @@ namespace PokerShopBridge
             if (PlayerInventory.Instance == null)
             {
                 Debug.LogWarning("[Shop] PlayerInventory.Instance 为 null");
+                return false;
+            }
+            if (!InventorySlots.HasSpace(PlayerInventory.Instance))
+            {
+                Debug.LogWarning("[Shop] Shared inventory is full.");
                 return false;
             }
 

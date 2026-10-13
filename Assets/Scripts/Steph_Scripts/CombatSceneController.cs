@@ -43,8 +43,8 @@ public class CombatSceneController : MonoBehaviour
 
     [SerializeField] private int debugPot = 20;
     [SerializeField] private string debugEnemyCombatStyle = "Ranged";
-    [Tooltip("Only used when this combat scene is opened directly. Up to three cards apply to the player.")]
-    [SerializeField] private PowerCardDefinition[] debugPowerCards;
+    [Tooltip("Only used when this combat scene is opened directly.")]
+    [SerializeField] private FpsItemDefinition[] debugFpsItems;
 
     private int currentPot;
     private Health enemyHealth;
@@ -56,21 +56,19 @@ public class CombatSceneController : MonoBehaviour
 
         currentPot = handoff.pot;
 
-        CombatStats playerStats = PowerCardCombatHandler.Apply(
-            handoff.playerStats, handoff.playerPowerCards);
+        CombatStats playerStats = FpsItemCombatHandler.Apply(
+            handoff.playerStats, handoff.playerFpsItems);
 
-        if (handoff.playerPowerCards != null)
+        if (handoff.playerFpsItems != null)
         {
-            int count = Mathf.Min(
-                handoff.playerPowerCards.Length, GameFlowManager.MaxPowerCards);
-            if (count > 0)
-                Debug.Log($"[Power Cards] Player stats: {handoff.playerStats} -> {playerStats}");
+            if (handoff.playerFpsItems.Length > 0)
+                Debug.Log($"[FpsItem] Player stats: {handoff.playerStats} -> {playerStats}");
 
-            for (int i = 0; i < count; i++)
+            for (int i = 0; i < handoff.playerFpsItems.Length; i++)
             {
-                PowerCardDefinition card = handoff.playerPowerCards[i];
-                if (card != null)
-                    Debug.Log($"[Power Cards] Applied {card.DisplayName} ({card.CardId})");
+                FpsItemDefinition item = handoff.playerFpsItems[i];
+                if (item != null)
+                    Debug.Log($"[FpsItem] Applied {item.DisplayName} ({item.FpsItemId})");
             }
         }
 
@@ -101,7 +99,7 @@ public class CombatSceneController : MonoBehaviour
         {
             playerStats = debugPlayerStats,
             enemyStats = debugEnemyStats,
-            playerPowerCards = debugPowerCards,
+            playerFpsItems = debugFpsItems,
             pot = debugPot,
             enemyName = "Debug Enemy",
             enemyCombatStyle = debugEnemyCombatStyle
