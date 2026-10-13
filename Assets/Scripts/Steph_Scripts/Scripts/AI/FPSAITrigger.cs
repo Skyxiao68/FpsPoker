@@ -20,6 +20,8 @@ public class FpsAiTrigger : MonoBehaviour
     private float nextBurstTime;
     private FpsAiPerception perception;
     private Weapon previousWeapon;
+    private int ammoAtTriggerPress;
+    private int triggerPressFrame;
     private readonly RaycastHit[] shotHits = new RaycastHit[32];
 
     public bool IsFiring => triggerHeld;
@@ -68,10 +70,18 @@ public class FpsAiTrigger : MonoBehaviour
             return;
         }
 
-        UpdateBurst(weapon);
+        if (weapon.Settings.isAutomatic)
+            UpdateBurst(weapon);
+        else
+            UpdateSemiAutomatic(weapon);
     }
 
     public void ReleaseTrigger()
+    {
+        ReleaseTrigger(true);
+    }
+
+    private void ReleaseTrigger(bool applyBurstCooldown)
     {
         bool wasHeld = triggerHeld;
         triggerHeld = false;
@@ -80,7 +90,7 @@ public class FpsAiTrigger : MonoBehaviour
             characterController.SetFireInput(false);
 
         // Start the cooldown as soon as the burst ends.
-        if (wasHeld)
+        if (wasHeld && applyBurstCooldown)
         {
             nextBurstTime = Time.time +
                 (personality != null ? Mathf.Max(0f, personality.burstCooldown) : 0f);
@@ -109,16 +119,16 @@ public class FpsAiTrigger : MonoBehaviour
         if (!perception.HasLineOfSight(eyes.position, perception.AimPoint))
             return false;
 
-        return HasClearFiringPath(eyes, distance);
+        return HasClearFiringPath(eyes, distance, weapon);
     }
 
-    private bool HasClearFiringPath(Transform eyes, float distance)
+    private bool HasClearFiringPath(Transform eyes, float distance, Weapon weapon)
     {
         // Hitscan originates at the camera. Seeing a head over cover must
         // not allow a burst while the actual aim ray still points at a wall.
         int hitCount = Physics.RaycastNonAlloc(
             eyes.position,
-            eyes.forward,
+            weapon.GetPredictedShotDirection(eyes),
             shotHits,
             distance,
             Physics.AllLayers,
@@ -176,6 +186,30 @@ public class FpsAiTrigger : MonoBehaviour
         burstEndTime =
             Time.time + Mathf.Max(0.02f, personality.burstDuration);
 
+        characterController.SetFireInput(true);
+    }
+
+    private void UpdateSemiAutomatic(Weapon weapon)
+    {
+        if (triggerHeld)
+        {
+            // Keep the press until the weapon has consumed a round. This
+            // also works when Weapon.Update runs before the controller.
+            if (weapon.AmmoInMagazine < ammoAtTriggerPress ||
+                Time.frameCount - triggerPressFrame >= 2)
+                ReleaseTrigger(false);
+            return;
+        }
+
+        // A revolver gets one deliberate press for each ready shot. Its
+        // own fire-rate limit supplies the cadence; an automatic burst
+        // cooldown would unnecessarily delay every single round.
+        if (!weapon.CanFire)
+            return;
+
+        ammoAtTriggerPress = weapon.AmmoInMagazine;
+        triggerPressFrame = Time.frameCount;
+        triggerHeld = true;
         characterController.SetFireInput(true);
     }
 

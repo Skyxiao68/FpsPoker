@@ -32,8 +32,10 @@ public class FpsAiPerception : MonoBehaviour
     private Collider targetBody;
     private Health targetHealth;
     private float nextScanTime;
+    private float closeAlertUntil;
 
-    // Only confirmed sightings update these records.
+    // Sightings and nearby hit identification update these snapshots;
+    // hidden target movement never does.
     private Vector3 lastKnownPosition;
     private Vector3 lastKnownAimPoint;
     private Vector3 lastKnownVelocity;
@@ -41,6 +43,7 @@ public class FpsAiPerception : MonoBehaviour
     private bool hasObservation;
     private bool hasVelocitySample;
     private Vector3 targetVelocity;
+    private float lastKnownTopSpeed = 1f;
 
     private Collider[] scanResults = new Collider[32];
     private RaycastHit[] sightHits = new RaycastHit[16];
@@ -57,6 +60,33 @@ public class FpsAiPerception : MonoBehaviour
         hasObservation &&
         personality != null &&
         Time.time - lastSeenTime <= Mathf.Max(0f, personality.memoryDuration);
+
+    // Combat pursuit uses memoryDuration; a cautious search can continue
+    // longer without receiving any new target position through cover.
+    public bool HasSearchMemory =>
+        hasObservation && personality != null &&
+        personality.memoryDuration > 0f &&
+        Time.time - lastSeenTime <= personality.memoryDuration * 3.5f;
+
+    public float PossibleTravelDistance =>
+        hasObservation ? lastKnownTopSpeed * TimeSinceLastSeen : 0f;
+
+    public Vector3 EstimatedSearchCenter
+    {
+        get
+        {
+            if (!hasObservation || personality == null)
+                return lastKnownPosition;
+
+            float age = TimeSinceLastSeen;
+            float projectionTime = Mathf.Min(age, personality.memoryDuration * 0.5f) *
+                Mathf.Exp(-age / Mathf.Max(0.1f, personality.memoryDuration));
+            Vector3 movement = lastKnownVelocity;
+            movement.y = 0f;
+            return lastKnownPosition +
+                Vector3.ClampMagnitude(movement, lastKnownTopSpeed) * projectionTime;
+        }
+    }
 
     public Vector3 LastKnownPosition => lastKnownPosition;
 
@@ -97,6 +127,36 @@ public class FpsAiPerception : MonoBehaviour
         personality = assignedPersonality;
     }
 
+    // A nearby shooter is identifiable from the impact, even outside the
+    // normal view cone. Keep only a snapshot when cover blocks sight.
+    public void AlertFromNearbyDamage(Transform attacker)
+    {
+        if (personality == null || attacker == null)
+            return;
+
+        Health attackerHealth = attacker.GetComponent<Health>();
+        if (!IsValidTarget(attacker, attackerHealth))
+            return;
+
+        target = attacker;
+        targetHealth = attackerHealth;
+        targetBody = FindTargetBody(attacker, null);
+        lastKnownPosition = attacker.position;
+        lastKnownAimPoint = attacker.position + Vector3.up * aimHeightOffset;
+        lastKnownVelocity = Vector3.zero;
+        targetVelocity = Vector3.zero;
+        hasObservation = true;
+        hasVelocitySample = false;
+        CaptureTargetTopSpeed();
+        lastSeenTime = Time.time;
+        closeAlertUntil = Time.time + Mathf.Max(0.15f, personality.reactionTime);
+
+        CanSeeTarget = TryGetVisiblePoint(attacker, targetBody,
+            out Vector3 visiblePoint, true);
+        if (CanSeeTarget)
+            ObserveTarget(visiblePoint);
+    }
+
     public void Tick()
     {
         if (!isActiveAndEnabled || personality == null)
@@ -115,7 +175,8 @@ public class FpsAiPerception : MonoBehaviour
         }
 
         Vector3 visiblePoint;
-        CanSeeTarget = TryGetVisiblePoint(target, targetBody, out visiblePoint);
+        CanSeeTarget = TryGetVisiblePoint(target, targetBody, out visiblePoint,
+            Time.time < closeAlertUntil);
 
         if (Time.time >= nextScanTime)
         {
@@ -138,7 +199,7 @@ public class FpsAiPerception : MonoBehaviour
             hasVelocitySample = false;
             targetVelocity = Vector3.zero;
 
-            if (!HasRecentMemory && (target != null || hasObservation))
+            if (!HasSearchMemory && (target != null || hasObservation))
                 ForgetTarget();
         }
     }
@@ -207,6 +268,7 @@ public class FpsAiPerception : MonoBehaviour
 
         if (target != best)
         {
+            closeAlertUntil = 0f;
             hasObservation = false;
             hasVelocitySample = false;
             targetVelocity = Vector3.zero;
@@ -222,7 +284,8 @@ public class FpsAiPerception : MonoBehaviour
     private bool TryGetVisiblePoint(
         Transform candidateTarget,
         Collider body,
-        out Vector3 visiblePoint)
+        out Vector3 visiblePoint,
+        bool ignoreFieldOfView = false)
     {
         visiblePoint = Vector3.zero;
         if (candidateTarget == null || !candidateTarget.gameObject.activeInHierarchy ||
@@ -254,7 +317,8 @@ public class FpsAiPerception : MonoBehaviour
             if (toPoint.sqrMagnitude > sightRange * sightRange)
                 continue;
 
-            if (Vector3.Angle(Eyes.forward, toPoint) > personality.fieldOfView * 0.5f)
+            if (!ignoreFieldOfView &&
+                Vector3.Angle(Eyes.forward, toPoint) > personality.fieldOfView * 0.5f)
                 continue;
 
             if (!HasLineOfSight(Eyes.position, point, candidateTarget))
@@ -390,13 +454,30 @@ public class FpsAiPerception : MonoBehaviour
         lastKnownPosition = target.position;
         lastKnownAimPoint = visiblePoint;
         lastKnownVelocity = targetVelocity;
+        CaptureTargetTopSpeed();
         lastSeenTime = Time.time;
         hasObservation = true;
         hasVelocitySample = true;
     }
 
+    private void CaptureTargetTopSpeed()
+    {
+        FpsCharacterController controller = target.GetComponent<FpsCharacterController>();
+        FpsMovementSettings movement = controller != null
+            ? controller.MovementSettings : null;
+        if (movement != null)
+        {
+            lastKnownTopSpeed = Mathf.Max(1f,
+                Mathf.Min(movement.maxSpeed,
+                    movement.moveSpeed * Mathf.Max(1f, movement.sprintMultiplier)));
+        }
+        else
+            lastKnownTopSpeed = Mathf.Max(1f, targetVelocity.magnitude);
+    }
+
     public void ForgetTarget()
     {
+        closeAlertUntil = 0f;
         target = null;
         targetBody = null;
         targetHealth = null;
@@ -406,6 +487,7 @@ public class FpsAiPerception : MonoBehaviour
         targetVelocity = Vector3.zero;
         lastKnownVelocity = Vector3.zero;
         lastSeenTime = -999f;
+        lastKnownTopSpeed = 1f;
         nextScanTime = 0f;
     }
 

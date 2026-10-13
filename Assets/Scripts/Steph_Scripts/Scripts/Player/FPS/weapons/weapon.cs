@@ -18,6 +18,11 @@ public class Weapon : MonoBehaviour
 
     // Fire timing
     private float nextFireTime;
+    private int ammoInMagazine;
+    private float reloadEndTime;
+    private bool isReloading;
+    private bool combatLocked;
+    private bool waitForTriggerRelease;
 
     // Spray pattern
     private int shotIndex;
@@ -33,6 +38,10 @@ public class Weapon : MonoBehaviour
 
     public WeaponSettings Settings => weaponSettings;
 
+    // The owning player's HUD can confirm a real health hit without
+    // treating a wall impact or an already-dead target as damage.
+    public event System.Action OnDamageDealt;
+
     /// <summary>
     /// Swaps in a new settings asset at runtime. Used to apply a
     /// per-duel combat stat bonus via a cloned copy - never pass
@@ -42,15 +51,58 @@ public class Weapon : MonoBehaviour
     public void SetSettings(WeaponSettings settings)
     {
         weaponSettings = settings;
+        isReloading = false;
+        waitForTriggerRelease = false;
+        ammoInMagazine = MagazineCapacity;
     }
 
     public Transform FirePoint => firePoint;
 
+    public int MagazineCapacity => weaponSettings != null
+        ? Mathf.Max(1, weaponSettings.magazineSize) : 0;
+    public int AmmoInMagazine => ammoInMagazine;
+    public bool IsReloading => isReloading;
+    public Vector2 ShotOffsetDegrees => new Vector2(recoilTarget.x, recoilTarget.y);
+    public float ReloadTimeRemaining => isReloading
+        ? Mathf.Max(0f, reloadEndTime - Time.time) : 0f;
+
     public bool CanFire =>
+        !combatLocked && !isReloading && ammoInMagazine > 0 &&
         Time.time >= nextFireTime;
+
+    public void SetCombatLocked(bool locked)
+    {
+        combatLocked = locked;
+        if (locked)
+            SetTriggerHeld(false);
+    }
+
+    public bool TryReload()
+    {
+        if (weaponSettings == null || isReloading ||
+            ammoInMagazine >= MagazineCapacity)
+            return false;
+
+        isReloading = true;
+        reloadEndTime = Time.time + Mathf.Max(0f, weaponSettings.reloadTime);
+        // A held semi-auto trigger must not fire a free shot when the
+        // reload finishes. The AI releases its trigger while seeking cover.
+        waitForTriggerRelease = triggerHeld;
+        triggerHeld = false;
+        if (reloadEndTime <= Time.time)
+            CompleteReload();
+        return true;
+    }
+
+    private void CompleteReload()
+    {
+        isReloading = false;
+        ammoInMagazine = MagazineCapacity;
+    }
 
     private void Awake()
     {
+        ammoInMagazine = MagazineCapacity;
         if (characterController == null)
         {
             characterController =
@@ -80,6 +132,9 @@ public class Weapon : MonoBehaviour
     /// </summary>
     public void SetTriggerHeld(bool held)
     {
+        if (!held)
+            waitForTriggerRelease = false;
+
         // If the trigger was just pulled this frame, reset our semi-auto lockout
         if (held && !triggerHeld)
         {
@@ -93,9 +148,15 @@ public class Weapon : MonoBehaviour
 
     private void Update()
     {
-        HandleRecoilRecovery(triggerHeld);
+        if (isReloading && Time.time >= reloadEndTime)
+            CompleteReload();
 
-        if (triggerHeld)
+        if (weaponSettings == null)
+            return;
+
+        HandleRecoilRecovery(triggerHeld && !isReloading);
+
+        if (triggerHeld && !combatLocked && !isReloading && !waitForTriggerRelease)
         {
             // Default to full-auto if settings are missing to prevent errors
             bool isAuto = weaponSettings != null ? weaponSettings.isAutomatic : true;
@@ -123,6 +184,12 @@ public class Weapon : MonoBehaviour
 
     public void Fire()
     {
+        if (ammoInMagazine <= 0)
+        {
+            TryReload();
+            return;
+        }
+
         if (!CanFire)
             return;
 
@@ -162,7 +229,10 @@ public class Weapon : MonoBehaviour
             Time.time +
             weaponSettings.fireRate;
 
+        ammoInMagazine--;
         PerformFire();
+        if (ammoInMagazine == 0)
+            TryReload();
     }
 
     private void PerformFire()
@@ -206,7 +276,7 @@ public class Weapon : MonoBehaviour
         {
             hitPoint = hit.point;
 
-            HandleHit(hit);
+            HandleHit(hit, origin);
         }
 
         // =====================================================
@@ -262,16 +332,33 @@ public class Weapon : MonoBehaviour
         return offsetRotation * aimTransform.forward;
     }
 
+    // The AI can account for its current spray without changing the weapon's
+    // recoil or the player's aim. This is the direction the next ray will use.
+    public Vector3 GetPredictedShotDirection(Transform aimTransform)
+    {
+        return aimTransform != null ? GetSprayDirection(aimTransform) : Vector3.forward;
+    }
+
     // =========================================================
     // HIT
     // =========================================================
 
-    private void HandleHit(RaycastHit hit)
+    private void HandleHit(RaycastHit hit, Vector3 shotOrigin)
     {
         IDamagable damagable =
             hit.collider.GetComponentInParent<IDamagable>();
 
-        if (damagable != null)
+        if (damagable is Health hitHealth)
+        {
+            Transform attacker = characterController != null
+                ? characterController.transform : transform.root;
+            bool hitOpponent = hitHealth.transform.root != attacker.root;
+            int healthBefore = hitHealth.CurrentHealth;
+            hitHealth.TakeDamage(weaponSettings.damage, attacker, shotOrigin);
+            if (hitOpponent && hitHealth.CurrentHealth < healthBefore)
+                OnDamageDealt?.Invoke();
+        }
+        else if (damagable != null)
         {
             damagable.TakeDamage(
                 weaponSettings.damage

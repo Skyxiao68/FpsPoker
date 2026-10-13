@@ -109,7 +109,10 @@ public class FpsAiAim : MonoBehaviour
 
         desiredDirection.Normalize();
 
-        CurrentAimError = Vector3.Angle(Eyes.forward, desiredDirection);
+        Weapon weapon = characterController.EquippedWeapon;
+        CurrentAimError = Vector3.Angle(weapon != null
+            ? weapon.GetPredictedShotDirection(Eyes) : Eyes.forward,
+            desiredDirection);
         hasValidAim = targetVisible;
         lastAimFrame = Time.frameCount;
 
@@ -150,7 +153,16 @@ public class FpsAiAim : MonoBehaviour
         Vector2 errorDegrees = CalculateAngularError(desiredDirection);
 
         if (applyWobble)
+        {
+            Weapon weapon = characterController.EquippedWeapon;
+            if (weapon != null)
+            {
+                // Counter most of the known spray, while retaining the
+                // personality's turn speed and natural aim error.
+                errorDegrees -= weapon.ShotOffsetDegrees * 0.7f;
+            }
             errorDegrees += CalculateAimWobble();
+        }
 
         ApplyLookInput(ClampTurnRate(errorDegrees));
     }
