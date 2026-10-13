@@ -78,7 +78,7 @@ namespace PokerShopDemo
         void Start() { OpenShopForNextRound(); }
 
         // Your real round manager does this at the start of each round.
-        void OpenShopForNextRound()
+        public void OpenShopForNextRound()
         {
             _round++;
             Shop.Open(new ShopContext { Round = _round, Tag = "before" });
@@ -87,7 +87,6 @@ namespace PokerShopDemo
         void StartRound()
         {
             Debug.Log($"Round {_round} starts. (play the round here)");
-            Invoke(nameof(OpenShopForNextRound), fakeRoundSeconds);  // pretend the round lasts a few seconds
         }
     }
 }
