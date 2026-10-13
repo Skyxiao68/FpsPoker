@@ -58,6 +58,8 @@ public class PauseMenuManager : MonoBehaviour
         PlayClickSound();
         Time.timeScale = 1f;
         IsPaused = false;
+        if (GameFlowManager.Instance != null && GameFlowManager.Instance.RestartCurrentCombat())
+            return;
         Scene currentScene = SceneManager.GetActiveScene();
         SceneManager.LoadScene(currentScene.buildIndex);
     }

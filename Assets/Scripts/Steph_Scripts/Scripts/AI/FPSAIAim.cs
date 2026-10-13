@@ -11,6 +11,8 @@ public class FpsAiAim : MonoBehaviour
 
     private float targetFirstSeenTime = -999f;
     private bool hadTargetLastFrame;
+    private bool hasValidAim;
+    private int lastAimFrame = -1;
 
     private float noiseSeedX;
     private float noiseSeedY;
@@ -18,6 +20,13 @@ public class FpsAiAim : MonoBehaviour
     public float CurrentAimError { get; private set; } = 180f;
 
     public bool HasReacted { get; private set; }
+
+    public bool CanFireAtTarget =>
+        isActiveAndEnabled &&
+        hadTargetLastFrame &&
+        HasReacted &&
+        hasValidAim &&
+        lastAimFrame == Time.frameCount;
 
     private Transform Eyes =>
         characterController != null
@@ -39,6 +48,24 @@ public class FpsAiAim : MonoBehaviour
     public void Initialise(FPSPersonality assignedPersonality)
     {
         personality = assignedPersonality;
+        ResetTarget();
+    }
+
+    /// <summary>
+    /// Call when target identity changes, even if both targets are visible.
+    /// A new opponent must earn its own reaction delay.
+    /// </summary>
+    public void ResetTarget()
+    {
+        targetFirstSeenTime = -999f;
+        hadTargetLastFrame = false;
+        HasReacted = false;
+        hasValidAim = false;
+        lastAimFrame = -1;
+        CurrentAimError = 180f;
+
+        if (characterController != null)
+            characterController.SetLookInput(Vector2.zero);
     }
 
     public void AimAt(
@@ -46,12 +73,19 @@ public class FpsAiAim : MonoBehaviour
         Vector3 targetVelocity,
         bool targetVisible)
     {
-        if (characterController == null || personality == null)
+        if (!isActiveAndEnabled ||
+            characterController == null || personality == null)
+        {
+            ResetTarget();
             return;
+        }
+
+        hasValidAim = false;
+        CurrentAimError = 180f;
 
         HandleReactionTimer(targetVisible);
 
-        if (!HasReacted)
+        if (targetVisible && !HasReacted)
         {
 
             characterController.SetLookInput(Vector2.zero);
@@ -75,22 +109,19 @@ public class FpsAiAim : MonoBehaviour
 
         desiredDirection.Normalize();
 
-        Vector2 errorDegrees =
-            CalculateAngularError(desiredDirection);
+        CurrentAimError = Vector3.Angle(Eyes.forward, desiredDirection);
+        hasValidAim = targetVisible;
+        lastAimFrame = Time.frameCount;
 
-        CurrentAimError = errorDegrees.magnitude;
-
-        errorDegrees += CalculateAimWobble();
-
-        errorDegrees =
-            ClampTurnRate(errorDegrees);
-
-        ApplyLookInput(errorDegrees);
+        SteerToward(desiredDirection, targetVisible);
     }
 
     public void LookTowardDirection(Vector3 worldDirection)
     {
-        if (characterController == null)
+        ResetTarget();
+
+        if (!isActiveAndEnabled ||
+            characterController == null || personality == null)
             return;
 
         if (worldDirection.sqrMagnitude < 0.0001f)
@@ -99,24 +130,40 @@ public class FpsAiAim : MonoBehaviour
             return;
         }
 
-        AimAt(
-            Eyes.position + worldDirection.normalized * 20f,
-            Vector3.zero,
-            false
-        );
+        // Patrol and search must be able to look around without creating
+        // a firing-ready target or consuming the next reaction delay.
+        SteerToward(worldDirection.normalized, false);
     }
 
     public void Idle()
     {
-        if (characterController != null)
-            characterController.SetLookInput(Vector2.zero);
+        ResetTarget();
+    }
 
-        CurrentAimError = 180f;
+    private void OnDisable()
+    {
+        ResetTarget();
+    }
+
+    private void SteerToward(Vector3 desiredDirection, bool applyWobble)
+    {
+        Vector2 errorDegrees = CalculateAngularError(desiredDirection);
+
+        if (applyWobble)
+            errorDegrees += CalculateAimWobble();
+
+        ApplyLookInput(ClampTurnRate(errorDegrees));
     }
 
 
     private void HandleReactionTimer(bool targetVisible)
     {
+        if (!targetVisible)
+        {
+            ResetTarget();
+            return;
+        }
+
         if (targetVisible && !hadTargetLastFrame)
         {
             // Target just appeared - start the reaction clock.
@@ -126,9 +173,8 @@ public class FpsAiAim : MonoBehaviour
         hadTargetLastFrame = targetVisible;
 
         HasReacted =
-            !targetVisible ||
             Time.time - targetFirstSeenTime >=
-                personality.reactionTime;
+                Mathf.Max(0f, personality.reactionTime);
     }
 
 
@@ -139,24 +185,15 @@ public class FpsAiAim : MonoBehaviour
         if (personality.targetLeadAccuracy <= 0f)
             return worldPoint;
 
-        float distance =
-            Vector3.Distance(
-                Eyes.position,
-                worldPoint
-            );
-
-
-        float leadTime =
-            Mathf.Clamp(
-                distance / 120f,
-                0f,
-                0.25f
-            );
+        // This weapon is hitscan. Its trail speed is cosmetic, so leading
+        // by distance invents bullet travel and overshoots moving targets.
+        // Only anticipate the next controller update, scaled by skill.
+        float leadTime = Mathf.Clamp(Time.deltaTime, 0f, 0.05f);
 
         return worldPoint +
                targetVelocity *
                leadTime *
-               personality.targetLeadAccuracy;
+               Mathf.Clamp01(personality.targetLeadAccuracy);
     }
 
 
@@ -201,6 +238,12 @@ public class FpsAiAim : MonoBehaviour
                 Mathf.Clamp(desiredDirection.y, -1f, 1f)
             ) * Mathf.Rad2Deg;
 
+        desiredElevation = Mathf.Clamp(
+            desiredElevation,
+            -characterController.LookPitchLimit,
+            characterController.LookPitchLimit
+        );
+
         float pitchError =
             desiredElevation - currentElevation;
 
@@ -230,8 +273,8 @@ public class FpsAiAim : MonoBehaviour
     private Vector2 ClampTurnRate(Vector2 errorDegrees)
     {
         float maxDegreesThisFrame =
-            personality.aimTurnSpeed *
-            Time.deltaTime;
+            Mathf.Max(0f, personality.aimTurnSpeed) *
+            Mathf.Max(0f, Time.deltaTime);
 
         if (errorDegrees.magnitude > maxDegreesThisFrame)
         {
@@ -249,7 +292,10 @@ public class FpsAiAim : MonoBehaviour
             characterController.LookDegreesPerInputUnit;
 
         if (degreesPerUnit <= 0.00001f)
+        {
+            characterController.SetLookInput(Vector2.zero);
             return;
+        }
 
         Vector2 lookInput =
             new Vector2(

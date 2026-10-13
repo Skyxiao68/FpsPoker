@@ -105,11 +105,18 @@ public class PokerSceneBootstrap : MonoBehaviour
         // enemyChips 在 [0, buyIn) 范围内才算敌人破产
         bool enemyBroke = enemyChips >= 0 && enemyChips < buyIn;
 
+        if (playerChips < buyIn && GameFlowManager.Instance != null)
+        {
+            GameFlowManager.Instance.PlayerChips = playerChips;
+            GameFlowManager.Instance.ShowGameOver();
+            return;
+        }
+
         if (enemyBroke && GameFlowManager.Instance != null)
         {
             Debug.Log($"[Bootstrap] 敌人破产 (筹码 {enemyChips} < buyIn {buyIn}) → 进商店");
             GameFlowManager.Instance.PlayerChips = playerChips;
-            GameFlowManager.Instance.BeginShop();
+            GameFlowManager.Instance.ShowNextLevelMenu();
             return;   //  不开局
         }
 

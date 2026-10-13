@@ -31,6 +31,9 @@ public class GameFlowManager : MonoBehaviour
     [SerializeField]
     private string shopSceneName = "ShopScene";
 
+    [SerializeField]
+    private string startSceneName = "StartScene";
+
     [Header("Economy")]
     [Tooltip("Used only the very first time the run starts.")]
     [SerializeField]
@@ -72,7 +75,12 @@ public class GameFlowManager : MonoBehaviour
     /// <summary>玩家进商店的次数，每次进店 +1。用来驱动稀有度递增</summary>
     public int ShopVisitCount { get; private set; } = 0;
 
+    public int CurrentLevel { get; private set; } = 1;
+    public bool AwaitingNextLevel { get; private set; }
+    public bool IsGameOver { get; private set; }
+
     private CombatHandoff? pendingHandoff;
+    private CombatHandoff? activeCombatHandoff;
     private PendingResult? pendingResult;
 
     private struct PendingResult
@@ -139,6 +147,7 @@ public class GameFlowManager : MonoBehaviour
             enemyName = enemyName,
             enemyCombatStyle = enemyCombatStyle,
         };
+        activeCombatHandoff = pendingHandoff;
 
         SceneManager.LoadScene(combatSceneName);
     }
@@ -173,9 +182,20 @@ public class GameFlowManager : MonoBehaviour
     /// </summary>
     public void ReportCombatResult(CombatWinner winner, int pot)
     {
+        activeCombatHandoff = null;
         pendingResult = new PendingResult { winner = winner, pot = pot };
         ReturnedFromCombat = true;
         SceneManager.LoadScene(pokerSceneName);
+    }
+
+    public bool RestartCurrentCombat()
+    {
+        if (SceneManager.GetActiveScene().name != combatSceneName || !activeCombatHandoff.HasValue)
+            return false;
+
+        pendingHandoff = activeCombatHandoff;
+        SceneManager.LoadScene(combatSceneName);
+        return true;
     }
 
     /// <summary>
@@ -215,8 +235,56 @@ public class GameFlowManager : MonoBehaviour
 
     public void ReportShopResult()
     {
+        if (PlayerChips < buyIn)
+        {
+            ShowGameOver();
+            return;
+        }
+
+        if (AwaitingNextLevel)
+        {
+            ReturnedFromShop = false;
+            SceneManager.LoadScene(startSceneName);
+            return;
+        }
+
         ReturnedFromShop = true;
         SceneManager.LoadScene(pokerSceneName);
+    }
+
+    public void ShowNextLevelMenu()
+    {
+        if (AwaitingNextLevel)
+            return;
+
+        CurrentLevel++;
+        AwaitingNextLevel = true;
+        SceneManager.LoadScene(startSceneName);
+    }
+
+    public void BeginSelectedLevel()
+    {
+        if (!AwaitingNextLevel)
+            return;
+
+        if (PlayerChips < buyIn)
+        {
+            ShowGameOver();
+            return;
+        }
+
+        AwaitingNextLevel = false;
+        ReturnedFromShop = false;
+        EnemyChips = 500;
+        AdvanceToNextEncounter();
+        SceneManager.LoadScene(pokerSceneName);
+    }
+
+    public void ShowGameOver()
+    {
+        IsGameOver = true;
+        AwaitingNextLevel = false;
+        SceneManager.LoadScene(startSceneName);
     }
 
     public void ClearReturnedFromShop()

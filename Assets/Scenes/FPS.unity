@@ -21341,7 +21341,7 @@ MonoBehaviour:
     prefab: {fileID: 4312091441815838765, guid: 9966773727b736548b378d2d52d531fc, type: 3}
   debugPlayerStats:
     attack: 10
-    health: 20
+    health: 100
     fireRate: 5
     moveSpeed: 2
   debugEnemyStats:

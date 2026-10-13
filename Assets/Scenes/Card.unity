@@ -162,7 +162,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 0289cc18cd624e541a529f271d3385a6, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::PokerGameTester
+  m_EditorClassIdentifier: Assembly-CSharp::PokerSceneBootstrap
   poker: {fileID: 251720994}
   ui: {fileID: 0}
   bridge: {fileID: 251720993}
@@ -539,6 +539,7 @@ MonoBehaviour:
   pokerSceneName: Card
   combatSceneName: FPS
   shopSceneName: Shop
+  startSceneName: StartScene
   startingChips: 100
   startingEnemyChips: 100
   buyIn: 10

@@ -743,6 +743,7 @@ public class PokerGameManager : MonoBehaviour
     /// <summary>结算冻结的底池，归敌人所有（玩家失去底池）。</summary>
     public void ForfeitPot()
     {
+        EnemyChips += Pot;
         Pot = 0;
         State = PokerState.HandEnded;
         OnStateChanged?.Invoke();

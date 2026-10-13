@@ -867,7 +867,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1430536262}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1819875903}
+        m_TargetAssemblyTypeName: StartScreenManager, Assembly-CSharp
+        m_MethodName: PlayGame
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName:
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument:
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1430536262
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -988,7 +1000,19 @@ MonoBehaviour:
   m_TargetGraphic: {fileID: 1443248145}
   m_OnClick:
     m_PersistentCalls:
-      m_Calls: []
+      m_Calls:
+      - m_Target: {fileID: 1819875903}
+        m_TargetAssemblyTypeName: StartScreenManager, Assembly-CSharp
+        m_MethodName: QuitGame
+        m_Mode: 1
+        m_Arguments:
+          m_ObjectArgument: {fileID: 0}
+          m_ObjectArgumentAssemblyTypeName:
+          m_IntArgument: 0
+          m_FloatArgument: 0
+          m_StringArgument:
+          m_BoolArgument: 0
+        m_CallState: 2
 --- !u!114 &1443248145
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1144,8 +1168,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::StartScreenManager
   gameplaySceneName: Card
+  levelIntroCanvasPrefab: {fileID: 8940748096302552049, guid: 54aaf20641dc047418453054160eeec6, type: 3}
+  levelSelectCanvasPrefab: {fileID: 4315573131315577329, guid: dd3af20f0d40cbd47b8f27452c9ad884, type: 3}
   settingsPanel: {fileID: 0}
-  mainMenuPanel: {fileID: 0}
+  mainMenuPanel: {fileID: 2048880924}
   buttonClickSound: {fileID: 0}
 --- !u!1 &2048880924
 GameObject:
