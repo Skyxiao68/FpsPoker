@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 942eb6fd6414fec499d7faecc7bfb9c3, type: 3}
+  m_Name: TestCatalog
+  m_EditorClassIdentifier: Assembly-CSharp::PokerShop.ShopCatalog
+  items:
+  - {fileID: 11400000, guid: 66591ada28a5b834488a30bbf3dd3a60, type: 2}
+  - {fileID: 11400000, guid: f870e7a8076340342b2bdee9a78c6f0b, type: 2}
+  - {fileID: 11400000, guid: 17b19f220a20c4643850700f24b773a3, type: 2}
+  - {fileID: 11400000, guid: fcc5ba300aa9443eb9c671dc6de4e770, type: 2}
+  - {fileID: 11400000, guid: e541963f34734892a06347c5c1264b2f, type: 2}
+  - {fileID: 11400000, guid: 3269b42c79e840ae834eb132d55955f3, type: 2}

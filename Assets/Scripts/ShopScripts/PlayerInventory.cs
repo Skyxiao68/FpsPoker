@@ -1,20 +1,17 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// 玩家当前持有的物品。跨场景保留。
-/// 单例，由场景里一个常驻 GameObject 承载。
-/// </summary>
-[DefaultExecutionOrder(-200)]   // 比 Bridge（-100）更早，确保物品在筹码恢复前就绪
+[DefaultExecutionOrder(-200)]
 public class PlayerInventory : MonoBehaviour
 {
     public static PlayerInventory Instance { get; private set; }
 
-    [Tooltip("调试用：进入游戏时自动持有这些物品")]
+    [Tooltip("调试用：进入游戏时自动持有这些物品（每个 1 份）")]
     [SerializeField]
     private List<ItemId> startingItems = new List<ItemId>();
 
-    private readonly HashSet<ItemId> items = new HashSet<ItemId>();
+    // ★ 改成计数
+    private readonly Dictionary<ItemId, int> itemCounts = new Dictionary<ItemId, int>();
 
     private void Awake()
     {
@@ -23,40 +20,68 @@ public class PlayerInventory : MonoBehaviour
             Destroy(gameObject);
             return;
         }
-
         Instance = this;
         DontDestroyOnLoad(gameObject);
 
         foreach (var id in startingItems)
-            items.Add(id);
+        {
+            if (id == ItemId.None)
+                continue;
+            if (!itemCounts.ContainsKey(id))
+                itemCounts[id] = 0;
+            itemCounts[id]++;
+        }
 
         Debug.Log($"[Inventory] 初始物品: {Describe()}");
     }
 
+    /// <summary>是否有至少 1 个</summary>
     public bool Has(ItemId id)
     {
-        if (id == ItemId.None) return false;
-        return items.Contains(id);
+        return id != ItemId.None && itemCounts.TryGetValue(id, out var n) && n > 0;
     }
 
+    /// <summary>数量</summary>
+    public int GetCount(ItemId id)
+    {
+        if (id == ItemId.None)
+            return 0;
+        return itemCounts.TryGetValue(id, out var n) ? n : 0;
+    }
+
+    /// <summary>加 1 个</summary>
     public void Add(ItemId id)
     {
-        if (id == ItemId.None) return;
-        if (items.Add(id))
-            Debug.Log($"[Inventory] 获得: {id}");
+        if (id == ItemId.None)
+            return;
+        if (!itemCounts.ContainsKey(id))
+            itemCounts[id] = 0;
+        itemCounts[id]++;
+        Debug.Log($"[Inventory] 获得 {id}（共 {itemCounts[id]}）");
     }
 
+    /// <summary>移除 1 个</summary>
     public void Remove(ItemId id)
     {
-        if (items.Remove(id))
-            Debug.Log($"[Inventory] 移除: {id}");
+        if (id == ItemId.None)
+            return;
+        if (!itemCounts.ContainsKey(id))
+            return;
+        itemCounts[id]--;
+        if (itemCounts[id] <= 0)
+            itemCounts.Remove(id);
+        Debug.Log($"[Inventory] 移除 {id}（剩 {GetCount(id)}）");
     }
 
-    public IReadOnlyCollection<ItemId> All => items;
+    public IReadOnlyDictionary<ItemId, int> All => itemCounts;
 
     private string Describe()
     {
-        if (items.Count == 0) return "(空)";
-        return string.Join(", ", items);
+        if (itemCounts.Count == 0)
+            return "(空)";
+        var parts = new List<string>();
+        foreach (var kv in itemCounts)
+            parts.Add($"{kv.Key}x{kv.Value}");
+        return string.Join(", ", parts);
     }
 }

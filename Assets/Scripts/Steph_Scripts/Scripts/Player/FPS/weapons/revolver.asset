@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: revolver
   m_EditorClassIdentifier: Assembly-CSharp::WeaponSettings
   weaponName: revolver
-  damage: 20
+  damage: 5
   range: 1000
   fireRate: 0.3
   isAutomatic: 0

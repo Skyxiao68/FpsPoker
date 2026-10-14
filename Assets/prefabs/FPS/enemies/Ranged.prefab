@@ -4606,7 +4606,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 7d9a873dcc4804841bf96ebaba223b7d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: '::'
-  weaponSettings: {fileID: 11400000, guid: 2707a32aa9dca8d40a0658761cd83fac, type: 2}
+  weaponSettings: {fileID: 11400000, guid: 19e2753451176084a9280d359684e234, type: 2}
   firePoint: {fileID: 7305128708689396782}
   weaponModel: {fileID: 721113357497647074}
   bulletTrail: {fileID: 8338053037017097431, guid: 6d07b66b6f856d34f8bacac12ab9379f, type: 3}
@@ -4871,7 +4871,8 @@ MonoBehaviour:
   obstructionMask:
     serializedVersion: 2
     m_Bits: 503
-  targetHeightOffset: 1
+  visibilityHeightOffset: 1.5
+  aimHeightOffset: 1
   scanInterval: 0.2
 --- !u!114 &8421301799209160080
 MonoBehaviour:

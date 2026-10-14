@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 772491752b440df43ba4ab6847460aad, type: 3}
+  m_Name: card_swap
+  m_EditorClassIdentifier: Assembly-CSharp::PokerShop.ShopItem
+  id: card_swap
+  displayName: Card Swap
+  description: Swap one card from your hand.
+  icon: {fileID: 0}
+  price: 50
+  category: Cards
+  tier: 
+  maxOwned: 2
+  hidden: 0
+  payload: {fileID: 11400000, guid: 4aa6a8002eb5e4a40803c39f13d178ad, type: 2}

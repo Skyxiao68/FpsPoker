@@ -9,4 +9,7 @@ public enum ItemId
     CardSwapTicket,   // 换牌券
     CheatGlove,       // 老千手套
     QueenOfHearts,    // 红桃皇后
+    Deadeye,
+    Quickstep,
+    IronHeart,
 }

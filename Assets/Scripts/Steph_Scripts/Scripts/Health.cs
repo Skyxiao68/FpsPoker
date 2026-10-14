@@ -26,6 +26,11 @@ public class Health : MonoBehaviour, IDamagable
 
     public bool IsDead { get; private set; }
 
+    // Set before OnDamaged so listeners can respond to the incoming shot.
+    public bool LastDamageHasSource { get; private set; }
+    public Transform LastAttacker { get; private set; }
+    public Vector3 LastShotOrigin { get; private set; }
+
     /// <summary>(amountTaken, currentHealthAfter)</summary>
     public event Action<int, int> OnDamaged;
 
@@ -39,8 +44,22 @@ public class Health : MonoBehaviour, IDamagable
 
     public void TakeDamage(int amount)
     {
+        TakeDamage(amount, null, Vector3.zero, false);
+    }
+
+    public void TakeDamage(int amount, Transform attacker, Vector3 shotOrigin)
+    {
+        TakeDamage(amount, attacker, shotOrigin, true);
+    }
+
+    private void TakeDamage(int amount, Transform attacker, Vector3 shotOrigin, bool hasSource)
+    {
         if (IsDead || amount <= 0)
             return;
+
+        LastDamageHasSource = hasSource;
+        LastAttacker = hasSource ? attacker : null;
+        LastShotOrigin = hasSource ? shotOrigin : Vector3.zero;
 
         CurrentHealth =
             Mathf.Max(CurrentHealth - amount, 0);
@@ -74,6 +93,9 @@ public class Health : MonoBehaviour, IDamagable
     {
         IsDead = false;
         CurrentHealth = maxHealth;
+        LastDamageHasSource = false;
+        LastAttacker = null;
+        LastShotOrigin = Vector3.zero;
 
         SetDisabledScripts(false);
     }
