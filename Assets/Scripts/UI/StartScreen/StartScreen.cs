@@ -49,6 +49,18 @@ public class StartScreenManager : MonoBehaviour
             return;
 
         PlayClickSound();
+
+        // 第一次玩：先走独立教程场景。通过或跳过都会写 TutorialProgress，
+        // 之后再点 Play 就直接进牌桌（教程入口以后再单独做）。
+        if (!TutorialProgress.IsDone)
+        {
+            loadingLevel = true;
+            if (mainMenuPanel != null)
+                mainMenuPanel.SetActive(false);
+            SceneManager.LoadScene("TutorialScene");
+            return;
+        }
+
         int level = GameFlowManager.Instance != null
             ? GameFlowManager.Instance.CurrentLevel : 1;
         StartCoroutine(LoadLevel(level, false));

@@ -13,7 +13,8 @@ public class CheatGloveOverlay : MonoBehaviour
     [SerializeField]
     private PokerGameManager poker;
 
-    private Text enemyHandText;
+    private Text firstCardText;
+    private Text secondCardText;
     private bool subscribed = false;
 
     private void Start()
@@ -37,27 +38,19 @@ public class CheatGloveOverlay : MonoBehaviour
         yield return null;
         yield return null;
 
-        // 找 EnemyHand 文本
-        // PokerUI 结构：PokerUI/PokerCanvas/EnemyHand
-        Transform t = transform.Find("PokerCanvas/EnemyHand");
-        if (t == null)
-        {
-            // 如果 CheatGloveOverlay 挂的位置不同，尝试从场景里找
-            var uiGO = GameObject.Find("PokerCanvas");
-            if (uiGO != null)
-                t = uiGO.transform.Find("EnemyHand");
-        }
+        // 找敌人两个卡牌槽位（PokerUI 结构：PokerCanvas/EnemySlot1/Face）
+        firstCardText = FindSlotText("EnemySlot1");
+        secondCardText = FindSlotText("EnemySlot2");
 
-        if (t == null)
+        if (firstCardText == null)
         {
-            Debug.LogError("[CheatGlove] 找不到 EnemyHand 文本，Overlay 无法生效");
+            Debug.LogError("[CheatGlove] 找不到 EnemySlot1 的文本，Overlay 无法生效");
             yield break;
         }
 
-        enemyHandText = t.GetComponent<Text>();
-        if (enemyHandText == null)
+        if (secondCardText == null)
         {
-            Debug.LogError("[CheatGlove] EnemyHand 上没有 Text 组件");
+            Debug.LogError("[CheatGlove] 找不到 EnemySlot2 的文本，Overlay 无法生效");
             yield break;
         }
 
@@ -81,7 +74,7 @@ public class CheatGloveOverlay : MonoBehaviour
 
     private void OnStateChanged()
     {
-        if (enemyHandText == null)
+        if (firstCardText == null || secondCardText == null)
             return;
 
         // 没有物品就什么都不做
@@ -100,16 +93,30 @@ public class CheatGloveOverlay : MonoBehaviour
         if (poker.EnemyHand == null || poker.EnemyHand.Count == 0)
             return;
 
-        // 只显示第一张，其余隐藏
-        string first = CardToColored(poker.EnemyHand[0]);
-        int remaining = poker.EnemyHand.Count - 1;
-        string hidden = string.Join("   ", new string[remaining + 1]).Trim();
-        // 简单处理：每个隐藏位置写 "??"
-        string hiddenStr = "";
-        for (int i = 0; i < remaining; i++)
-            hiddenStr += "??  ";
+        // 只显示第一张，第二张保持隐藏
+        firstCardText.text = CardToColored(poker.EnemyHand[0]);
+        secondCardText.text = "?";
+    }
 
-        enemyHandText.text = $"{first}   {hiddenStr}".TrimEnd();
+    /// <summary>从 PokerCanvas 下按名字找卡牌槽位里的文字（新 UI 是槽位结构）。</summary>
+    private Text FindSlotText(string slotName)
+    {
+        Transform uiRoot = transform.Find("PokerCanvas");
+        if (uiRoot == null)
+        {
+            var uiGO = GameObject.Find("PokerCanvas");
+            if (uiGO != null)
+                uiRoot = uiGO.transform;
+        }
+        if (uiRoot == null)
+            return null;
+
+        Transform slot = uiRoot.Find(slotName);
+        if (slot == null)
+            return null;
+
+        Transform face = slot.Find("Face");
+        return face != null ? face.GetComponent<Text>() : slot.GetComponent<Text>();
     }
 
     /// <summary>把单张牌转成带 <color> 的富文本字符串。</summary>
@@ -119,16 +126,16 @@ public class CheatGloveOverlay : MonoBehaviour
         switch (c.Suit)
         {
             case Suit.Spades:
-                hex = "#A0A0A0";
+                hex = "#EDEDED";
                 break;
             case Suit.Hearts:
-                hex = "#FF8080";
+                hex = "#FF8C94";
                 break;
             case Suit.Clubs:
-                hex = "#90E0FF";
+                hex = "#A8E0FF";
                 break;
             case Suit.Diamonds:
-                hex = "#FFD060";
+                hex = "#FFD973";
                 break;
             default:
                 hex = "#FFFFFF";

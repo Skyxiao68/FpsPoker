@@ -47,13 +47,20 @@ public class ShowdownPanelUI : MonoBehaviour
 
         Refresh(poker);
         root.SetActive(true);
+        IsOpen = true;
     }
 
     public void Hide()
     {
         if (root != null)
             root.SetActive(false);
+        IsOpen = false;
     }
+
+    /// <summary>
+    /// 面板是否正开着。桌子中间那块归它占，桌面上的结果行据此避让。
+    /// </summary>
+    public static bool IsOpen { get; private set; }
 
     // =========================================================
     // 构建 UI

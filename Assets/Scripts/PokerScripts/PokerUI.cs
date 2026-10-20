@@ -13,7 +13,12 @@ public class PokerUI : MonoBehaviour
     private Text stateText;
     private Text playerHandText;
     private Text enemyHandText;
-    private Text communityText;
+    private Text communityText; // 改成显示公共牌牌型文字
+    private Text[] communitySlots = new Text[5];
+    private Text[] playerSlots = new Text[2];
+    private Text[] enemySlots = new Text[2];
+    private Text sliderMinLabel;
+    private Text sliderMaxLabel;
     private Text playerHandTypeText;
     private Text enemyHandTypeText;
     private Transform messageLogContainer;
@@ -35,6 +40,7 @@ public class PokerUI : MonoBehaviour
     private GameObject quickBetRow;
     private GameObject actionRow;
     private GameObject nextHandRow;
+    private bool nextHandVisible = true;
 
     // Callback.
     private System.Action onNextHand;
@@ -43,6 +49,23 @@ public class PokerUI : MonoBehaviour
     private const int MinRaise = 1;
     private const int StepAmount = 10;
     private const int DefaultRaise = 10;
+
+    // 视觉常量（P1–P5 改造：颜色与文字层级集中在这里）
+    private static readonly Color PANEL_BG = new Color(0f, 0f, 0f, 0.42f);
+    private static readonly Color PANEL_BG_DARK = new Color(0f, 0f, 0f, 0.50f);
+    private static readonly Color TEXT_STRONG = new Color(0.88f, 0.88f, 0.88f);
+    private static readonly Color TEXT_SOFT = new Color(0.80f, 0.80f, 0.80f);
+    private static readonly Color TEXT_MUTED = new Color(0.62f, 0.62f, 0.62f);
+    private static readonly Color SLOT_BG = new Color(0.02f, 0.02f, 0.02f, 0.95f);
+    private static readonly Color SLOT_EDGE = new Color(0.40f, 0.40f, 0.40f, 0.70f);
+    // 参与当前 best-five 的牌用这个边框，把「为什么是你的最好五张」画出来
+    private static readonly Color SLOT_EDGE_BEST = new Color(1.00f, 0.78f, 0.30f, 0.95f);
+    private static readonly Color SLOT_BG_BEST = new Color(0.12f, 0.11f, 0.06f, 0.97f);
+    private static readonly Color BTN_FOLD = new Color(0.52f, 0.18f, 0.16f);
+    private static readonly Color BTN_CHECK = new Color(0.12f, 0.48f, 0.30f);
+    private static readonly Color BTN_RAISE = new Color(0.82f, 0.52f, 0.12f);
+    private static readonly Color BTN_MATCH = new Color(0.68f, 0.42f, 0.10f);
+    private static readonly Color BTN_NEUTRAL = new Color(0.22f, 0.22f, 0.26f);
 
     // Tracking for slider reset on street change.
     private Street lastStreet = Street.PreFlop;
@@ -53,6 +76,32 @@ public class PokerUI : MonoBehaviour
     private Transform canvasRoot;
     private Button swapCard1Button;
     private Button swapCard2Button;
+
+    // M3 引导层（? 参照面板 + 本手结果行），自建 Canvas order 300。
+    private PokerTutorialUI tutorial;
+
+    // 教程场景按名字定位牌桌上的控件（只读，不改行为）。
+    public Button CheckButton { get { return checkButton; } }
+    public Button RaiseButton { get { return raiseButton; } }
+    public Button MatchButton { get { return matchButton; } }
+    public Button FoldButton { get { return foldButton; } }
+    public Slider RaiseSlider { get { return raiseSlider; } }
+    public Transform TableCanvasRoot
+    {
+        get
+        {
+            // 教程场景里这个引用会变成已销毁对象（Canvas 被重建过），
+            // 直接按名字找回活的那个，别让调用方拿到 null。
+            if (canvasRoot == null)
+            {
+                GameObject live = GameObject.Find("PokerCanvas");
+                if (live != null)
+                    canvasRoot = live.transform;
+            }
+            return canvasRoot;
+        }
+    }
+
 
     public void Initialize(PokerGameManager manager)
     {
@@ -72,6 +121,35 @@ public class PokerUI : MonoBehaviour
     public void SetNextHandCallback(System.Action callback)
     {
         onNextHand = callback;
+    }
+
+    /// <summary>教程高亮用：玩家第 index 张手牌的槽位。</summary>
+    public RectTransform PlayerCardSlot(int index)
+    {
+        if (playerSlots == null || index < 0 || index >= playerSlots.Length || playerSlots[index] == null)
+            return null;
+        return playerSlots[index].transform.parent as RectTransform;
+    }
+
+    /// <summary>教程高亮用：双方筹码数字那一行。</summary>
+    public RectTransform PlayerChipsRect
+    {
+        get { return playerChipsText != null ? playerChipsText.rectTransform : null; }
+    }
+
+    public RectTransform EnemyChipsRect
+    {
+        get { return enemyChipsText != null ? enemyChipsText.rectTransform : null; }
+    }
+
+    /// <summary>
+    /// 教程场景里没有"下一手"这回事：整行藏起来，别让玩家点了没反应。
+    /// </summary>
+    public void SetNextHandVisible(bool visible)
+    {
+        nextHandVisible = visible;
+        if (nextHandRow != null && !visible)
+            nextHandRow.SetActive(false);
     }
 
     // =========================================================
@@ -111,14 +189,15 @@ public class PokerUI : MonoBehaviour
             new Vector2(0.35f, 0.93f),
             new Vector2(0.65f, 1f),
             TextAnchor.MiddleCenter,
-            32
+            40
         );
+        potText.fontStyle = FontStyle.Bold;
 
         // ---------- 敌人信息：左上角 ----------
         CreatePanel(
             canvasGO.transform,
-            new Color(0, 0, 0, 0.42f),
-            new Vector2(0.02f, 0.72f),
+            PANEL_BG,
+            new Vector2(0.02f, 0.73f),
             new Vector2(0.28f, 0.91f)
         );
 
@@ -126,54 +205,58 @@ public class PokerUI : MonoBehaviour
             canvasGO.transform,
             "EnemyNameText",
             "",
-            new Vector2(0.04f, 0.86f),
-            new Vector2(0.26f, 0.90f),
+            new Vector2(0.04f, 0.872f),
+            new Vector2(0.26f, 0.902f),
             TextAnchor.MiddleLeft,
-            24
+            22
         );
+        enemyNameText.fontStyle = FontStyle.Bold;
 
         enemyChipsText = CreateText(
             canvasGO.transform,
             "EnemyChipsText",
             "Enemy: 0",
-            new Vector2(0.04f, 0.82f),
-            new Vector2(0.26f, 0.86f),
+            new Vector2(0.04f, 0.842f),
+            new Vector2(0.26f, 0.872f),
             TextAnchor.MiddleLeft,
             20
         );
-        enemyChipsText.color = new Color(0.85f, 0.85f, 0.85f);
+        enemyChipsText.color = TEXT_STRONG;
 
         Text enemyLabel = CreateText(
             canvasGO.transform,
             "EnemyLabel",
             "Enemy Hand",
-            new Vector2(0.04f, 0.78f),
-            new Vector2(0.26f, 0.82f),
+            new Vector2(0.04f, 0.818f),
+            new Vector2(0.26f, 0.842f),
             TextAnchor.MiddleLeft,
-            14
+            13
         );
-        enemyLabel.color = new Color(0.6f, 0.6f, 0.6f);
+        enemyLabel.color = TEXT_MUTED;
 
-        enemyHandText = CreateText(
+        enemySlots[0] = CreateCardSlot(
             canvasGO.transform,
-            "EnemyHand",
-            "?? ??",
-            new Vector2(0.04f, 0.73f),
-            new Vector2(0.26f, 0.79f),
-            TextAnchor.MiddleLeft,
-            32
+            "EnemySlot1",
+            new Vector2(0.045f, 0.757f),
+            new Vector2(0.120f, 0.815f)
+        );
+        enemySlots[1] = CreateCardSlot(
+            canvasGO.transform,
+            "EnemySlot2",
+            new Vector2(0.132f, 0.757f),
+            new Vector2(0.207f, 0.815f)
         );
 
         enemyHandTypeText = CreateText(
             canvasGO.transform,
             "EnemyHandType",
             "",
-            new Vector2(0.04f, 0.70f),
-            new Vector2(0.26f, 0.73f),
+            new Vector2(0.04f, 0.733f),
+            new Vector2(0.26f, 0.757f),
             TextAnchor.MiddleLeft,
-            16
+            14
         );
-        enemyHandTypeText.color = new Color(0.8f, 0.8f, 0.8f);
+        enemyHandTypeText.color = TEXT_SOFT;
 
         // ---------- 日志：左下角 ----------
         CreatePanel(
@@ -203,94 +286,108 @@ public class PokerUI : MonoBehaviour
         csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
         messageLogContainer = msgLogGO.transform;
 
-        // ---------- 公共牌：正中央 ----------
+        // ---------- 公共牌：正中央 5 个常驻槽位 ----------
         Text communityLabel = CreateText(
             canvasGO.transform,
             "CommunityLabel",
-            "Community Cards",
-            new Vector2(0.35f, 0.66f),
-            new Vector2(0.65f, 0.70f),
+            "COMMUNITY",
+            new Vector2(0.35f, 0.665f),
+            new Vector2(0.65f, 0.700f),
             TextAnchor.MiddleCenter,
-            16
+            13
         );
-        communityLabel.color = new Color(0.6f, 0.6f, 0.6f);
+        communityLabel.color = TEXT_MUTED;
 
+        for (int i = 0; i < 5; i++)
+        {
+            float x0 = 0.290f + i * 0.086f;
+            communitySlots[i] = CreateCardSlot(
+                canvasGO.transform,
+                "CommunitySlot" + i,
+                new Vector2(x0, 0.505f),
+                new Vector2(x0 + 0.076f, 0.645f)
+            );
+        }
+
+        // 公共牌牌型（原来那个 52 号大字留作牌型说明）
         communityText = CreateText(
             canvasGO.transform,
-            "Community",
+            "CommunityHandType",
             "",
-            new Vector2(0.15f, 0.53f),
-            new Vector2(0.85f, 0.65f),
+            new Vector2(0.15f, 0.455f),
+            new Vector2(0.85f, 0.495f),
             TextAnchor.MiddleCenter,
-            52
+            18
         );
+        communityText.color = TEXT_SOFT;
 
-        // ---------- 玩家信息：右下角 ----------
-        // 玩家信息面板背景
+        // ---------- 玩家信息：右下角（与敌方镜像） ----------
         CreatePanel(
             canvasGO.transform,
-            new Color(0, 0, 0, 0.42f),
+            PANEL_BG,
             new Vector2(0.72f, 0.19f),
             new Vector2(0.98f, 0.37f)
         );
 
-        // 玩家筹码
         playerChipsText = CreateText(
             canvasGO.transform,
             "PlayerChipsText",
             "Player: 0",
-            new Vector2(0.74f, 0.32f),
-            new Vector2(0.96f, 0.36f),
+            new Vector2(0.74f, 0.338f),
+            new Vector2(0.96f, 0.366f),
             TextAnchor.MiddleLeft,
             20
         );
-        playerChipsText.color = new Color(0.85f, 0.85f, 0.85f);
+        playerChipsText.color = TEXT_STRONG;
 
-        // Player Hand 标签
         Text playerLabel = CreateText(
             canvasGO.transform,
             "PlayerLabel",
-            "Player Hand",
-            new Vector2(0.74f, 0.29f),
-            new Vector2(0.96f, 0.32f),
+            "Your Hand",
+            new Vector2(0.74f, 0.316f),
+            new Vector2(0.96f, 0.338f),
             TextAnchor.MiddleLeft,
-            14
+            13
         );
-        playerLabel.color = new Color(0.6f, 0.6f, 0.6f);
+        playerLabel.color = TEXT_MUTED;
 
-        // 玩家手牌
-        playerHandText = CreateText(
+        playerSlots[0] = CreateCardSlot(
             canvasGO.transform,
-            "PlayerHand",
-            "",
-            new Vector2(0.74f, 0.23f),
-            new Vector2(0.96f, 0.29f),
-            TextAnchor.MiddleLeft,
-            36
+            "PlayerSlot1",
+            new Vector2(0.740f, 0.232f),
+            new Vector2(0.830f, 0.312f)
+        );
+        playerSlots[1] = CreateCardSlot(
+            canvasGO.transform,
+            "PlayerSlot2",
+            new Vector2(0.842f, 0.232f),
+            new Vector2(0.932f, 0.312f)
         );
 
-        // 玩家牌型
         playerHandTypeText = CreateText(
             canvasGO.transform,
             "PlayerHandType",
             "",
-            new Vector2(0.74f, 0.19f),
-            new Vector2(0.96f, 0.23f),
-            TextAnchor.MiddleLeft,
-            16
+            new Vector2(0.655f, 0.183f),
+            new Vector2(0.995f, 0.232f),
+            TextAnchor.UpperLeft,
+            14
         );
-        playerHandTypeText.color = new Color(0.8f, 0.8f, 0.8f);
+        playerHandTypeText.color = TEXT_STRONG;
+        playerHandTypeText.lineSpacing = 1f;
+        playerHandTypeText.verticalOverflow = VerticalWrapMode.Overflow;
 
-        // ---- Swap 按钮：放在玩家面板上方 ----
+        // ---- Swap：改成玩家面板内右上角的中性小按钮 ----
         swapButton = CreateButton(
             canvasGO.transform,
             "SwapBtn",
             "Swap",
-            new Vector2(0.72f, 0.38f),
-            new Vector2(0.98f, 0.43f),
-            new Color(0.45f, 0.30f, 0.65f),
+            new Vector2(0.872f, 0.339f),
+            new Vector2(0.968f, 0.366f),
+            BTN_NEUTRAL,
             () => OnSwapClicked()
         );
+        swapButton.GetComponentInChildren<Text>().fontSize = 13;
 
         // ---------- 状态栏 ----------
         stateText = CreateText(
@@ -323,7 +420,7 @@ public class PokerUI : MonoBehaviour
             "33%",
             new Vector2(0.33f, qbY0),
             new Vector2(0.40f, qbY1),
-            new Color(0.15f, 0.35f, 0.65f),
+            BTN_NEUTRAL,
             () => SetSliderToFraction(0.33f)
         );
 
@@ -333,7 +430,7 @@ public class PokerUI : MonoBehaviour
             "50%",
             new Vector2(0.41f, qbY0),
             new Vector2(0.48f, qbY1),
-            new Color(0.15f, 0.35f, 0.65f),
+            BTN_NEUTRAL,
             () => SetSliderToFraction(0.50f)
         );
 
@@ -343,7 +440,7 @@ public class PokerUI : MonoBehaviour
             "75%",
             new Vector2(0.49f, qbY0),
             new Vector2(0.56f, qbY1),
-            new Color(0.15f, 0.35f, 0.65f),
+            BTN_NEUTRAL,
             () => SetSliderToFraction(0.75f)
         );
 
@@ -353,7 +450,7 @@ public class PokerUI : MonoBehaviour
             "Max",
             new Vector2(0.57f, qbY0),
             new Vector2(0.64f, qbY1),
-            new Color(0.15f, 0.35f, 0.65f),
+            BTN_NEUTRAL,
             () => SetSliderToFraction(1.0f)
         );
 
@@ -364,7 +461,7 @@ public class PokerUI : MonoBehaviour
             "-",
             new Vector2(0.65f, qbY0),
             new Vector2(0.69f, qbY1),
-            new Color(0.25f, 0.25f, 0.25f),
+            BTN_NEUTRAL,
             () => AdjustSlider(-StepAmount)
         );
 
@@ -386,20 +483,32 @@ public class PokerUI : MonoBehaviour
             "+",
             new Vector2(0.88f, qbY0),
             new Vector2(0.92f, qbY1),
-            new Color(0.25f, 0.25f, 0.25f),
+            BTN_NEUTRAL,
             () => AdjustSlider(StepAmount)
         );
 
-        // 数值
+        // 数值：做成一个小胶囊，别让数字裸在滑块边上
+        GameObject valuePill = new GameObject("RaiseValuePill", typeof(RectTransform), typeof(Image));
+        valuePill.transform.SetParent(quickBetRow.transform, false);
+        RectTransform vpRT = valuePill.GetComponent<RectTransform>();
+        vpRT.anchorMin = new Vector2(0.930f, qbY0);
+        vpRT.anchorMax = new Vector2(0.985f, qbY1);
+        vpRT.offsetMin = Vector2.zero;
+        vpRT.offsetMax = Vector2.zero;
+        Image vpImg = valuePill.GetComponent<Image>();
+        vpImg.color = new Color(0.03f, 0.03f, 0.03f, 0.95f);
+
         raiseValueText = CreateText(
-            quickBetRow.transform,
+            valuePill.transform,
             "RaiseValueText",
             "10",
-            new Vector2(0.93f, qbY0),
-            new Vector2(0.96f, qbY1),
+            Vector2.zero,
+            Vector2.one,
             TextAnchor.MiddleCenter,
-            22
+            18
         );
+        raiseValueText.color = TEXT_STRONG;
+        raiseValueText.fontStyle = FontStyle.Bold;
 
         raiseSlider.onValueChanged.AddListener(
             (value) => raiseValueText.text = Mathf.RoundToInt(value).ToString()
@@ -423,7 +532,7 @@ public class PokerUI : MonoBehaviour
             "Fold",
             new Vector2(0.33f, aY0),
             new Vector2(0.48f, aY1),
-            new Color(0.72f, 0.22f, 0.17f),
+            BTN_FOLD,
             () => poker.PlayerFold()
         );
 
@@ -433,7 +542,7 @@ public class PokerUI : MonoBehaviour
             "Check",
             new Vector2(0.49f, aY0),
             new Vector2(0.64f, aY1),
-            new Color(0.12f, 0.54f, 0.31f),
+            BTN_CHECK,
             () => poker.PlayerCheck()
         );
 
@@ -443,7 +552,7 @@ public class PokerUI : MonoBehaviour
             "Raise",
             new Vector2(0.65f, aY0),
             new Vector2(0.80f, aY1),
-            new Color(0.85f, 0.55f, 0.11f),
+            BTN_RAISE,
             () => poker.PlayerRaise(Mathf.RoundToInt(raiseSlider.value))
         );
 
@@ -453,7 +562,7 @@ public class PokerUI : MonoBehaviour
             "Match",
             new Vector2(0.81f, aY0),
             new Vector2(0.96f, aY1),
-            new Color(0.2f, 0.45f, 0.7f),
+            BTN_MATCH,
             () => poker.PlayerMatchRaise()
         );
 
@@ -477,6 +586,150 @@ public class PokerUI : MonoBehaviour
         );
 
         nextHandRow.SetActive(false);
+
+        // ---------- 参照面板（M3）----------
+        // 放在 BuildUI 末尾：此时 poker 已注入（Initialize 里先 poker = manager 再 BuildUI）。
+        tutorial = gameObject.AddComponent<PokerTutorialUI>();
+        tutorial.Initialize(poker);
+    }
+
+    // =========================================================
+    // 卡牌槽位 / 花色 / 按钮强调
+    // =========================================================
+    private Text CreateCardSlot(Transform parent, string name, Vector2 aMin, Vector2 aMax)
+    {
+        GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image));
+        go.transform.SetParent(parent, false);
+        RectTransform rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = aMin;
+        rt.anchorMax = aMax;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+
+        Image img = go.GetComponent<Image>();
+        img.color = SLOT_BG;
+        Outline outline = go.AddComponent<Outline>();
+        outline.effectColor = SLOT_EDGE;
+        outline.effectDistance = new Vector2(1.5f, -1.5f);
+
+        return CreateText(
+            go.transform,
+            "Face",
+            "",
+            Vector2.zero,
+            Vector2.one,
+            TextAnchor.MiddleCenter,
+            26
+        );
+    }
+
+    private void RenderSlots(Text[] slots, List<Card> cards, bool hidden)
+    {
+        RenderSlots(slots, cards, hidden, null);
+    }
+
+    /// <summary>
+    /// Renders cards into slots. Cards present in <paramref name="bestFive"/> get an amber
+    /// border so the player can see which cards their best hand is actually made of.
+    /// </summary>
+    private void RenderSlots(Text[] slots, List<Card> cards, bool hidden, List<Card> bestFive)
+    {
+        if (slots == null)
+            return;
+        int count = cards != null ? cards.Count : 0;
+        for (int i = 0; i < slots.Length; i++)
+        {
+            if (slots[i] == null)
+                continue;
+
+            bool inBest = false;
+            if (!hidden && bestFive != null && i < count && cards[i] != null)
+            {
+                foreach (Card c in bestFive)
+                {
+                    if (c != null && c.Rank == cards[i].Rank && c.Suit == cards[i].Suit)
+                    {
+                        inBest = true;
+                        break;
+                    }
+                }
+            }
+
+            if (hidden)
+            {
+                slots[i].text = "?";
+                slots[i].color = TEXT_MUTED;
+            }
+            else if (i < count)
+            {
+                slots[i].text = cards[i].ToString();
+                slots[i].color = SuitColor(cards[i].Suit);
+            }
+            else
+            {
+                slots[i].text = "";
+            }
+
+            StyleSlot(slots[i], inBest, hidden);
+        }
+    }
+
+    /// <summary>
+    /// Applies the "this card is in your best five" look to a slot. Resets to the plain look
+    /// otherwise, so slots never keep a stale highlight.
+    /// </summary>
+    private static void StyleSlot(Text slot, bool inBest, bool hidden)
+    {
+        Image bg = slot.transform.parent.GetComponent<Image>();
+        if (bg != null)
+            bg.color = inBest && !hidden ? SLOT_BG_BEST : SLOT_BG;
+
+        Outline outline = slot.transform.parent.GetComponent<Outline>();
+        if (outline != null)
+        {
+            outline.effectColor = inBest && !hidden ? SLOT_EDGE_BEST : SLOT_EDGE;
+            outline.effectDistance = inBest && !hidden
+                ? new Vector2(2.5f, -2.5f)
+                : new Vector2(1.5f, -1.5f);
+        }
+
+        slot.fontStyle = inBest && !hidden ? FontStyle.Bold : FontStyle.Normal;
+    }
+
+    private Color SuitColor(Suit suit)
+    {
+        switch (suit)
+        {
+            case Suit.Spades:
+                return new Color(0.93f, 0.93f, 0.93f);
+            case Suit.Hearts:
+                return new Color(1.00f, 0.55f, 0.58f);
+            case Suit.Clubs:
+                return new Color(0.66f, 0.88f, 1.00f);
+            case Suit.Diamonds:
+                return new Color(1.00f, 0.85f, 0.45f);
+            default:
+                return Color.white;
+        }
+    }
+
+    private void SetButtonEmphasis(Button button, Color baseColor, bool primary)
+    {
+        if (button == null)
+            return;
+        button.transform.localScale = primary ? new Vector3(1.05f, 1.05f, 1f) : Vector3.one;
+        Image img = button.GetComponent<Image>();
+        if (img != null)
+        {
+            img.color = primary
+                ? new Color(
+                    Mathf.Min(1f, baseColor.r * 1.15f),
+                    Mathf.Min(1f, baseColor.g * 1.15f),
+                    Mathf.Min(1f, baseColor.b * 1.15f),
+                    baseColor.a
+                )
+                : baseColor;
+        }
     }
 
     // =========================================================
@@ -498,8 +751,15 @@ public class PokerUI : MonoBehaviour
         stateText.text =
             $"{poker.CurrentStreet} | {poker.State}{dealingStr} | Bet: {poker.CurrentBet} | Community: {poker.CommunityCards.Count}/5";
 
-        playerHandText.text = CardStrColored(poker.PlayerHand);
-        communityText.text = CardStrColored(poker.CommunityCards);
+        // PlayerBestHand / EnemyBestHand 只在 showdown 时由 GameManager 算出来（PokerGameManager.cs:650/654），
+        // 手牌中途要显示「我现在是什么牌」就得自己按当前已知的牌算一遍。
+        HandResult playerBest =
+            poker.PlayerBestHand ?? EvaluateLive(poker.PlayerHand, poker.CommunityCards);
+        List<Card> playerBestFive = playerBest != null ? playerBest.bestFive : null;
+
+        RenderSlots(playerSlots, poker.PlayerHand, false, playerBestFive);
+        RenderSlots(communitySlots, poker.CommunityCards, false, playerBestFive);
+        communityText.text = "";
 
         bool revealEnemy =
             poker.State == PokerState.Showdown
@@ -507,14 +767,21 @@ public class PokerUI : MonoBehaviour
             || poker.State == PokerState.PlayerFolded
             || poker.State == PokerState.EnemyFolded;
 
-        enemyHandText.text = revealEnemy ? CardStrColored(poker.EnemyHand) : "?? ??";
+        HandResult enemyBest =
+            revealEnemy
+                ? (poker.EnemyBestHand ?? EvaluateLive(poker.EnemyHand, poker.CommunityCards))
+                : null;
+        RenderSlots(enemySlots, poker.EnemyHand, !revealEnemy, enemyBest != null ? enemyBest.bestFive : null);
 
-        playerHandTypeText.text =
-            poker.PlayerBestHand != null ? $"{poker.PlayerBestHand.GetDisplayName()}" : "";
-        enemyHandTypeText.text =
-            revealEnemy && poker.EnemyBestHand != null
-                ? $"{poker.EnemyBestHand.GetDisplayName()}"
-                : "";
+        if (playerBest != null && playerBestFive != null && playerBestFive.Count > 0)
+            playerHandTypeText.text =
+                "Best five: " + playerBest.Describe() + "\n" + CardStrColored(playerBestFive);
+        else
+            playerHandTypeText.text =
+                poker.PlayerHand != null && poker.PlayerHand.Count > 0
+                    ? "Holding " + CardStrColored(poker.PlayerHand)
+                    : "";
+        enemyHandTypeText.text = enemyBest != null ? enemyBest.Describe() : "";
 
         bool isPlayerTurn = poker.State == PokerState.PlayerTurn && !poker.IsDealing;
         bool mustMatch = poker.AwaitingPlayerMatch;
@@ -526,10 +793,29 @@ public class PokerUI : MonoBehaviour
         matchButton.interactable = isPlayerTurn && mustMatch;
         foldButton.interactable = isPlayerTurn;
 
+        // 可用动作放大 + 提亮，玩家一眼看到现在能点什么
+        SetButtonEmphasis(
+            checkButton,
+            BTN_CHECK,
+            isPlayerTurn && !mustMatch
+        );
+        SetButtonEmphasis(
+            foldButton,
+            BTN_FOLD,
+            isPlayerTurn && !mustMatch
+        );
+        SetButtonEmphasis(
+            raiseButton,
+            BTN_RAISE,
+            isPlayerTurn && !mustMatch && canRaise
+        );
+        SetButtonEmphasis(matchButton, BTN_MATCH, isPlayerTurn && mustMatch);
+
         // Swap 按钮：只有在可以换牌时才亮
         if (swapButton != null)
         {
             swapButton.interactable = poker.CanSwapCard;
+            swapButton.gameObject.SetActive(poker.CanSwapCard);
         }
 
         if (swapChoiceRow != null && swapChoiceRow.activeSelf && !poker.CanSwapCard)
@@ -544,7 +830,7 @@ public class PokerUI : MonoBehaviour
 
         quickBetRow.SetActive(!handOver && canRaise);
         actionRow.SetActive(!handOver);
-        nextHandRow.SetActive(handOver);
+        nextHandRow.SetActive(handOver && nextHandVisible);
 
         int sliderMax = Mathf.Max(MinRaise, maxRaise);
         raiseSlider.minValue = MinRaise;
@@ -563,6 +849,23 @@ public class PokerUI : MonoBehaviour
         raiseValueText.text = canRaise ? Mathf.RoundToInt(raiseSlider.value).ToString() : "-";
 
         SetQuickBetButtonsInteractable(canRaise && isPlayerTurn && !mustMatch);
+    }
+
+    /// <summary>
+    /// Best five from the cards known right now (hole cards + community so far).
+    /// Returns null while fewer than five cards are known, so the UI can show
+    /// "Holding A♠ K♥" instead of a misleading hand name.
+    /// </summary>
+    private static HandResult EvaluateLive(List<Card> hole, List<Card> community)
+    {
+        List<Card> all = new List<Card>();
+        if (hole != null)
+            all.AddRange(hole);
+        if (community != null)
+            all.AddRange(community);
+        if (all.Count < 5)
+            return null;
+        return HandEvaluator.Evaluate(all);
     }
 
     private string CardStrColored(List<Card> cards)
@@ -797,7 +1100,7 @@ public class PokerUI : MonoBehaviour
             "Cancel",
             new Vector2(0.42f, 0.36f),
             new Vector2(0.58f, 0.40f),
-            new Color(0.25f, 0.25f, 0.25f),
+            BTN_NEUTRAL,
             () => swapChoiceRow.SetActive(false)
         );
 

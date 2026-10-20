@@ -88,6 +88,39 @@ public class Deck
     }
 
     /// <summary>
+    /// 把指定牌按给定顺序放到接下来的抽牌位置（教程脚本发牌用）。
+    /// 先把这些牌从牌堆里摘掉，再插回 drawIndex 处，所以不会出现重复牌。
+    /// </summary>
+    public void StackNext(List<Card> next)
+    {
+        if (next == null)
+            return;
+
+        for (int i = 0; i < next.Count; i++)
+        {
+            Card want = next[i];
+            if (want == null)
+                continue;
+
+            // 找到同一张（花色 + 点数）并摘掉；已经抽过的部分也要把游标一起往前挪。
+            for (int j = 0; j < cards.Count; j++)
+            {
+                if (cards[j].Suit == want.Suit && cards[j].Rank == want.Rank)
+                {
+                    cards.RemoveAt(j);
+                    if (j < drawIndex)
+                        drawIndex--;
+                    break;
+                }
+            }
+        }
+
+        // 反向插入，保证 next[0] 最先被抽到。
+        for (int i = next.Count - 1; i >= 0; i--)
+            cards.Insert(drawIndex, next[i]);
+    }
+
+    /// <summary>
     /// Prints all cards in the deck to the console for debugging purposes.
     /// Note: This prints the entire deck, including cards that have already been drawn.
     /// </summary>

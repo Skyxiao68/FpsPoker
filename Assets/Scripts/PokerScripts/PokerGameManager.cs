@@ -116,6 +116,37 @@ public class PokerGameManager : MonoBehaviour
         EnemyAIParameters parameters
     )
     {
+        PrepareHand(playerStartingChips, enemyStartingChips, buyIn, parameters, null);
+    }
+
+    /// <summary>
+    /// 教程用：按脚本顺序发牌。scriptedDrawOrder 依次是玩家第一张、敌人第一张、
+    /// 玩家第二张、敌人第二张，之后是公共牌（翻牌 3、转牌 1、河牌 1）。
+    /// 其它流程与随机局完全一致，随机局不会走这里。
+    /// </summary>
+    public void StartScriptedHand(
+        int playerStartingChips,
+        int enemyStartingChips,
+        int buyIn,
+        EnemyAIParameters parameters,
+        System.Collections.Generic.List<Card> scriptedDrawOrder
+    )
+    {
+        PrepareHand(playerStartingChips, enemyStartingChips, buyIn, parameters, scriptedDrawOrder);
+    }
+
+    private void PrepareHand(
+        int playerStartingChips,
+        int enemyStartingChips,
+        int buyIn,
+        EnemyAIParameters parameters,
+        System.Collections.Generic.List<Card> scriptedDrawOrder
+    )
+    {
+        // 发牌协程可能还在跑（教程会在手牌中途重开一手，或玩家快速连开），
+        // 不掐掉的话上一个协程会把旧牌继续塞进新一手的公共牌区。
+        StopAllCoroutines();
+
         // Save starting chips and enemy parameters for this hand.
         PlayerChips = playerStartingChips;
         EnemyChips = enemyStartingChips;
@@ -170,6 +201,8 @@ public class PokerGameManager : MonoBehaviour
         deck = new Deck();
         deck.Initialize();
         deck.Shuffle();
+        if (scriptedDrawOrder != null)
+            deck.StackNext(scriptedDrawOrder);
 
         PlayerHand.Add(deck.Draw());
         EnemyHand.Add(deck.Draw());

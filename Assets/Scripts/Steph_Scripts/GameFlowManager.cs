@@ -292,6 +292,27 @@ public class GameFlowManager : MonoBehaviour
         ReturnedFromShop = false;
     }
 
+    /// <summary>扑克场景名（教程结束时用它跳回牌桌）。</summary>
+    public string PokerSceneName { get { return pokerSceneName; } }
+
+    /// <summary>
+    /// 开一局全新的 run：筹码回初始值、关卡回 1、清掉所有跨场景返回值。
+    /// 教程结束/跳过之后调用一次，避免教程里的筹码影响正式局。
+    /// </summary>
+    public void StartNewRun()
+    {
+        PlayerChips = startingChips;
+        EnemyChips = startingEnemyChips;
+        CurrentLevel = 1;
+        AwaitingNextLevel = false;
+        IsGameOver = false;
+        ReturnedFromCombat = false;
+        ReturnedFromShop = false;
+        pendingHandoff = null;
+        pendingResult = null;
+        AdvanceToNextEncounter();
+    }
+
     /// <summary>
     /// 推进到下一个敌人：生成随机敌人并记录下来。
     /// 由扑克场景的 Bootstrap 在合适的时机（牌局结束时）调用。

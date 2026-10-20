@@ -98,6 +98,101 @@ public class HandResult
                 return "Unknown";
         }
     }
+
+    /// <summary>
+    /// Plain-language description of the hand, e.g. "Pair of 9s", "Full house, Kings over 4s".
+    /// Written for players who do not know poker: it names the cards that make the hand
+    /// instead of only the hand classification.
+    /// </summary>
+    public string Describe()
+    {
+        if (tiebreakers == null || tiebreakers.Length < 2)
+            return GetDisplayName();
+
+        int main = tiebreakers[1];
+
+        switch (handType)
+        {
+            case HandType.RoyalFlush:
+                return "Royal flush";
+            case HandType.StraightFlush:
+                return "Straight flush, " + RankWord(main) + " high";
+            case HandType.FourOfAKind:
+                return "Four " + RankWordPlural(main);
+            case HandType.FullHouse:
+                return tiebreakers.Length > 2
+                    ? "Full house, " + RankWordPlural(main) + " over " + RankWordPlural(tiebreakers[2])
+                    : "Full house";
+            case HandType.Flush:
+                return "Flush (" + SuitWordOfBestFive() + "), " + RankWord(main) + " high";
+            case HandType.Straight:
+                return "Straight, " + RankWord(main) + " high";
+            case HandType.ThreeOfAKind:
+                return "Three " + RankWordPlural(main);
+            case HandType.TwoPair:
+                return tiebreakers.Length > 2
+                    ? "Two pair, " + RankWordPlural(main) + " and " + RankWordPlural(tiebreakers[2])
+                    : "Two pair";
+            case HandType.OnePair:
+                return "Pair of " + RankWordPlural(main);
+            default:
+                return RankWord(main) + " high";
+        }
+    }
+
+    private static string RankWord(int pokerValue)
+    {
+        switch (pokerValue)
+        {
+            case 14:
+                return "Ace";
+            case 13:
+                return "King";
+            case 12:
+                return "Queen";
+            case 11:
+                return "Jack";
+            default:
+                return pokerValue.ToString();
+        }
+    }
+
+    private static string RankWordPlural(int pokerValue)
+    {
+        switch (pokerValue)
+        {
+            case 14:
+                return "Aces";
+            case 13:
+                return "Kings";
+            case 12:
+                return "Queens";
+            case 11:
+                return "Jacks";
+            default:
+                return pokerValue + "s";
+        }
+    }
+
+    private string SuitWordOfBestFive()
+    {
+        if (bestFive == null || bestFive.Count == 0)
+            return "one suit";
+
+        switch (bestFive[0].Suit)
+        {
+            case Suit.Spades:
+                return "spades";
+            case Suit.Hearts:
+                return "hearts";
+            case Suit.Clubs:
+                return "clubs";
+            case Suit.Diamonds:
+                return "diamonds";
+            default:
+                return "one suit";
+        }
+    }
 }
 
 /// <summary>
