@@ -1,7 +1,17 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using UnityEngine;
+
+/// <summary>Category of a log line, so the table can colour it correctly.</summary>
+public enum LogKind
+{
+    System,
+    Player,
+    Enemy,
+    Street
+}
 
 /// <summary>
 /// Main game manager for the poker game.
@@ -94,7 +104,7 @@ public class PokerGameManager : MonoBehaviour
     public event Action OnStateChanged;
 
     /// <summary>Fired when a new log message should be displayed to the player.</summary>
-    public event Action<string> OnMessage;
+    public event Action<string, LogKind> OnMessage;
 
     /// <summary>
     /// Fired when a hand ends (win, lose, fold, showdown).
@@ -174,7 +184,7 @@ public class PokerGameManager : MonoBehaviour
         // Player must have at least the buy-in amount to play.
         if (PlayerChips < BuyIn)
         {
-            LogMessage("Player has insufficient chips to pay the buy-in, game over");
+            LogMessage($"You cannot cover the {BuyIn}-chip buy-in — your run ends here.");
             State = PokerState.NotStarted;
             OnStateChanged?.Invoke();
             return;
@@ -183,7 +193,7 @@ public class PokerGameManager : MonoBehaviour
         // If the enemy can't afford the buy-in, the player advances by default.
         if (EnemyChips < BuyIn)
         {
-            LogMessage("Enemy has insufficient chips, player advances");
+            LogMessage($"The opponent is below the {BuyIn}-chip buy-in — level cleared.");
             State = PokerState.HandEnded;
             OnStateChanged?.Invoke();
             OnHandEnded?.Invoke();
@@ -195,7 +205,7 @@ public class PokerGameManager : MonoBehaviour
         PlayerChips -= BuyIn;
         EnemyChips -= BuyIn;
         Pot += BuyIn * 2;
-        LogMessage($"Both players paid the buy-in {BuyIn}, pot {Pot}");
+        LogMessage($"You both put in {BuyIn} to sit down. Pot: {Pot}.");
 
         // Shuffle and deal 2 hole cards each (alternating draw order).
         deck = new Deck();
@@ -209,7 +219,7 @@ public class PokerGameManager : MonoBehaviour
         PlayerHand.Add(deck.Draw());
         EnemyHand.Add(deck.Draw());
 
-        LogMessage($"Player hand: {CardListToString(PlayerHand)}");
+        LogMessage($"Your hand: {CardsText(PlayerHand)}");
 
         swapsRemainingThisHand =
             PlayerInventory.Instance != null
@@ -227,12 +237,12 @@ public class PokerGameManager : MonoBehaviour
     {
         if (!CanSwapCard)
         {
-            LogMessage("现在不能换牌");
+            LogMessage("You cannot swap a card right now.");
             return;
         }
         if (handIndex < 0 || handIndex >= PlayerHand.Count)
         {
-            LogMessage("换牌索引无效");
+            LogMessage("That card cannot be swapped.");
             return;
         }
 
@@ -241,7 +251,7 @@ public class PokerGameManager : MonoBehaviour
         PlayerHand[handIndex] = newCard;
         swapsRemainingThisHand--;
 
-        LogMessage($"换牌：{oldCard} → {newCard}（剩余 {swapsRemainingThisHand} 次）");
+        LogMessage($"Swapped {CardText(oldCard)} for {CardText(newCard)}. Swaps left: {swapsRemainingThisHand}.", LogKind.Player);
         OnStateChanged?.Invoke();
     }
 
@@ -270,11 +280,11 @@ public class PokerGameManager : MonoBehaviour
         // If the enemy raised, the player can't check - must Match or Fold.
         if (AwaitingPlayerMatch)
         {
-            LogMessage("Enemy has raised, you can only Match or Fold");
+            LogMessage("The opponent raised — match it or fold.");
             return;
         }
 
-        LogMessage($"Player checks ({CurrentStreet})");
+        LogMessage("You check.", LogKind.Player);
 
         playerTotalActions++;
 
@@ -295,7 +305,7 @@ public class PokerGameManager : MonoBehaviour
         // Can't raise while already facing an enemy raise - use Match instead.
         if (AwaitingPlayerMatch)
         {
-            LogMessage("Enemy has raised, please use Match or Fold");
+            LogMessage("The opponent raised — match it or fold.");
             return;
         }
 
@@ -304,14 +314,14 @@ public class PokerGameManager : MonoBehaviour
         // 无法加注（对方没筹码了）→ 只能 Check
         if (maxRaise <= 0)
         {
-            LogMessage("Cannot raise: either you or the enemy has no chips left");
+            LogMessage("You cannot raise — one of the stacks is empty.");
             return;
         }
 
         // 加注额为 0 或负数 → 视为 Check
         if (amount <= 0)
         {
-            LogMessage("Raise amount invalid, Auto Checking instead");
+            LogMessage("No amount was set, so you check instead.");
             PlayerCheck();
             return;
         }
@@ -319,9 +329,7 @@ public class PokerGameManager : MonoBehaviour
         // 超过上限 → 压到上限，而不是拒绝
         if (amount > maxRaise)
         {
-            LogMessage(
-                $"Raise amount {amount} exceeds max {maxRaise}, Auto Raising {maxRaise} instead"
-            );
+            LogMessage($"The most you can raise is {maxRaise}, so you raise {maxRaise}.");
             amount = maxRaise;
         }
 
@@ -334,7 +342,7 @@ public class PokerGameManager : MonoBehaviour
         playerRaiseCount++;
         playerTotalActions++;
 
-        LogMessage($"Player raises {amount} ({CurrentStreet}), pot {Pot}");
+        LogMessage($"You raise {amount}. Pot: {Pot}.", LogKind.Player);
 
         // Enemy's turn to respond to the raise.
         State = PokerState.EnemyTurn;
@@ -353,7 +361,7 @@ public class PokerGameManager : MonoBehaviour
         // Nothing to match if there's no pending raise.
         if (!AwaitingPlayerMatch || CurrentBet <= 0)
         {
-            LogMessage("There is currently no raise to match");
+            LogMessage("There is no raise to match.");
             return;
         }
 
@@ -361,7 +369,7 @@ public class PokerGameManager : MonoBehaviour
         // 保留为兜底：直接 Check 并推进，不 Fold
         if (PlayerChips < CurrentBet)
         {
-            LogMessage($"无法跟注 {CurrentBet}（筹码 {PlayerChips}），转为 Check 并推进");
+            LogMessage($"You cannot cover {CurrentBet} with {PlayerChips} chips — you check instead.");
             AwaitingPlayerMatch = false;
             CurrentBet = 0;
             AdvanceStreet();
@@ -371,7 +379,7 @@ public class PokerGameManager : MonoBehaviour
         // Pay the match amount into the pot.
         PlayerChips -= CurrentBet;
         Pot += CurrentBet;
-        LogMessage($"Player matches the raise {CurrentBet}, pot {Pot}");
+        LogMessage($"You match {CurrentBet}. Pot: {Pot}.", LogKind.Player);
         playerTotalActions++;
 
         // Betting for this street is resolved - advance to the next street.
@@ -387,7 +395,7 @@ public class PokerGameManager : MonoBehaviour
         if (State != PokerState.PlayerTurn)
             return;
 
-        LogMessage($"Player folds, losing the pot {Pot}");
+        LogMessage($"You fold. The {Pot} in the pot goes to the opponent.", LogKind.Player);
 
         playerTotalActions++;
 
@@ -459,7 +467,7 @@ public class PokerGameManager : MonoBehaviour
                 // AI wanted to check but player already raised - fall back to fold.
                 if (playerRaised)
                 {
-                    LogMessage("Enemy cannot Check a Player Raise, changing to Fold");
+                    LogMessage("The opponent cannot check against your raise — they fold.", LogKind.Enemy);
                     EnemyFolds();
                 }
                 else
@@ -491,14 +499,14 @@ public class PokerGameManager : MonoBehaviour
             // AI amount is at most the player's raise - treat it as a call (match).
             if (EnemyChips < playerRaiseAmount)
             {
-                LogMessage("Enemy chips insufficient, changing to check");
+                LogMessage("The opponent is short on chips and checks.", LogKind.Enemy);
                 EnemyChecks();
                 return;
             }
             EnemyChips -= playerRaiseAmount;
             Pot += playerRaiseAmount;
             CurrentBet = playerRaiseAmount;
-            LogMessage($"Enemy matches the raise {playerRaiseAmount}, pot {Pot}");
+            LogMessage($"The opponent matches your raise of {playerRaiseAmount}. Pot: {Pot}.", LogKind.Enemy);
 
             // Betting resolved - advance to the next street.
             AdvanceStreet();
@@ -508,7 +516,7 @@ public class PokerGameManager : MonoBehaviour
         if (aiAmount > maxRaise)
         {
             // AI wants to raise more than it can afford - cap it at max.
-            LogMessage($"Enemy raise {aiAmount} exceeds max {maxRaise}, capping to max");
+            LogMessage($"The opponent puts in as much as they can: {maxRaise}.", LogKind.Enemy);
             aiAmount = maxRaise;
         }
 
@@ -517,7 +525,7 @@ public class PokerGameManager : MonoBehaviour
             EnemyChips -= playerRaiseAmount;
             Pot += playerRaiseAmount;
             CurrentBet = playerRaiseAmount;
-            LogMessage($"Enemy matches the raise {playerRaiseAmount}, pot {Pot}");
+            LogMessage($"The opponent matches your raise of {playerRaiseAmount}. Pot: {Pot}.", LogKind.Enemy);
             AdvanceStreet();
             return;
         }
@@ -527,7 +535,7 @@ public class PokerGameManager : MonoBehaviour
         Pot += aiAmount;
         CurrentBet = aiAmount;
         AwaitingPlayerMatch = true;
-        LogMessage($"Enemy raises {aiAmount}, pot {Pot}. Player must Match or Fold.");
+        LogMessage($"The opponent raises {aiAmount}. Pot: {Pot} — match or fold.", LogKind.Enemy);
         State = PokerState.PlayerTurn;
         OnStateChanged?.Invoke();
     }
@@ -542,7 +550,7 @@ public class PokerGameManager : MonoBehaviour
 
         if (maxRaise <= 0)
         {
-            LogMessage("Enemy cannot raise: either player or enemy has no chips left");
+            LogMessage("The opponent cannot raise — one of the stacks is empty.", LogKind.Enemy);
             EnemyChecks();
             return;
         }
@@ -555,7 +563,7 @@ public class PokerGameManager : MonoBehaviour
         if (amount > maxRaise)
         {
             amount = maxRaise;
-            LogMessage($"Enemy raise {amount} exceeds max {maxRaise}, capping to max");
+            LogMessage($"The opponent puts in as much as they can: {maxRaise}.", LogKind.Enemy);
         }
 
         // Deduct chips from enemy and add to pot.
@@ -564,7 +572,7 @@ public class PokerGameManager : MonoBehaviour
         CurrentBet = amount;
         AwaitingPlayerMatch = true;
 
-        LogMessage($"Enemy raises {amount}, pot {Pot}. Player must Match or Fold.");
+        LogMessage($"The opponent raises {amount}. Pot: {Pot} — match or fold.", LogKind.Enemy);
 
         // Turn goes back to the player.
         State = PokerState.PlayerTurn;
@@ -576,7 +584,7 @@ public class PokerGameManager : MonoBehaviour
     /// </summary>
     private void EnemyChecks()
     {
-        LogMessage($"Enemy checks ({CurrentStreet})");
+        LogMessage("The opponent checks.", LogKind.Enemy);
         AdvanceStreet();
     }
 
@@ -585,7 +593,7 @@ public class PokerGameManager : MonoBehaviour
     /// </summary>
     private void EnemyFolds()
     {
-        LogMessage($"Enemy folds, player wins the pot {Pot}");
+        LogMessage($"The opponent folds. You take the {Pot} in the pot.", LogKind.Enemy);
         PlayerChips += Pot;
         Pot = 0;
         Result = PokerResult.PlayerWinsByFold;
@@ -650,7 +658,6 @@ public class PokerGameManager : MonoBehaviour
             yield return new WaitForSeconds(dealDelay);
             Card c = deck.Draw();
             CommunityCards.Add(c);
-            LogMessage($"Revealed community card: {c}");
             OnStateChanged?.Invoke();
         }
 
@@ -664,7 +671,12 @@ public class PokerGameManager : MonoBehaviour
     private void StartPlayerTurn()
     {
         State = PokerState.PlayerTurn;
-        LogMessage($"—— {CurrentStreet} Player turn ——");
+        string streetName = CurrentStreet.ToString().ToUpper();
+        string tableCards = CardsText(CommunityCards);
+        LogMessage(
+            tableCards.Length > 0 ? $"{streetName}: {tableCards} — your move" : $"{streetName} — your move",
+            LogKind.Street
+        );
         OnStateChanged?.Invoke();
     }
 
@@ -686,8 +698,9 @@ public class PokerGameManager : MonoBehaviour
         enemyAll.AddRange(CommunityCards);
         EnemyBestHand = HandEvaluator.Evaluate(enemyAll);
 
-        LogMessage($"Player's best hand: {PlayerBestHand.GetDisplayName()}");
-        LogMessage($"Enemy's best hand: {EnemyBestHand.GetDisplayName()}");
+        // 牌型同名时（例如双方都是 Ace high）要靠牌面看出谁大，所以把五张牌一起写出来
+        LogMessage($"Your best five: {PlayerBestHand.Describe()} — {CardsText(PlayerBestHand.bestFive)}");
+        LogMessage($"Their best five: {EnemyBestHand.Describe()} — {CardsText(EnemyBestHand.bestFive)}");
 
         // Compare hands: >0 player wins, <0 enemy wins, 0 tie.
         int cmp = CompareHands(PlayerBestHand, EnemyBestHand);
@@ -699,7 +712,7 @@ public class PokerGameManager : MonoBehaviour
             PlayerChips += half;
             EnemyChips += Pot - half;
             Pot = 0;
-            LogMessage("Showdown: Tie, split pot");
+            LogMessage("Tie — the pot is split.");
             Result = PokerResult.TieShowdown;
             State = PokerState.HandEnded;
             OnStateChanged?.Invoke();
@@ -712,7 +725,12 @@ public class PokerGameManager : MonoBehaviour
         Result = cmp > 0 ? PokerResult.PlayerWinsShowdown : PokerResult.EnemyWinsShowdown;
 
         State = PokerState.Showdown;
-        LogMessage($"Showdown resolved: {Result}. Pot {Pot} waiting for combat handoff.");
+        LogMessage(
+            Result == PokerResult.PlayerWinsShowdown
+                ? $"You have the better hand. Pot {Pot} — win the duel to claim it."
+                : $"The opponent has the better hand. Pot {Pot} — win the duel to take it back.",
+            LogKind.Street
+        );
         OnStateChanged?.Invoke();
         OnHandEnded?.Invoke();
     }
@@ -788,20 +806,53 @@ public class PokerGameManager : MonoBehaviour
     /// <summary>
     /// Logs a message to the Unity console and notifies any UI listeners.
     /// </summary>
-    private void LogMessage(string msg)
+    private void LogMessage(string msg, LogKind kind = LogKind.System)
     {
-        Debug.Log($"[Poker] {msg}");
-        OnMessage?.Invoke(msg);
+        // Rich-text tags are for the table only; keep the console readable.
+        Debug.Log($"[Poker] {Regex.Replace(msg, "<[^>]+>", "")}");
+        OnMessage?.Invoke(msg, kind);
     }
 
-    /// <summary>
-    /// Converts a list of cards into a space-separated string for logging.
-    /// </summary>
-    private string CardListToString(List<Card> cards)
+    /// <summary>One card, coloured by suit the same way the table colours card faces.</summary>
+    private static string CardText(Card c)
     {
+        if (c == null)
+            return "?";
+
+        string hex;
+        switch (c.Suit)
+        {
+            case Suit.Hearts:
+                hex = "#FF8C94";
+                break;
+            case Suit.Clubs:
+                hex = "#A8E0FF";
+                break;
+            case Suit.Diamonds:
+                hex = "#FFD973";
+                break;
+            default:
+                hex = "#EDEDED";
+                break;
+        }
+
+        return $"<color={hex}>{c}</color>";
+    }
+
+    /// <summary>Cards separated by spaces, each coloured by suit.</summary>
+    private static string CardsText(List<Card> cards)
+    {
+        if (cards == null || cards.Count == 0)
+            return "";
+
         string s = "";
-        foreach (Card c in cards)
-            s += c.ToString() + " ";
+        for (int i = 0; i < cards.Count; i++)
+        {
+            if (i > 0)
+                s += " ";
+            s += CardText(cards[i]);
+        }
         return s;
     }
+
 }

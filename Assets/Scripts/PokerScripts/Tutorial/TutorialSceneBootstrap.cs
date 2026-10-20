@@ -14,8 +14,8 @@ public class TutorialSceneBootstrap : MonoBehaviour
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
 
-        poker = FindObjectOfType<PokerGameManager>();
-        ui = FindObjectOfType<PokerUI>();
+        poker = FindAnyObjectByType<PokerGameManager>();
+        ui = FindAnyObjectByType<PokerUI>();
 
         if (poker == null)
         {

@@ -22,7 +22,9 @@ public class PokerUI : MonoBehaviour
     private Text playerHandTypeText;
     private Text enemyHandTypeText;
     private Transform messageLogContainer;
-    private const int MaxLogEntries = 6;
+    private ScrollRect messageLogScroll;
+    private bool stickToLogBottom = true;
+    private const int MaxLogEntries = 200;
     private Text enemyNameText;
     private Text raiseValueText;
 
@@ -274,17 +276,78 @@ public class PokerUI : MonoBehaviour
         msgLogRT.offsetMin = Vector2.zero;
         msgLogRT.offsetMax = Vector2.zero;
 
-        VerticalLayoutGroup vlg = msgLogGO.AddComponent<VerticalLayoutGroup>();
-        vlg.childAlignment = TextAnchor.UpperLeft; // 从底部往上堆
+        // Viewport：裁掉溢出的历史消息，右侧留 10px 给滚动条
+        GameObject viewportGO = new GameObject("Viewport");
+        viewportGO.transform.SetParent(msgLogGO.transform, false);
+        RectTransform viewportRT = viewportGO.AddComponent<RectTransform>();
+        viewportRT.anchorMin = Vector2.zero;
+        viewportRT.anchorMax = Vector2.one;
+        viewportRT.offsetMin = Vector2.zero;
+        viewportRT.offsetMax = new Vector2(-10f, 0f);
+        viewportGO.AddComponent<RectMask2D>();
+
+        // Content：按内容长高，最旧的在上、最新的在下
+        GameObject contentGO = new GameObject("Content");
+        contentGO.transform.SetParent(viewportGO.transform, false);
+        RectTransform contentRT = contentGO.AddComponent<RectTransform>();
+        contentRT.anchorMin = new Vector2(0f, 1f);
+        contentRT.anchorMax = new Vector2(1f, 1f);
+        contentRT.pivot = new Vector2(0.5f, 1f);
+        contentRT.offsetMin = Vector2.zero;
+        contentRT.offsetMax = Vector2.zero;
+
+        VerticalLayoutGroup vlg = contentGO.AddComponent<VerticalLayoutGroup>();
+        vlg.childAlignment = TextAnchor.LowerLeft;
         vlg.childControlHeight = true;
         vlg.childControlWidth = true;
         vlg.childForceExpandHeight = false;
         vlg.childForceExpandWidth = true;
-        vlg.spacing = 4f;
+        vlg.spacing = 3f;
+        vlg.padding = new RectOffset(2, 2, 2, 2);
 
-        ContentSizeFitter csf = msgLogGO.AddComponent<ContentSizeFitter>();
+        ContentSizeFitter csf = contentGO.AddComponent<ContentSizeFitter>();
         csf.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
-        messageLogContainer = msgLogGO.transform;
+        csf.horizontalFit = ContentSizeFitter.FitMode.Unconstrained;
+
+        ScrollRect sr = msgLogGO.AddComponent<ScrollRect>();
+        sr.viewport = viewportRT;
+        sr.content = contentRT;
+        sr.horizontal = false;
+        sr.vertical = true;
+        sr.movementType = ScrollRect.MovementType.Clamped;
+        sr.scrollSensitivity = 30f;
+        messageLogScroll = sr;
+        messageLogContainer = contentGO.transform;
+
+        // 右侧细滚动条（纯代码拼，不依赖素材）
+        GameObject barGO = new GameObject("Scrollbar");
+        barGO.transform.SetParent(msgLogGO.transform, false);
+        RectTransform barRT = barGO.AddComponent<RectTransform>();
+        barRT.anchorMin = new Vector2(1f, 0f);
+        barRT.anchorMax = new Vector2(1f, 1f);
+        barRT.pivot = new Vector2(1f, 0.5f);
+        barRT.sizeDelta = new Vector2(7f, 0f);
+        barRT.anchoredPosition = Vector2.zero;
+        Image barBg = barGO.AddComponent<Image>();
+        barBg.color = new Color(1f, 1f, 1f, 0.05f);
+
+        GameObject handleGO = new GameObject("Handle");
+        handleGO.transform.SetParent(barGO.transform, false);
+        RectTransform handleRT = handleGO.AddComponent<RectTransform>();
+        handleRT.anchorMin = Vector2.zero;
+        handleRT.anchorMax = Vector2.one;
+        handleRT.offsetMin = Vector2.zero;
+        handleRT.offsetMax = Vector2.zero;
+        Image handleImg = handleGO.AddComponent<Image>();
+        handleImg.color = new Color(1f, 1f, 1f, 0.22f);
+
+        Scrollbar sb = barGO.AddComponent<Scrollbar>();
+        sb.direction = Scrollbar.Direction.BottomToTop;
+        sb.handleRect = handleRT;
+        sb.targetGraphic = handleImg;
+
+        sr.verticalScrollbar = sb;
+        sr.verticalScrollbarVisibility = ScrollRect.ScrollbarVisibility.Permanent;
 
         // ---------- 公共牌：正中央 5 个常驻槽位 ----------
         Text communityLabel = CreateText(
@@ -899,26 +962,49 @@ public class PokerUI : MonoBehaviour
         return s;
     }
 
-    private void AddMessage(string msg)
+    private void AddMessage(string msg, LogKind kind)
     {
         // 1. 创建新的文本对象
         GameObject textGO = new GameObject("Msg");
         textGO.transform.SetParent(messageLogContainer, false);
 
-        // 2. 设置为第一个子物体（新消息出现在顶部，旧消息往下排）
+        // 2. 放到最后（VerticalLayoutGroup 里最新的在最下面）
         textGO.transform.SetAsLastSibling();
 
         // 3. 设置文本属性
         Text txt = textGO.AddComponent<Text>();
         txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
-        txt.text = msg;
-        txt.fontSize = 18;
-        txt.color = new Color(0.9f, 0.9f, 0.9f, 1f); // 稍微偏灰的白，不刺眼
-        txt.alignment = TextAnchor.MiddleLeft;
-        txt.horizontalOverflow = HorizontalWrapMode.Wrap;
+        txt.fontSize = 16;
 
-        // 4. 如果超过最大条数，销毁最旧的一条（末尾的）
-        if (messageLogContainer.childCount > MaxLogEntries)
+        // 一眼分得出是谁的动作：你=白、对手=冷灰、街道/结算=琥珀加粗、其余=系统灰
+        Color lineColor;
+        switch (kind)
+        {
+            case LogKind.Player:
+                lineColor = new Color(0.94f, 0.94f, 0.94f, 1f);
+                break;
+            case LogKind.Enemy:
+                lineColor = new Color(0.72f, 0.79f, 0.88f, 1f);
+                break;
+            case LogKind.Street:
+                lineColor = new Color(1.00f, 0.78f, 0.30f, 1f);
+                break;
+            default:
+                lineColor = new Color(0.78f, 0.78f, 0.78f, 1f);
+                break;
+        }
+        txt.color = lineColor;
+        txt.fontStyle = kind == LogKind.Street ? FontStyle.Bold : FontStyle.Normal;
+
+        // 街道行前面空一行，把一条街的动作聚成一块
+        txt.text = kind == LogKind.Street && messageLogContainer.childCount > 1 ? "\n" + msg : msg;
+        txt.alignment = TextAnchor.UpperLeft;
+        txt.horizontalOverflow = HorizontalWrapMode.Wrap;
+        txt.verticalOverflow = VerticalWrapMode.Overflow;
+        txt.raycastTarget = false; // 让滚轮/拖动都落到 ScrollRect 上
+
+        // 4. 超过上限时裁掉最旧的一条（历史不再按时间消失，只按条数封顶）
+        while (messageLogContainer.childCount > MaxLogEntries)
         {
             Transform oldest = messageLogContainer.GetChild(0);
             oldest.SetParent(null); // 先脱离父物体，避免在销毁时触发布局重建
@@ -930,39 +1016,22 @@ public class PokerUI : MonoBehaviour
             messageLogContainer.GetComponent<RectTransform>()
         );
 
-        StartCoroutine(FadeOutAndDestroy(textGO, 9f)); // 9秒后开始淡出
+        // 6. 玩家贴在底部时跟着新消息走；正在往上翻历史就不打断他
+        if (stickToLogBottom && messageLogScroll != null)
+            messageLogScroll.verticalNormalizedPosition = 0f;
     }
 
-    private System.Collections.IEnumerator FadeOutAndDestroy(GameObject go, float delay)
+    // 每帧末量一次：玩家是不是还贴在日志底部。放到 LateUpdate 里量，
+    // 是因为 ScrollRect.onValueChanged 在赋值当帧读到的是旧位置，判不准。
+    private void LateUpdate()
     {
-        // 等待显示时间
-        yield return new WaitForSeconds(delay);
+        if (messageLogScroll == null || messageLogScroll.content == null || messageLogScroll.viewport == null)
+            return;
 
-        if (go == null)
-        {
-            yield break;
-        }
-
-        CanvasGroup cg = go.GetComponent<CanvasGroup>();
-        if (cg == null)
-            cg = go.AddComponent<CanvasGroup>();
-
-        float fadeDuration = 2f;
-        float t = 0f;
-
-        while (t < fadeDuration)
-        {
-            if (go == null || cg == null)
-            {
-                yield break;
-            }
-
-            t += Time.deltaTime;
-            cg.alpha = Mathf.Lerp(1f, 0f, t / fadeDuration);
-            yield return null;
-        }
-
-        Destroy(go);
+        float contentH = messageLogScroll.content.rect.height;
+        float viewH = messageLogScroll.viewport.rect.height;
+        // 内容装得下，或者已经滚到底部 2% 以内，都算“贴着底部”
+        stickToLogBottom = contentH <= viewH + 1f || messageLogScroll.verticalNormalizedPosition <= 0.02f;
     }
 
     private void SetQuickBetButtonsInteractable(bool on)
