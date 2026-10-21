@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -32,6 +33,17 @@ public class PokerTutorialUI : MonoBehaviour
     private Text resultText;
 
     private float resultHideAt = -1f;
+
+    // 结果行停 10 秒再淡出 0.6 秒：短到不会跟着进下一手，长到能读完一句话。
+    private const float ResultStaySeconds = 10f;
+    private const float ResultFadeSeconds = 0.6f;
+
+    // 参考面板右栏的四项属性当前数值（打开面板时按当前 best five 现算）
+    private Text helpAtkValue;
+    private Text helpHpValue;
+    private Text helpRofValue;
+    private Text helpSpdValue;
+    private Text helpStatsLine;
 
     // ---- 视觉常量（与 PokerUI / ShowdownPanelUI 同一套暗色桌布语言） ----
     private static readonly Color OVERLAY = new Color(0f, 0f, 0f, 0.92f);
@@ -79,9 +91,18 @@ public class PokerTutorialUI : MonoBehaviour
 
     private void Update()
     {
-        if (resultHideAt > 0f && Time.time >= resultHideAt)
+        if (resultText != null && resultHideAt > 0f && resultText.gameObject.activeSelf)
         {
-            ClearResultLine();
+            float elapsed = Time.time - resultHideAt;
+            if (elapsed >= 0f)
+            {
+                Color fading = resultText.color;
+                fading.a = Mathf.Clamp01(1f - elapsed / ResultFadeSeconds);
+                resultText.color = fading;
+
+                if (fading.a <= 0f)
+                    ClearResultLine();
+            }
         }
 
         // 摊牌面板（ShowdownPanelUI，order 200）会盖住桌子中间那块，结果行在它上面叠字。
@@ -146,6 +167,18 @@ public class PokerTutorialUI : MonoBehaviour
             helpButton.gameObject.SetActive(visible);
     }
 
+    /// <summary>
+    /// 教程里不需要这张参考面板（每课的提示卡已经把该看的说了），
+    /// 开着它只会跟课程卡互相压住，所以由 TutorialSceneBootstrap 关掉。
+    /// </summary>
+    public void SetHelpAvailable(bool available)
+    {
+        if (!available)
+            CloseHelp();
+
+        SetHelpButtonVisible(available);
+    }
+
     private void ToggleHelp()
     {
         if (helpPanel == null)
@@ -160,8 +193,65 @@ public class PokerTutorialUI : MonoBehaviour
     private void OpenHelp()
     {
         RefreshHelpTexts();
+        RefreshHelpStats();
         helpPanel.SetActive(true);
         SetHelpButtonVisible(false);
+    }
+
+    private Text CreateStatValue(float topY)
+    {
+        Text t = CreateText(
+            helpPanel.transform,
+            "HelpStatValue",
+            "—",
+            new Vector2(0.795f, topY),
+            new Vector2(0.910f, topY + 0.040f),
+            TextAnchor.MiddleRight,
+            15
+        );
+        t.color = new Color(0.93f, 0.93f, 0.93f);
+        t.fontStyle = FontStyle.Bold;
+        return t;
+    }
+
+    /// <summary>
+    /// 把右栏的四项数字刷成「当前这手牌算出来的值」。
+    /// 测试反馈：只知道缩写、不知道 ROF 是什么、也不知道自己现在有多少，
+    /// 所以这里既给全称（在左列文字里）也给当前数值。
+    /// </summary>
+    private void RefreshHelpStats()
+    {
+        if (poker == null || helpAtkValue == null)
+            return;
+
+        HandResult best = poker.PlayerBestHand;
+
+        if (best == null && poker.PlayerHand != null)
+        {
+            List<Card> known = new List<Card>(poker.PlayerHand);
+            known.AddRange(poker.CommunityCards);
+
+            if (known.Count >= 5)
+                best = HandEvaluator.Evaluate(known);
+        }
+
+        if (best == null)
+        {
+            helpAtkValue.text = "—";
+            helpHpValue.text = "—";
+            helpRofValue.text = "—";
+            helpSpdValue.text = "—";
+            helpStatsLine.text = "Two cards so far — the numbers appear once five cards are known.";
+            return;
+        }
+
+        CombatStats stats = CombatStatsFactory.Compute(best);
+
+        helpAtkValue.text = stats.attack.ToString("0.0");
+        helpHpValue.text = stats.health.ToString("0.0");
+        helpRofValue.text = stats.fireRate.ToString("0.0");
+        helpSpdValue.text = stats.moveSpeed.ToString("0.0");
+        helpStatsLine.text = "Right now: " + best.Describe() + " ×" + best.GetMultiplier().ToString("0.00");
     }
 
     private void CloseHelp()
@@ -205,18 +295,19 @@ public class PokerTutorialUI : MonoBehaviour
             14
         ).color = TEXT_MUTED;
 
+        // 倍率直接问 HandEvaluator，文档和规则改数字时这里不会各说一套。
         string[] ranks =
         {
-            "Royal Flush — A K Q J 10, all one suit",
-            "Straight Flush — five in a row, one suit",
-            "Four of a Kind — four cards of one rank",
-            "Full House — three of a rank plus a pair",
-            "Flush — five of one suit, any order",
-            "Straight — five in a row, mixed suits",
-            "Three of a Kind — three of one rank",
-            "Two Pair — two pairs of different ranks",
-            "One Pair — two cards of one rank",
-            "High Card — nothing else; top card wins",
+            RankLine(HandType.RoyalFlush, "A K Q J 10, all one suit"),
+            RankLine(HandType.StraightFlush, "five in a row, one suit"),
+            RankLine(HandType.FourOfAKind, "four cards of one rank"),
+            RankLine(HandType.FullHouse, "three of a rank plus a pair"),
+            RankLine(HandType.Flush, "five of one suit, any order"),
+            RankLine(HandType.Straight, "five in a row, mixed suits"),
+            RankLine(HandType.ThreeOfAKind, "three of one rank"),
+            RankLine(HandType.TwoPair, "two pairs of different ranks"),
+            RankLine(HandType.OnePair, "two cards of one rank"),
+            RankLine(HandType.HighCard, "nothing else; top card wins"),
         };
 
         float y = 0.805f;
@@ -288,6 +379,22 @@ public class PokerTutorialUI : MonoBehaviour
             15
         ).color = TEXT_SOFT;
 
+        helpAtkValue = CreateStatValue(0.790f);
+        helpHpValue = CreateStatValue(0.750f);
+        helpRofValue = CreateStatValue(0.710f);
+        helpSpdValue = CreateStatValue(0.670f);
+
+        helpStatsLine = CreateText(
+            helpPanel.transform,
+            "HelpStatsLine",
+            "",
+            new Vector2(0.51f, 0.575f),
+            new Vector2(0.91f, 0.612f),
+            TextAnchor.MiddleLeft,
+            13
+        );
+        helpStatsLine.color = new Color(1.00f, 0.78f, 0.30f);
+
         CreateText(
             helpPanel.transform,
             "HelpStatsNote",
@@ -303,8 +410,8 @@ public class PokerTutorialUI : MonoBehaviour
             helpPanel.transform,
             "HelpRulesLabel",
             "THE POT",
-            new Vector2(0.51f, 0.560f),
-            new Vector2(0.91f, 0.595f),
+            new Vector2(0.51f, 0.505f),
+            new Vector2(0.91f, 0.540f),
             TextAnchor.MiddleLeft,
             14
         ).color = TEXT_MUTED;
@@ -316,8 +423,8 @@ public class PokerTutorialUI : MonoBehaviour
                 + "Folding hands the pot to the opponent; it never costs you the stack.\n"
                 + "A tie splits the pot evenly.\n"
                 + "Below the buy-in, you cannot sit down — that is how a level ends.",
-            new Vector2(0.51f, 0.360f),
-            new Vector2(0.91f, 0.555f),
+            new Vector2(0.51f, 0.300f),
+            new Vector2(0.91f, 0.500f),
             TextAnchor.UpperLeft,
             14
         ).color = TEXT_SOFT;
@@ -333,6 +440,16 @@ public class PokerTutorialUI : MonoBehaviour
         );
 
         helpPanel.SetActive(false);
+    }
+
+    /// <summary>
+    /// "Three of a Kind — three of one rank  ×1.35"：牌型名用枚举，倍数用 HandEvaluator，
+    /// 只看这份表就能算出「这手牌给我多少属性」。
+    /// </summary>
+    private static string RankLine(HandType type, string detail)
+    {
+        HandResult probe = new HandResult { handType = type };
+        return probe.GetDisplayName() + " — " + detail + "  ×" + probe.GetMultiplier().ToString("0.00");
     }
 
     private void RefreshHelpTexts()
@@ -372,7 +489,6 @@ public class PokerTutorialUI : MonoBehaviour
             && poker.CurrentStreet == Street.PreFlop
             && resultText != null
             && resultText.gameObject.activeSelf
-            && resultHideAt < 0f
         )
         {
             ClearResultLine();
@@ -388,10 +504,12 @@ public class PokerTutorialUI : MonoBehaviour
         if (string.IsNullOrEmpty(line))
             return;
 
+        Color shown = ResultColour();
+        shown.a = 1f;
         resultText.text = line;
-        resultText.color = ResultColour();
+        resultText.color = shown;
         resultText.gameObject.SetActive(true);
-        resultHideAt = Time.time + 30f;
+        resultHideAt = Time.time + ResultStaySeconds;
     }
 
     private string BuildResultSentence()
@@ -484,6 +602,9 @@ public class PokerTutorialUI : MonoBehaviour
         resultHideAt = -1f;
         if (resultText != null)
         {
+            Color opaque = resultText.color;
+            opaque.a = 1f;
+            resultText.color = opaque;
             resultText.text = "";
             resultText.gameObject.SetActive(false);
         }

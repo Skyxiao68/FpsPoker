@@ -169,6 +169,13 @@ public class FpsOwnedItemsHud : MonoBehaviour
         FindCatalog();
         string display = FormatOwnedItems(catalog, PlayerInventory.Instance,
             inCombat ? combatItems : null);
+
+        // 一件道具都没有时整块面板收起来：空着一块 "ITEMS / None" 只会挡住牌桌，
+        // 不管是从主菜单进场还是没逛商店进下一关，看到的都是这块占位卡。
+        bool hasItems = !string.IsNullOrEmpty(display) && display != "None";
+        if (panel != null && panel.gameObject.activeSelf != hasItems)
+            panel.gameObject.SetActive(hasItems);
+
         if (display != lastDisplay)
         {
             body.text = display;

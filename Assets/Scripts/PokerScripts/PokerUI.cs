@@ -10,7 +10,7 @@ public class PokerUI : MonoBehaviour
     private Text potText;
     private Text playerChipsText;
     private Text enemyChipsText;
-    private Text stateText;
+    private Text betPillText;
     private Text playerHandText;
     private Text enemyHandText;
     private Text communityText; // 改成显示公共牌牌型文字
@@ -286,6 +286,11 @@ public class PokerUI : MonoBehaviour
         viewportRT.offsetMax = new Vector2(-10f, 0f);
         viewportGO.AddComponent<RectMask2D>();
 
+        // 透明命中层：没有 Graphic 时鼠标滚轮找不到 ScrollRect，日志就不会滚
+        Image viewportHit = viewportGO.AddComponent<Image>();
+        viewportHit.color = new Color(0f, 0f, 0f, 0f);
+        viewportHit.raycastTarget = true;
+
         // Content：按内容长高，最旧的在上、最新的在下
         GameObject contentGO = new GameObject("Content");
         contentGO.transform.SetParent(viewportGO.transform, false);
@@ -315,7 +320,7 @@ public class PokerUI : MonoBehaviour
         sr.horizontal = false;
         sr.vertical = true;
         sr.movementType = ScrollRect.MovementType.Clamped;
-        sr.scrollSensitivity = 30f;
+        sr.scrollSensitivity = 14f;
         messageLogScroll = sr;
         messageLogContainer = contentGO.transform;
 
@@ -396,8 +401,8 @@ public class PokerUI : MonoBehaviour
             canvasGO.transform,
             "PlayerChipsText",
             "Player: 0",
-            new Vector2(0.74f, 0.338f),
-            new Vector2(0.96f, 0.366f),
+            new Vector2(0.74f, 0.340f),
+            new Vector2(0.96f, 0.362f),
             TextAnchor.MiddleLeft,
             20
         );
@@ -407,7 +412,7 @@ public class PokerUI : MonoBehaviour
             canvasGO.transform,
             "PlayerLabel",
             "Your Hand",
-            new Vector2(0.74f, 0.316f),
+            new Vector2(0.74f, 0.320f),
             new Vector2(0.96f, 0.338f),
             TextAnchor.MiddleLeft,
             13
@@ -417,24 +422,25 @@ public class PokerUI : MonoBehaviour
         playerSlots[0] = CreateCardSlot(
             canvasGO.transform,
             "PlayerSlot1",
-            new Vector2(0.740f, 0.232f),
-            new Vector2(0.830f, 0.312f)
+            new Vector2(0.740f, 0.238f),
+            new Vector2(0.830f, 0.310f)
         );
         playerSlots[1] = CreateCardSlot(
             canvasGO.transform,
             "PlayerSlot2",
-            new Vector2(0.842f, 0.232f),
-            new Vector2(0.932f, 0.312f)
+            new Vector2(0.842f, 0.238f),
+            new Vector2(0.932f, 0.310f)
         );
 
+        // 牌型说明放在玩家面板内部（面板下沿之上），不要吊在面板外面
         playerHandTypeText = CreateText(
             canvasGO.transform,
             "PlayerHandType",
             "",
-            new Vector2(0.655f, 0.183f),
-            new Vector2(0.995f, 0.232f),
+            new Vector2(0.735f, 0.190f),
+            new Vector2(0.972f, 0.228f),
             TextAnchor.UpperLeft,
-            14
+            12
         );
         playerHandTypeText.color = TEXT_STRONG;
         playerHandTypeText.lineSpacing = 1f;
@@ -445,24 +451,28 @@ public class PokerUI : MonoBehaviour
             canvasGO.transform,
             "SwapBtn",
             "Swap",
-            new Vector2(0.872f, 0.339f),
-            new Vector2(0.968f, 0.366f),
+            new Vector2(0.872f, 0.340f),
+            new Vector2(0.968f, 0.362f),
             BTN_NEUTRAL,
             () => OnSwapClicked()
         );
         swapButton.GetComponentInChildren<Text>().fontSize = 13;
 
-        // ---------- 状态栏 ----------
-        stateText = CreateText(
+        // ---------- 下注提示（顶栏，底池正下方） ----------
+        // 玩家反馈「看不出对手下了多少」，所以把当前注额直接摆到桌面上，
+        // 而不是留在左下角那行只给开发看的调试状态里。
+        betPillText = CreateText(
             canvasGO.transform,
-            "StateText",
+            "BetPillText",
             "",
-            new Vector2(0.02f, 0.27f),
-            new Vector2(0.30f, 0.31f),
-            TextAnchor.MiddleLeft,
-            14
+            new Vector2(0.30f, 0.885f),
+            new Vector2(0.70f, 0.925f),
+            TextAnchor.MiddleCenter,
+            17
         );
-        stateText.color = new Color(0.6f, 0.6f, 0.6f);
+        betPillText.color = new Color(1.00f, 0.78f, 0.30f);
+        betPillText.fontStyle = FontStyle.Bold;
+        betPillText.gameObject.SetActive(false);
 
         // ---------- 快捷下注行（底部中段） ----------
         quickBetRow = new GameObject("QuickBetRow");
@@ -810,9 +820,17 @@ public class PokerUI : MonoBehaviour
         if (poker.EnemyParams != null && enemyNameText != null)
             enemyNameText.text = poker.EnemyParams.enemyName;
 
-        string dealingStr = poker.IsDealing ? " (Dealing...)" : "";
-        stateText.text =
-            $"{poker.CurrentStreet} | {poker.State}{dealingStr} | Bet: {poker.CurrentBet} | Community: {poker.CommunityCards.Count}/5";
+        bool showBet = poker.CurrentBet > 0
+            && poker.State != PokerState.HandEnded
+            && poker.State != PokerState.Showdown;
+        if (betPillText != null)
+        {
+            betPillText.gameObject.SetActive(showBet);
+            if (showBet)
+                betPillText.text = poker.LastBetByEnemy
+                    ? $"OPPONENT BET {poker.LastBetAmount}   ·   {poker.CurrentBet} TO CALL"
+                    : $"YOU BET {poker.LastBetAmount}";
+        }
 
         // PlayerBestHand / EnemyBestHand 只在 showdown 时由 GameManager 算出来（PokerGameManager.cs:650/654），
         // 手牌中途要显示「我现在是什么牌」就得自己按当前已知的牌算一遍。
@@ -836,14 +854,12 @@ public class PokerUI : MonoBehaviour
                 : null;
         RenderSlots(enemySlots, poker.EnemyHand, !revealEnemy, enemyBest != null ? enemyBest.bestFive : null);
 
-        if (playerBest != null && playerBestFive != null && playerBestFive.Count > 0)
-            playerHandTypeText.text =
-                "Best five: " + playerBest.Describe() + "\n" + CardStrColored(playerBestFive);
-        else
-            playerHandTypeText.text =
-                poker.PlayerHand != null && poker.PlayerHand.Count > 0
-                    ? "Holding " + CardStrColored(poker.PlayerHand)
-                    : "";
+        // 翻牌前只有两张牌：牌面已经画在上面了，再写一行它们的名字只是重复。
+        // 五张牌凑齐后才有牌型可说，这一行从翻牌开始出现。
+        playerHandTypeText.text =
+            playerBest != null && playerBestFive != null && playerBestFive.Count > 0
+                ? "Best five: " + playerBest.Describe() + "\n" + CardStrColored(playerBestFive)
+                : "";
         enemyHandTypeText.text = enemyBest != null ? enemyBest.Describe() : "";
 
         bool isPlayerTurn = poker.State == PokerState.PlayerTurn && !poker.IsDealing;
@@ -916,8 +932,8 @@ public class PokerUI : MonoBehaviour
 
     /// <summary>
     /// Best five from the cards known right now (hole cards + community so far).
-    /// Returns null while fewer than five cards are known, so the UI can show
-    /// "Holding A♠ K♥" instead of a misleading hand name.
+    /// Returns null while fewer than five cards are known, so the hand line stays
+    /// empty instead of naming a hand that is not settled yet.
     /// </summary>
     private static HandResult EvaluateLive(List<Card> hole, List<Card> community)
     {

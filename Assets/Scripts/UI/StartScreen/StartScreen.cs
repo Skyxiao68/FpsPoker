@@ -57,7 +57,7 @@ public class StartScreenManager : MonoBehaviour
             loadingLevel = true;
             if (mainMenuPanel != null)
                 mainMenuPanel.SetActive(false);
-            SceneManager.LoadScene("TutorialScene");
+            SceneFader.LoadScene("TutorialScene");
             return;
         }
 

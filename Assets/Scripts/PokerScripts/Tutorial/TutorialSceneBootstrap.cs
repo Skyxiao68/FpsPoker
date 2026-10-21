@@ -35,6 +35,11 @@ public class TutorialSceneBootstrap : MonoBehaviour
         ui.SetNextHandCallback(null);
         ui.SetNextHandVisible(false);
 
+        // 「?」参考面板在教程里会被课程卡压住，教程期间直接关掉
+        PokerTutorialUI reference = ui.GetComponent<PokerTutorialUI>();
+        if (reference != null)
+            reference.SetHelpAvailable(false);
+
         TutorialDirector director = gameObject.AddComponent<TutorialDirector>();
         director.Initialize(ui, poker);
 

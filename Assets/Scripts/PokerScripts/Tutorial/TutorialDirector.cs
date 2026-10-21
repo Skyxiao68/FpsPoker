@@ -363,11 +363,11 @@ public class TutorialDirector : MonoBehaviour
         if (GameFlowManager.Instance != null)
         {
             GameFlowManager.Instance.StartNewRun();
-            SceneManager.LoadScene(GameFlowManager.Instance.PokerSceneName);
+            SceneFader.LoadScene(GameFlowManager.Instance.PokerSceneName);
         }
         else
         {
-            SceneManager.LoadScene("Card");
+            SceneFader.LoadScene("Card");
         }
     }
 
@@ -777,7 +777,7 @@ public class TutorialDirector : MonoBehaviour
             RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, min, null, out localMin);
             RectTransformUtility.ScreenPointToLocalPointInRectangle(canvasRect, max, null, out localMax);
 
-            frameRect.sizeDelta = localMax - localMin + new Vector2(12f, 10f);
+            frameRect.sizeDelta = localMax - localMin + new Vector2(10f, 6f);
             frameRect.anchoredPosition = (localMin + localMax) * 0.5f;
             frame.SetActive(true);
         }

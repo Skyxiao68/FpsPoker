@@ -74,6 +74,9 @@ public class PokerGameManager : MonoBehaviour
     public int EnemyChips { get; private set; } // Enemy's remaining chips.
     public int Pot { get; private set; } // Total chips currently in the pot.
     public int CurrentBet { get; private set; } // The amount the player must match.
+    // 桌面上那行「谁下了多少」用的：最后一次下注的金额与下注方。
+    public int LastBetAmount { get; private set; }
+    public bool LastBetByEnemy { get; private set; }
     public int BuyIn { get; private set; } // Ante / buy-in each player pays per hand.
 
     // ========== Card State for the Current Hand ==========
@@ -166,6 +169,8 @@ public class PokerGameManager : MonoBehaviour
         // Reset all per-hand state.
         Pot = 0;
         CurrentBet = 0;
+        LastBetAmount = 0;
+        LastBetByEnemy = false;
         playerHasRaised = false;
         AwaitingPlayerMatch = false;
         playerRaiseCount = 0;
@@ -337,6 +342,8 @@ public class PokerGameManager : MonoBehaviour
         PlayerChips -= amount;
         Pot += amount;
         CurrentBet = amount;
+        LastBetAmount = amount;
+        LastBetByEnemy = false;
         playerHasRaised = true;
 
         playerRaiseCount++;
@@ -534,6 +541,8 @@ public class PokerGameManager : MonoBehaviour
         EnemyChips -= aiAmount;
         Pot += aiAmount;
         CurrentBet = aiAmount;
+        LastBetAmount = aiAmount;
+        LastBetByEnemy = true;
         AwaitingPlayerMatch = true;
         LogMessage($"The opponent raises {aiAmount}. Pot: {Pot} — match or fold.", LogKind.Enemy);
         State = PokerState.PlayerTurn;
@@ -570,6 +579,8 @@ public class PokerGameManager : MonoBehaviour
         EnemyChips -= amount;
         Pot += amount;
         CurrentBet = amount;
+        LastBetAmount = amount;
+        LastBetByEnemy = true;
         AwaitingPlayerMatch = true;
 
         LogMessage($"The opponent raises {amount}. Pot: {Pot} — match or fold.", LogKind.Enemy);
@@ -617,6 +628,8 @@ public class PokerGameManager : MonoBehaviour
 
         // Reset per-street betting state.
         CurrentBet = 0;
+        LastBetAmount = 0;
+        LastBetByEnemy = false;
         playerHasRaised = false;
         AwaitingPlayerMatch = false;
 
