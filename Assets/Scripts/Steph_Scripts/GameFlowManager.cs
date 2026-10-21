@@ -27,10 +27,6 @@ public class GameFlowManager : MonoBehaviour
     [SerializeField]
     private string combatSceneName = "CombatScene";
 
-    [Tooltip("Exact scene name as it appears in Build Settings.")]
-    [SerializeField]
-    private string shopSceneName = "ShopScene";
-
     [Header("Economy")]
     [Tooltip("Used only the very first time the run starts.")]
     [SerializeField]
@@ -39,12 +35,6 @@ public class GameFlowManager : MonoBehaviour
     [SerializeField]
     int startingEnemyChips = 1000;
 
-    [Tooltip("每手牌的buy-in 金额")]
-    [SerializeField]
-    private int buyIn = 10;
-
-    public int CurrentBuyIn => buyIn;
-
     /// <summary>
     /// The player's persistent chip total. -1 means "not yet
     /// initialised" so the very first read seeds startingChips
@@ -52,25 +42,6 @@ public class GameFlowManager : MonoBehaviour
     /// </summary>
     public int PlayerChips { get; set; } = -1;
     public int EnemyChips { get; set; } = -1;
-
-    /// <summary>
-    /// 本次扑克场景加载是否是从战斗返回的。
-    /// ReportCombatResult 时设为 true；扑克场景的 Bootstrap 消费完后清除。
-    /// </summary>
-    public bool ReturnedFromCombat { get; private set; } = false;
-
-    /// <summary>是否从商店场景返回</summary>
-    public bool ReturnedFromShop { get; private set; } = false;
-
-    /// <summary>
-    /// 当前正在面对的敌人。
-    /// null 表示还没有生成过，需要由扑克场景决定何时首次生成。
-    /// 由 GameFlowManager 持有，跨场景保留。
-    /// </summary>
-    public EnemyAIParameters CurrentEnemy { get; private set; }
-
-    /// <summary>玩家进商店的次数，每次进店 +1。用来驱动稀有度递增</summary>
-    public int ShopVisitCount { get; private set; } = 0;
 
     private CombatHandoff? pendingHandoff;
     private PendingResult? pendingResult;
@@ -172,7 +143,7 @@ public class GameFlowManager : MonoBehaviour
     public void ReportCombatResult(CombatWinner winner, int pot)
     {
         pendingResult = new PendingResult { winner = winner, pot = pot };
-        ReturnedFromCombat = true;
+
         SceneManager.LoadScene(pokerSceneName);
     }
 
@@ -194,47 +165,5 @@ public class GameFlowManager : MonoBehaviour
         winner = CombatWinner.None;
         pot = 0;
         return false;
-    }
-
-    /// <summary>
-    /// 由扑克场景消费掉"从战斗返回"这个状态，
-    /// 防止后续开新局时被重复判为"从战斗返回"。
-    /// </summary>
-    public void ClearReturnedFromCombat()
-    {
-        ReturnedFromCombat = false;
-    }
-
-    public void BeginShop()
-    {
-        ReturnedFromShop = false; // 刚离开扑克，还没回来
-        SceneManager.LoadScene(shopSceneName);
-    }
-
-    public void ReportShopResult()
-    {
-        ReturnedFromShop = true;
-        SceneManager.LoadScene(pokerSceneName);
-    }
-
-    public void ClearReturnedFromShop()
-    {
-        ReturnedFromShop = false;
-    }
-
-    /// <summary>
-    /// 推进到下一个敌人：生成随机敌人并记录下来。
-    /// 由扑克场景的 Bootstrap 在合适的时机（牌局结束时）调用。
-    /// </summary>
-    public void AdvanceToNextEncounter()
-    {
-        CurrentEnemy = EnemyGenerator.GenerateRandom();
-        Debug.Log($"[GameFlow] 推进到新敌人: {EnemyGenerator.Describe(CurrentEnemy)}");
-    }
-
-    public void IncrementShopVisit()
-    {
-        ShopVisitCount++;
-        Debug.Log($"[GameFlow] 商店访问次数 = {ShopVisitCount}");
     }
 }

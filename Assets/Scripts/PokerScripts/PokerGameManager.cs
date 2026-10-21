@@ -46,18 +46,6 @@ public class PokerGameManager : MonoBehaviour
     /// </summary>
     public bool AwaitingPlayerMatch { get; private set; } = false;
 
-    private int swapsRemainingThisHand = 0;
-
-    /// <summary>本手牌剩余的换牌次数</summary>
-    public int SwapsRemaining => swapsRemainingThisHand;
-
-    /// <summary>当前是否可以换牌</summary>
-    public bool CanSwapCard =>
-        State == PokerState.PlayerTurn
-        && !IsDealing
-        && !AwaitingPlayerMatch
-        && swapsRemainingThisHand > 0;
-
     // ========== Chip and Betting State ==========
 
     public int PlayerChips { get; private set; } // Player's remaining chips.
@@ -155,7 +143,6 @@ public class PokerGameManager : MonoBehaviour
             LogMessage("Enemy has insufficient chips, player advances");
             State = PokerState.HandEnded;
             OnStateChanged?.Invoke();
-            OnHandEnded?.Invoke();
             return;
         }
 
@@ -178,50 +165,9 @@ public class PokerGameManager : MonoBehaviour
 
         LogMessage($"Player hand: {CardListToString(PlayerHand)}");
 
-        swapsRemainingThisHand =
-            PlayerInventory.Instance != null
-                ? PlayerInventory.Instance.GetCount(ItemId.CardSwapTicket)
-                : 0;
         // Begin the Pre-Flop betting round with the player acting first.
         CurrentStreet = Street.PreFlop;
         StartPlayerTurn();
-    }
-
-    /// <summary>
-    /// 玩家花一次换牌机会，把第 index 张手牌换成新牌。
-    /// </summary>
-    public void PlayerSwapCard(int handIndex)
-    {
-        if (!CanSwapCard)
-        {
-            LogMessage("现在不能换牌");
-            return;
-        }
-        if (handIndex < 0 || handIndex >= PlayerHand.Count)
-        {
-            LogMessage("换牌索引无效");
-            return;
-        }
-
-        Card oldCard = PlayerHand[handIndex];
-        Card newCard = deck.Draw();
-        PlayerHand[handIndex] = newCard;
-        swapsRemainingThisHand--;
-
-        LogMessage($"换牌：{oldCard} → {newCard}（剩余 {swapsRemainingThisHand} 次）");
-        OnStateChanged?.Invoke();
-    }
-
-    /// <summary>玩家最大可加注额：受对手筹码限制，保证敌人总能跟注</summary>
-    public int GetPlayerMaxRaise()
-    {
-        return Mathf.Max(0, Mathf.Min(PlayerChips, EnemyChips));
-    }
-
-    /// <summary>敌人最大可加注额：受玩家筹码限制，保证玩家总能跟注</summary>
-    public int GetEnemyMaxRaise()
-    {
-        return Mathf.Max(0, Mathf.Min(EnemyChips, PlayerChips));
     }
 
     // ========== Player Actions ==========
@@ -266,30 +212,11 @@ public class PokerGameManager : MonoBehaviour
             return;
         }
 
-        int maxRaise = GetPlayerMaxRaise();
-
-        // 无法加注（对方没筹码了）→ 只能 Check
-        if (maxRaise <= 0)
+        // Validate the raise amount.
+        if (amount <= 0 || amount > PlayerChips)
         {
-            LogMessage("Cannot raise: either you or the enemy has no chips left");
+            LogMessage($"Invalid raise amount (current chips {PlayerChips})");
             return;
-        }
-
-        // 加注额为 0 或负数 → 视为 Check
-        if (amount <= 0)
-        {
-            LogMessage("Raise amount invalid, Auto Checking instead");
-            PlayerCheck();
-            return;
-        }
-
-        // 超过上限 → 压到上限，而不是拒绝
-        if (amount > maxRaise)
-        {
-            LogMessage(
-                $"Raise amount {amount} exceeds max {maxRaise}, Auto Raising {maxRaise} instead"
-            );
-            amount = maxRaise;
         }
 
         // Deduct chips from player and add to pot.
@@ -324,14 +251,11 @@ public class PokerGameManager : MonoBehaviour
             return;
         }
 
-        // 理论上不会走到这里，因为敌方加注已受玩家筹码限制
-        // 保留为兜底：直接 Check 并推进，不 Fold
+        // Auto-fold if the player can't afford the match.
         if (PlayerChips < CurrentBet)
         {
-            LogMessage($"无法跟注 {CurrentBet}（筹码 {PlayerChips}），转为 Check 并推进");
-            AwaitingPlayerMatch = false;
-            CurrentBet = 0;
-            AdvanceStreet();
+            LogMessage("Insufficient chips to match, automatically folding");
+            PlayerFold();
             return;
         }
 
@@ -451,15 +375,13 @@ public class PokerGameManager : MonoBehaviour
     /// </summary>
     private void HandleEnemyResponse(int aiAmount, int playerRaiseAmount)
     {
-        int maxRaise = GetEnemyMaxRaise();
-
-        if (aiAmount <= playerRaiseAmount || maxRaise <= playerRaiseAmount)
+        if (aiAmount <= playerRaiseAmount)
         {
             // AI amount is at most the player's raise - treat it as a call (match).
             if (EnemyChips < playerRaiseAmount)
             {
-                LogMessage("Enemy chips insufficient, changing to check");
-                EnemyChecks();
+                LogMessage("Enemy chips insufficient, changing to Fold");
+                EnemyFolds();
                 return;
             }
             EnemyChips -= playerRaiseAmount;
@@ -469,34 +391,30 @@ public class PokerGameManager : MonoBehaviour
 
             // Betting resolved - advance to the next street.
             AdvanceStreet();
-            return;
         }
-
-        if (aiAmount > maxRaise)
+        else
         {
-            // AI wants to raise more than it can afford - cap it at max.
-            LogMessage($"Enemy raise {aiAmount} exceeds max {maxRaise}, capping to max");
-            aiAmount = maxRaise;
-        }
+            // AI wants to re-raise above the player's amount.
+            if (EnemyChips < aiAmount)
+            {
+                // Not enough chips for the re-raise - fall back to match.
+                LogMessage("Enemy chips insufficient, changing to Match");
+                EnemyChips -= playerRaiseAmount;
+                Pot += playerRaiseAmount;
+                CurrentBet = playerRaiseAmount;
+                AdvanceStreet();
+                return;
+            }
 
-        if (aiAmount <= playerRaiseAmount)
-        {
-            EnemyChips -= playerRaiseAmount;
-            Pot += playerRaiseAmount;
-            CurrentBet = playerRaiseAmount;
-            LogMessage($"Enemy matches the raise {playerRaiseAmount}, pot {Pot}");
-            AdvanceStreet();
-            return;
+            // Execute the re-raise and give the turn back to the player.
+            EnemyChips -= aiAmount;
+            Pot += aiAmount;
+            CurrentBet = aiAmount;
+            AwaitingPlayerMatch = true;
+            LogMessage($"Enemy raises {aiAmount}, pot {Pot}. Player must Match or Fold.");
+            State = PokerState.PlayerTurn;
+            OnStateChanged?.Invoke();
         }
-
-        // Execute the re-raise and give the turn back to the player.
-        EnemyChips -= aiAmount;
-        Pot += aiAmount;
-        CurrentBet = aiAmount;
-        AwaitingPlayerMatch = true;
-        LogMessage($"Enemy raises {aiAmount}, pot {Pot}. Player must Match or Fold.");
-        State = PokerState.PlayerTurn;
-        OnStateChanged?.Invoke();
     }
 
     /// <summary>
@@ -505,24 +423,16 @@ public class PokerGameManager : MonoBehaviour
     /// </summary>
     private void EnemyInitiatesRaise(int amount)
     {
-        int maxRaise = GetEnemyMaxRaise();
-
-        if (maxRaise <= 0)
-        {
-            LogMessage("Enemy cannot raise: either player or enemy has no chips left");
-            EnemyChecks();
-            return;
-        }
-
         // Default bet size if AI returned an invalid amount.
         if (amount <= 0)
             amount = Mathf.Max(1, BuyIn / 2);
 
         // Can't afford to raise - check instead.
-        if (amount > maxRaise)
+        if (EnemyChips < amount)
         {
-            amount = maxRaise;
-            LogMessage($"Enemy raise {amount} exceeds max {maxRaise}, capping to max");
+            LogMessage("Enemy chips insufficient, changing to Check");
+            EnemyChecks();
+            return;
         }
 
         // Deduct chips from enemy and add to pot.
@@ -568,36 +478,28 @@ public class PokerGameManager : MonoBehaviour
     /// </summary>
     private void AdvanceStreet()
     {
-        if (IsDealing)
-        {
-            Debug.LogWarning("[Poker] AdvanceStreet 被调用，但正在发牌中，忽略");
-            return;
-        }
-
         // Reset per-street betting state.
         CurrentBet = 0;
         playerHasRaised = false;
         AwaitingPlayerMatch = false;
 
-        IsDealing = true;
-        State = PokerState.Dealing;
-        OnStateChanged?.Invoke();
-
         // Move to the next street and deal cards accordingly.
         switch (CurrentStreet)
         {
             case Street.PreFlop:
+                // Deal 3 cards for the Flop.
                 StartCoroutine(DealCommunityCards(3, Street.Flop));
                 break;
             case Street.Flop:
+                // Deal 1 card for the Turn.
                 StartCoroutine(DealCommunityCards(1, Street.Turn));
                 break;
             case Street.Turn:
+                // Deal 1 card for the River.
                 StartCoroutine(DealCommunityCards(1, Street.River));
                 break;
             case Street.River:
-
-                IsDealing = false;
+                // No more cards - resolve the showdown.
                 ResolveShowdown();
                 break;
         }
@@ -608,7 +510,9 @@ public class PokerGameManager : MonoBehaviour
     /// </summary>
     private IEnumerator DealCommunityCards(int count, Street nextStreet)
     {
-        CurrentStreet = nextStreet;
+        // Mark as dealing so the player can't act.
+        IsDealing = true;
+        State = PokerState.Dealing;
         OnStateChanged?.Invoke();
 
         // Reveal each card with a delay between them.
@@ -621,6 +525,8 @@ public class PokerGameManager : MonoBehaviour
             OnStateChanged?.Invoke();
         }
 
+        // Update the street and hand the turn back to the player.
+        CurrentStreet = nextStreet;
         IsDealing = false;
         StartPlayerTurn();
     }

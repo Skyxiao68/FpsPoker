@@ -16,9 +16,9 @@ MonoBehaviour:
   displayName: Extra Starting Card
   description: Start the round with one extra card.
   icon: {fileID: 0}
-  price: 100
+  price: 80
   category: Cards
-  tier: silver
+  tier: 
   maxOwned: 1
   hidden: 0
   payload: {fileID: 11400000, guid: 977ac9bdbabf5cf49a27eff48ead772f, type: 2}
