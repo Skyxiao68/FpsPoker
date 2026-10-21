@@ -6,8 +6,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-// A read-only inventory panel shared by poker and FPS scenes. It uses the
-// existing catalog and inventory without changing either game's item logic.
+
 public class FpsOwnedItemsHud : MonoBehaviour
 {
     private static FpsOwnedItemsHud instance;

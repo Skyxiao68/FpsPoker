@@ -7,17 +7,25 @@ public class FPS_HUD : MonoBehaviour
 {
     public Health health;
     public TextMeshProUGUI healthText;
-
+    public GameObject reloadAnim;
+    public GameObject damageFlash;
     private FpsCharacterController controller;
     private TextMeshProUGUI ammoText;
     private TextMeshProUGUI countdownText;
     private TextMeshProUGUI pokerBuffText;
     private string pokerBuffDisplay = "POKER BUFFS\nNone";
     private Weapon observedWeapon;
+    private CanvasGroup damageFlashGroup;
+    private CanvasGroup reloadAnimGroup;
     private RectTransform hitMarker;
     private CanvasGroup hitMarkerGroup;
     private float hitMarkerEndTime;
     private const float HitMarkerDuration = 0.15f;
+    private const float DamageFlashDuration = 0.3f;
+    private const float ReloadFadeDuration = 0.3f;
+    private float damageFlashRemaining;
+    private bool wasReloading;
+    private bool fadingReload;
     private string lastHealthDisplay;
     private string lastAmmoDisplay;
     private bool wasPreparing;
@@ -30,6 +38,8 @@ public class FPS_HUD : MonoBehaviour
         controller = GetComponent<FpsCharacterController>();
         if (health != null)
             health.OnDamaged += UpdateHealth;
+        SetupEffect(damageFlash, ref damageFlashGroup);
+        SetupEffect(reloadAnim, ref reloadAnimGroup);
         if (healthText != null)
         {
             RectTransform healthRect = healthText.rectTransform;
@@ -88,6 +98,8 @@ public class FPS_HUD : MonoBehaviour
         if (health != null)
             health.OnDamaged -= UpdateHealth;
         BindWeapon(null);
+        ResetEffect(damageFlash, damageFlashGroup);
+        ResetEffect(reloadAnim, reloadAnimGroup);
         if (ammoText != null)
             Destroy(ammoText.gameObject);
         if (countdownText != null)
@@ -104,10 +116,14 @@ public class FPS_HUD : MonoBehaviour
         lastHealthDisplay = null;
         lastAmmoDisplay = null;
         wasPreparing = false;
+        damageFlashRemaining = 0f;
+        wasReloading = false;
+        fadingReload = false;
     }
 
     void UpdateHealth(int amount, int currentHealth)
     {
+        ShowDamageFlash();
         RefreshDisplay();
     }
 
@@ -169,8 +185,80 @@ public class FPS_HUD : MonoBehaviour
         // Ammo can change on a shot, a reload, or a weapon swap.
         BindWeapon(controller != null ? controller.EquippedWeapon : null);
         RefreshDisplay();
+        RefreshEffects(controller != null ? controller.EquippedWeapon : null);
         RefreshCountdown();
         RefreshHitMarker();
+    }
+
+    private void SetupEffect(GameObject effect, ref CanvasGroup group)
+    {
+        if (effect == null)
+            return;
+
+        group = effect.GetComponent<CanvasGroup>();
+        if (group == null)
+            group = effect.AddComponent<CanvasGroup>();
+        group.alpha = 0f;
+        group.blocksRaycasts = false;
+        group.interactable = false;
+        effect.SetActive(false);
+    }
+
+    private static void ResetEffect(GameObject effect, CanvasGroup group)
+    {
+        if (effect == null || group == null)
+            return;
+
+        group.alpha = 0f;
+        effect.SetActive(false);
+    }
+
+    private void ShowDamageFlash()
+    {
+        if (damageFlash == null || damageFlashGroup == null)
+            return;
+
+        damageFlashRemaining = DamageFlashDuration;
+        damageFlashGroup.alpha = 1f;
+        damageFlash.SetActive(true);
+    }
+
+    private void RefreshEffects(Weapon weapon)
+    {
+        if (damageFlash != null && damageFlashGroup != null &&
+            damageFlash.activeSelf)
+        {
+            damageFlashRemaining -= Time.unscaledDeltaTime;
+            damageFlashGroup.alpha = Mathf.Clamp01(
+                damageFlashRemaining / DamageFlashDuration);
+            if (damageFlashRemaining <= 0f)
+                damageFlash.SetActive(false);
+        }
+
+        bool isReloading = weapon != null && weapon.IsReloading;
+        if (isReloading && !wasReloading && reloadAnim != null &&
+            reloadAnimGroup != null)
+        {
+            fadingReload = false;
+            reloadAnimGroup.alpha = 1f;
+            reloadAnim.SetActive(true);
+        }
+        else if (!isReloading && wasReloading && reloadAnimGroup != null)
+        {
+            fadingReload = true;
+        }
+        wasReloading = isReloading;
+
+        if (fadingReload && reloadAnim != null && reloadAnimGroup != null)
+        {
+            reloadAnimGroup.alpha = Mathf.MoveTowards(reloadAnimGroup.alpha, 0f,
+                Time.unscaledDeltaTime / ReloadFadeDuration);
+            if (reloadAnimGroup.alpha <= 0f)
+            {
+                reloadAnim.SetActive(false);
+                fadingReload = false;
+            }
+        }
     }
 
     private void BindWeapon(Weapon weapon)
