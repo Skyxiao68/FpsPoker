@@ -16,9 +16,9 @@ MonoBehaviour:
   displayName: Full Insurance
   description: Reduce losses from a defeat by 50%.
   icon: {fileID: 0}
-  price: 110
+  price: 220
   category: Protection
-  tier: 
+  tier: gold
   maxOwned: 1
   hidden: 0
   payload: {fileID: 11400000, guid: 423052f1fa086c348a16a951e6f7d9f5, type: 2}
