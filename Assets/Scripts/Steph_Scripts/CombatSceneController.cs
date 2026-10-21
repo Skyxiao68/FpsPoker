@@ -304,7 +304,7 @@ public class CombatSceneController : MonoBehaviour
         if (enemyHealth == null || enemyHealthBar == null || enemyHealthFill == null)
             return;
 
-        if (enemyHealth.IsDead)
+        if (resolved || enemyHealth.IsDead)
         {
             enemyHealthBar.gameObject.SetActive(false);
             return;
@@ -432,6 +432,13 @@ public class CombatSceneController : MonoBehaviour
 
         EndSubscriptions();
 
+        CombatEndSequence endSequence = gameObject.AddComponent<CombatEndSequence>();
+        endSequence.Begin(winner, playerHealth, playerController, enemyHealth,
+            currentPot, () => ReportResult(winner));
+    }
+
+    private void ReportResult(CombatWinner winner)
+    {
         if (GameFlowManager.Instance != null)
         {
             GameFlowManager.Instance.ReportCombatResult(
