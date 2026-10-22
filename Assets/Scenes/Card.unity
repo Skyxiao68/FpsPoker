@@ -540,9 +540,9 @@ MonoBehaviour:
   combatSceneName: FPS
   shopSceneName: Shop
   startSceneName: StartScene
-  startingChips: 100
-  startingEnemyChips: 100
-  buyIn: 10
+  startingChips: 60
+  startingEnemyChips: 60
+  buyIn: 9
 --- !u!4 &1149759426
 Transform:
   m_ObjectHideFlags: 0

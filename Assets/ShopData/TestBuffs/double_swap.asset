@@ -16,7 +16,7 @@ MonoBehaviour:
   displayName: Double Swap
   description: Swap up to two cards from your hand.
   icon: {fileID: 0}
-  price: 90
+  price: 65
   category: Cards
   tier: 
   maxOwned: 1
