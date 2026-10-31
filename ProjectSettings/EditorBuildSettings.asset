@@ -12,7 +12,7 @@ EditorBuildSettings:
     path: Assets/Scenes/Card.unity
     guid: 1045420b697890f4794ecc19e8095806
   - enabled: 1
-    path: Assets/Scenes/FPS.unity
+    path: Assets/Scenes/FPS(OLD).unity
     guid: 95c5a46a994753c4987b3fe5652f31f9
   - enabled: 1
     path: Assets/Scenes/Shop.unity

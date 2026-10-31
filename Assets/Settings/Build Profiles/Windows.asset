@@ -28,12 +28,15 @@ MonoBehaviour:
   - m_enabled: 1
     m_path: Assets/Scenes/Card.unity
     m_guid: 1045420b697890f4794ecc19e8095806
-  - m_enabled: 1
-    m_path: Assets/Scenes/FPS.unity
+  - m_enabled: 0
+    m_path: Assets/Scenes/FPS(OLD).unity
     m_guid: 95c5a46a994753c4987b3fe5652f31f9
   - m_enabled: 1
     m_path: Assets/Scenes/Shop.unity
     m_guid: 1be24863e3ba11c428a6e97aea56665f
+  - m_enabled: 1
+    m_path: Assets/Scenes/FPS.unity
+    m_guid: 2c4ffdb239644e74da25edcd36975579
   m_HasScriptingDefines: 0
   m_ScriptingDefines: []
   m_PlayerSettingsYaml:

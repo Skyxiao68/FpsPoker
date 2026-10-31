@@ -19,6 +19,7 @@ public class FPS_HUD : MonoBehaviour
     private CanvasGroup reloadAnimGroup;
     private RectTransform hitMarker;
     private CanvasGroup hitMarkerGroup;
+    private readonly List<Image> hitMarkerArms = new List<Image>(4);
     private float hitMarkerEndTime;
     private const float HitMarkerDuration = 0.15f;
     private const float DamageFlashDuration = 0.3f;
@@ -42,20 +43,23 @@ public class FPS_HUD : MonoBehaviour
         SetupEffect(reloadAnim, ref reloadAnimGroup);
         if (healthText != null)
         {
+            healthText.fontSize = 42f;
+            healthText.enableAutoSizing = false;
             RectTransform healthRect = healthText.rectTransform;
             healthRect.sizeDelta = new Vector2(
-                Mathf.Max(260f, healthRect.sizeDelta.x), healthRect.sizeDelta.y);
+                Mathf.Max(440f, healthRect.sizeDelta.x),
+                Mathf.Max(64f, healthRect.sizeDelta.y));
 
             // Add ammo beside the existing health HUD at runtime, so the
             // scene/prefab does not need another serialized UI reference.
             ammoText = Instantiate(healthText, healthText.transform.parent, false);
             ammoText.gameObject.name = "Ammo (FPS)";
-            ammoText.fontSize = 24f;
+            ammoText.fontSize = 34f;
             ammoText.raycastTarget = false;
             RectTransform label = ammoText.rectTransform;
             label.anchoredPosition = healthText.rectTransform.anchoredPosition +
-                new Vector2(0f, -48f);
-            label.sizeDelta = new Vector2(Mathf.Max(200f, label.sizeDelta.x), 40f);
+                new Vector2(0f, -64f);
+            label.sizeDelta = new Vector2(Mathf.Max(440f, label.sizeDelta.x), 52f);
 
             countdownText = Instantiate(healthText, healthText.transform.parent, false);
             countdownText.gameObject.name = "Duel Countdown (FPS)";
@@ -113,6 +117,7 @@ public class FPS_HUD : MonoBehaviour
         pokerBuffText = null;
         hitMarker = null;
         hitMarkerGroup = null;
+        hitMarkerArms.Clear();
         lastHealthDisplay = null;
         lastAmmoDisplay = null;
         wasPreparing = false;
@@ -267,10 +272,10 @@ public class FPS_HUD : MonoBehaviour
             return;
 
         if (observedWeapon != null)
-            observedWeapon.OnDamageDealt -= ShowHitMarker;
+            observedWeapon.OnHitConfirmed -= ShowHitMarker;
         observedWeapon = weapon;
         if (observedWeapon != null)
-            observedWeapon.OnDamageDealt += ShowHitMarker;
+            observedWeapon.OnHitConfirmed += ShowHitMarker;
     }
 
     private void CreateHitMarker()
@@ -309,13 +314,17 @@ public class FPS_HUD : MonoBehaviour
         Image image = armObject.GetComponent<Image>();
         image.color = Color.white;
         image.raycastTarget = false;
+        hitMarkerArms.Add(image);
     }
 
-    private void ShowHitMarker()
+    private void ShowHitMarker(bool isHeadshot)
     {
         if (hitMarker == null || hitMarkerGroup == null)
             return;
 
+        Color markerColor = isHeadshot ? Color.red : Color.white;
+        foreach (Image arm in hitMarkerArms)
+            arm.color = markerColor;
         hitMarkerEndTime = Time.unscaledTime + HitMarkerDuration;
         hitMarkerGroup.alpha = 1f;
         hitMarker.gameObject.SetActive(true);

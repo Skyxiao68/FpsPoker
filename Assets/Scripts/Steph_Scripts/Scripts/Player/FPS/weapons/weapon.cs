@@ -41,6 +41,11 @@ public class Weapon : MonoBehaviour
     // treating a wall impact or an already-dead target as damage.
     public event System.Action OnDamageDealt;
 
+    // Visuals observe real shots, including the final round before auto-reload.
+    public event System.Action OnShotFired;
+
+    public event System.Action<bool> OnHitConfirmed;
+
     public void SetSettings(WeaponSettings settings)
     {
         weaponSettings = settings;
@@ -203,6 +208,7 @@ public class Weapon : MonoBehaviour
 
         ammoInMagazine--;
         PerformFire();
+        OnShotFired?.Invoke();
         if (ammoInMagazine == 0)
             TryReload();
     }
@@ -228,13 +234,7 @@ public class Weapon : MonoBehaviour
             weaponSettings.range;
 
 
-        if (Physics.Raycast(
-            origin,
-            direction,
-            out RaycastHit hit,
-            weaponSettings.range,
-            hitMask,
-            QueryTriggerInteraction.Ignore))
+        if (TryGetShotHit(origin, direction, out RaycastHit hit))
         {
             hitPoint = hit.point;
 
@@ -253,6 +253,33 @@ public class Weapon : MonoBehaviour
 
 
         ApplyRecoil();
+    }
+
+    private bool TryGetShotHit(Vector3 origin, Vector3 direction, out RaycastHit closest)
+    {
+        closest = default;
+        float distance = float.PositiveInfinity;
+        Transform attacker = characterController != null ? characterController.transform : transform.root;
+        Physics.SyncTransforms();
+        foreach (RaycastHit candidate in Physics.RaycastAll(origin, direction, weaponSettings.range,
+                     hitMask, QueryTriggerInteraction.Collide))
+        {
+            Collider collider = candidate.collider;
+            CombatHitbox hitbox = collider.GetComponent<CombatHitbox>();
+            if (hitbox != null && (!hitbox.isActiveAndEnabled || hitbox.Owner == null)) continue;
+            if (collider.isTrigger && hitbox == null) continue;
+            Health target = hitbox != null ? hitbox.Owner : collider.GetComponentInParent<Health>();
+            if (collider.transform.IsChildOf(attacker) || (target != null && target.transform == attacker)) continue;
+            if (hitbox == null && target != null)
+            {
+                CharacterHitboxes regions = target.GetComponent<CharacterHitboxes>();
+                if (regions != null && regions.HasActiveHitboxes) continue;
+            }
+            if (candidate.distance >= distance) continue;
+            distance = candidate.distance;
+            closest = candidate;
+        }
+        return distance < float.PositiveInfinity;
     }
 
     // =========================================================
@@ -296,18 +323,26 @@ public class Weapon : MonoBehaviour
 
     private void HandleHit(RaycastHit hit, Vector3 shotOrigin)
     {
+        CombatHitbox hitbox = hit.collider.GetComponent<CombatHitbox>();
         IDamagable damagable =
-            hit.collider.GetComponentInParent<IDamagable>();
+            hitbox != null ? hitbox.Owner : hit.collider.GetComponentInParent<IDamagable>();
 
         if (damagable is Health hitHealth)
         {
             Transform attacker = characterController != null
                 ? characterController.transform : transform.root;
-            bool hitOpponent = hitHealth.transform.root != attacker.root;
+            bool hitOpponent = hitHealth.transform != attacker;
             int healthBefore = hitHealth.CurrentHealth;
-            hitHealth.TakeDamage(weaponSettings.damage, attacker, shotOrigin);
+            bool headshot = hitbox != null && hitbox.IsHeadshot;
+            int damage = headshot
+                ? Mathf.RoundToInt(weaponSettings.damage * Mathf.Max(1f, weaponSettings.headshotMultiplier))
+                : weaponSettings.damage;
+            hitHealth.TakeDamage(damage, attacker, shotOrigin);
             if (hitOpponent && hitHealth.CurrentHealth < healthBefore)
+            {
                 OnDamageDealt?.Invoke();
+                OnHitConfirmed?.Invoke(headshot);
+            }
         }
         else if (damagable != null)
         {
@@ -316,7 +351,7 @@ public class Weapon : MonoBehaviour
             );
         }
 
-        SpawnImpactDecal(hit);
+        if (damagable == null) SpawnImpactDecal(hit);
     }
 
     // =========================================================

@@ -1,0 +1,17 @@
+PASS player grounded on unchanged controller capsule
+PASS Western player avatar is Humanoid
+PASS accepted shot consumes one round and emits one visual event
+PASS reload starts through existing weapon API
+PASS rifle and hands lower during reload
+PASS hands return only after weapon reload completes
+PASS reload does not emit a phantom shot
+PASS last round emits a shot before automatic reload
+PASS last-round rifle firing animation plays during reload start
+PASS automatic reload finishes without a stale firing animation
+PASS directional movement and sprint reach Animator parameters
+PASS jump/airborne state follows actual controller
+PASS jump returns to grounded landing
+PASS enemy damage plays hit reaction
+PASS death overrides rifle pose and plays nonlooping death
+PASS Melee prefab has valid animated Western character
+PASS Dodge prefab has valid animated Western character
