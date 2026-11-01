@@ -256,6 +256,13 @@ public class PokerGameManager : MonoBehaviour
         PlayerHand[handIndex] = newCard;
         swapsRemainingThisHand--;
 
+        // 换牌成功才算真正花掉一张券。本手次数只是开局时的库存快照（:229），
+        // 这里同步扣一次库存，否则券永远不减，一张券能无限换牌。
+        if (PlayerInventory.Instance != null && PlayerInventory.Instance.Has(ItemId.CardSwapTicket))
+        {
+            PlayerInventory.Instance.Remove(ItemId.CardSwapTicket);
+        }
+
         LogMessage($"Swapped {CardText(oldCard)} for {CardText(newCard)}. Swaps left: {swapsRemainingThisHand}.", LogKind.Player);
         OnStateChanged?.Invoke();
     }

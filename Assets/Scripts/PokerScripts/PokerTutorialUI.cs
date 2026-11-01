@@ -20,7 +20,7 @@ using UnityEngine.UI;
 /// Text content is English, matching the rest of the in-game UI; the
 /// comments are Chinese per this project's convention.
 /// </summary>
-public class PokerTutorialUI : MonoBehaviour
+public partial class PokerTutorialUI : MonoBehaviour
 {
     private const int CanvasOrder = 300;
     private const string FontResource = "LegacyRuntime.ttf";
@@ -31,6 +31,7 @@ public class PokerTutorialUI : MonoBehaviour
     private GameObject helpPanel;
     private Button helpButton;
     private Text resultText;
+    private Image resultBack;
 
     private float resultHideAt = -1f;
 
@@ -38,12 +39,21 @@ public class PokerTutorialUI : MonoBehaviour
     private const float ResultStaySeconds = 10f;
     private const float ResultFadeSeconds = 0.6f;
 
-    // 参考面板右栏的四项属性当前数值（打开面板时按当前 best five 现算）
-    private Text helpAtkValue;
-    private Text helpHpValue;
-    private Text helpRofValue;
-    private Text helpSpdValue;
-    private Text helpStatsLine;
+    // 参考面板：四行属性 = 数值 / 数值条填充 / 与对手的差值 / 一句真实换算
+    private readonly Text[] helpRowValue = new Text[4];
+    private readonly Image[] helpRowBar = new Image[4];
+    private readonly Text[] helpRowDelta = new Text[4];
+    private readonly Text[] helpRowPlain = new Text[4];
+    private Text helpFormula;
+    private readonly Text[] helpSurvival = new Text[4];
+
+    // 三层折叠：0 = HAND RANKINGS，1 = THIS HAND，2 = THE POT；-1 表示全收起
+    private int helpOpenSection = -1;
+    private readonly GameObject[] helpBodies = new GameObject[3];
+    private readonly Text[] helpHeaderLabels = new Text[3];
+
+    // 牌型表两种画法（真牌 / 文字 pips），先都做出来给 Ben 对比
+    private GameObject helpRanksCards;
 
     // ---- 视觉常量（与 PokerUI / ShowdownPanelUI 同一套暗色桌布语言） ----
     private static readonly Color OVERLAY = new Color(0f, 0f, 0f, 0.92f);
@@ -112,7 +122,7 @@ public class PokerTutorialUI : MonoBehaviour
         {
             bool covered =
                 ShowdownPanelUI.IsOpen || (helpPanel != null && helpPanel.activeSelf);
-            resultText.gameObject.SetActive(!covered);
+            SetResultRowVisible(!covered);
         }
 
         if (Input.GetKeyDown(KeyCode.Escape))
@@ -140,6 +150,7 @@ public class PokerTutorialUI : MonoBehaviour
         CanvasScaler scaler = canvasRoot.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1280f, 720f);
+        scaler.matchWidthOrHeight = 0.5f; // 与 PokerCanvas 一致，避免窗口不是 16:9 时被裁
 
         canvasRoot.AddComponent<GraphicRaycaster>();
     }
@@ -192,66 +203,142 @@ public class PokerTutorialUI : MonoBehaviour
 
     private void OpenHelp()
     {
-        RefreshHelpTexts();
+        helpOpenSection = -1;
+        ApplyHelpSections();
         RefreshHelpStats();
         helpPanel.SetActive(true);
         SetHelpButtonVisible(false);
     }
 
-    private Text CreateStatValue(float topY)
-    {
-        Text t = CreateText(
-            helpPanel.transform,
-            "HelpStatValue",
-            "—",
-            new Vector2(0.795f, topY),
-            new Vector2(0.910f, topY + 0.040f),
-            TextAnchor.MiddleRight,
-            15
-        );
-        t.color = new Color(0.93f, 0.93f, 0.93f);
-        t.fontStyle = FontStyle.Bold;
-        return t;
-    }
-
     /// <summary>
-    /// 把右栏的四项数字刷成「当前这手牌算出来的值」。
-    /// 测试反馈：只知道缩写、不知道 ROF 是什么、也不知道自己现在有多少，
-    /// 所以这里既给全称（在左列文字里）也给当前数值。
+    /// 把四行属性、算式、生存线刷成「当前这手牌算出来的值」。
+    /// 数值走 ItemEffectBridge（和实战同一个函数），否则买了物品后面板与战斗各说一套。
     /// </summary>
     private void RefreshHelpStats()
     {
-        if (poker == null || helpAtkValue == null)
+        if (poker == null || helpRowValue[0] == null)
             return;
 
         HandResult best = poker.PlayerBestHand;
-
         if (best == null && poker.PlayerHand != null)
         {
             List<Card> known = new List<Card>(poker.PlayerHand);
             known.AddRange(poker.CommunityCards);
-
             if (known.Count >= 5)
                 best = HandEvaluator.Evaluate(known);
         }
 
-        if (best == null)
+        bool hasMine = best != null;
+        CombatStats mine = hasMine ? ItemEffectBridge.GetCombatStats(best) : default(CombatStats);
+        float[] values = hasMine
+            ? new[] { mine.attack, mine.health, mine.fireRate, mine.moveSpeed }
+            : new[] { 0f, 0f, 0f, 0f };
+
+        float[] theirs = new float[4];
+        bool hasTheirs = poker.EnemyBestHand != null;
+        if (hasTheirs)
         {
-            helpAtkValue.text = "—";
-            helpHpValue.text = "—";
-            helpRofValue.text = "—";
-            helpSpdValue.text = "—";
-            helpStatsLine.text = "Two cards so far — the numbers appear once five cards are known.";
-            return;
+            CombatStats e = CombatStatsFactory.Compute(poker.EnemyBestHand);
+            theirs = new[] { e.attack, e.health, e.fireRate, e.moveSpeed };
         }
 
-        CombatStats stats = CombatStatsFactory.Compute(best);
+        string[] plain = !hasMine
+            ? new[] { "—", "—", "—", "—" }
+            : new[]
+            {
+                "adds +" + Mathf.RoundToInt(mine.attack) + " to shot damage",
+                mine.health > 0.5f
+                    ? "+" + Mathf.RoundToInt(mine.health) + " extra max health"
+                    : "no extra health — you fight at base HP",
+                mine.fireRate > 0.5f
+                    ? "cooldown ÷" + (1f + mine.fireRate / 100f).ToString("0.00")
+                        + " · mag " + Mathf.Max(30, Mathf.RoundToInt(mine.fireRate))
+                    : "no fire-rate bonus",
+                mine.moveSpeed > 0.5f
+                    ? "+" + Mathf.RoundToInt(mine.moveSpeed) + " move speed"
+                    : "base move speed",
+            };
 
-        helpAtkValue.text = stats.attack.ToString("0.0");
-        helpHpValue.text = stats.health.ToString("0.0");
-        helpRofValue.text = stats.fireRate.ToString("0.0");
-        helpSpdValue.text = stats.moveSpeed.ToString("0.0");
-        helpStatsLine.text = "Right now: " + best.Describe() + " ×" + best.GetMultiplier().ToString("0.00");
+        float max = 1f;
+        for (int i = 0; i < 4; i++)
+            max = Mathf.Max(max, values[i]);
+
+        for (int i = 0; i < 4; i++)
+        {
+            bool on = hasMine;
+            helpRowValue[i].text = on
+                ? (Mathf.Abs(values[i] - Mathf.Round(values[i])) < 0.05f
+                    ? Mathf.RoundToInt(values[i]).ToString()
+                    : values[i].ToString("0.0"))
+                : "—";
+            helpRowValue[i].color = on && values[i] > 0.5f ? TEXT_STRONG : TEXT_MUTED;
+
+            helpRowBar[i].fillAmount = 1f;
+            RectTransform fill = helpRowBar[i].rectTransform;
+            fill.anchorMin = Vector2.zero;
+            fill.anchorMax = new Vector2(on ? Mathf.Clamp01(values[i] / max) : 0f, 1f);
+            fill.offsetMin = Vector2.zero;
+            fill.offsetMax = Vector2.zero;
+
+            if (!hasTheirs || !on)
+            {
+                helpRowDelta[i].text = "—";
+                helpRowDelta[i].color = TEXT_MUTED;
+            }
+            else
+            {
+                float d = values[i] - theirs[i];
+                bool better = d > 0.05f;
+                bool worse = d < -0.05f;
+                helpRowDelta[i].text = better
+                    ? "▲ +" + Mathf.Abs(d).ToString("0.0")
+                    : worse ? "▼ −" + Mathf.Abs(d).ToString("0.0") : "=";
+                helpRowDelta[i].color = better
+                    ? new Color(0.42f, 0.82f, 0.48f)
+                    : worse ? new Color(0.87f, 0.47f, 0.42f) : TEXT_MUTED;
+            }
+
+            helpRowPlain[i].text = plain[i];
+            helpRowPlain[i].color = !on ? TEXT_MUTED : values[i] > 0.5f ? PLAIN : WARN;
+        }
+
+        // ---- 算式实例：花色点数 → 合计 → × 倍率 → 四项 ----
+        if (best == null)
+        {
+            helpFormula.text = "Two cards so far — the numbers appear once five cards are known.";
+        }
+        else
+        {
+            int spade = 0, heart = 0, club = 0, diamond = 0;
+            List<Card> five = best.bestFive ?? new List<Card>();
+            foreach (Card c in five)
+            {
+                if (c == null)
+                    continue;
+                if (c.Suit == Suit.Spades) spade += c.GetAttributeValue();
+                else if (c.Suit == Suit.Hearts) heart += c.GetAttributeValue();
+                else if (c.Suit == Suit.Clubs) club += c.GetAttributeValue();
+                else diamond += c.GetAttributeValue();
+            }
+            helpFormula.text = string.Format(
+                "<color={0}>♠{1}</color> <color={2}>♥{3}</color> <color={4}>♣{5}</color> <color={6}>♦{7}</color>"
+                    + "  ×  <color=#FFC74C>{8:0.00}</color>  →  ATK {9:0} · HP {10:0} · ROF {11:0} · SPD {12:0}",
+                HEX_SPADE, spade, HEX_HEART, heart, HEX_CLUB, club, HEX_DIAMOND, diamond,
+                best.GetMultiplier(),
+                values[0], values[1], values[2], values[3]
+            );
+        }
+
+        // ---- 生存线：买入 / 我的筹码 / 还能买几次 / 买不起就结束 ----
+        GameFlowManager gfm = GameFlowManager.Instance;
+        int buyIn = gfm != null ? gfm.CurrentBuyIn : (poker != null ? poker.BuyIn : 0);
+        int stack = poker != null ? poker.PlayerChips : 0;
+        int left = buyIn > 0 ? stack / buyIn : 0;
+
+        helpSurvival[0].text = buyIn.ToString();
+        helpSurvival[1].text = stack.ToString();
+        helpSurvival[2].text = left.ToString();
+        helpSurvival[3].text = buyIn > 0 ? "below " + buyIn + " the run ends" : "—";
     }
 
     private void CloseHelp()
@@ -260,187 +347,49 @@ public class PokerTutorialUI : MonoBehaviour
         SetHelpButtonVisible(true);
     }
 
-    private void BuildHelp()
+    /// <summary>牌型表的一行：用哪几张真牌演示 + 对应的 HandType（名字和倍率都从它取）。</summary>
+    private class RankRow
     {
-        helpPanel = new GameObject("HelpPanel");
-        helpPanel.transform.SetParent(canvasRoot.transform, false);
-        FullStretch(helpPanel);
+        public readonly HandType type;
+        public readonly string[] cards;
 
-        CreatePanel(helpPanel.transform, OVERLAY, Vector2.zero, Vector2.one);
-        CreatePanel(
-            helpPanel.transform,
-            CARD_BG,
-            new Vector2(0.06f, 0.05f),
-            new Vector2(0.94f, 0.95f)
-        );
-
-        CreateText(
-            helpPanel.transform,
-            "HelpTitle",
-            "TABLE REFERENCE",
-            new Vector2(0.09f, 0.895f),
-            new Vector2(0.91f, 0.935f),
-            TextAnchor.MiddleLeft,
-            24
-        ).color = TEXT_STRONG;
-
-        // ---- 左栏：牌型从高到低 ----
-        CreateText(
-            helpPanel.transform,
-            "HelpHandsLabel",
-            "HAND RANKINGS — highest first",
-            new Vector2(0.09f, 0.845f),
-            new Vector2(0.49f, 0.880f),
-            TextAnchor.MiddleLeft,
-            14
-        ).color = TEXT_MUTED;
-
-        // 倍率直接问 HandEvaluator，文档和规则改数字时这里不会各说一套。
-        string[] ranks =
+        public RankRow(HandType type, string[] cards)
         {
-            RankLine(HandType.RoyalFlush, "A K Q J 10, all one suit"),
-            RankLine(HandType.StraightFlush, "five in a row, one suit"),
-            RankLine(HandType.FourOfAKind, "four cards of one rank"),
-            RankLine(HandType.FullHouse, "three of a rank plus a pair"),
-            RankLine(HandType.Flush, "five of one suit, any order"),
-            RankLine(HandType.Straight, "five in a row, mixed suits"),
-            RankLine(HandType.ThreeOfAKind, "three of one rank"),
-            RankLine(HandType.TwoPair, "two pairs of different ranks"),
-            RankLine(HandType.OnePair, "two cards of one rank"),
-            RankLine(HandType.HighCard, "nothing else; top card wins"),
-        };
-
-        float y = 0.805f;
-        float rowHeight = 0.042f;
-        foreach (string rank in ranks)
-        {
-            Text row = CreateText(
-                helpPanel.transform,
-                "HelpRank",
-                rank,
-                new Vector2(0.09f, y - rowHeight),
-                new Vector2(0.49f, y),
-                TextAnchor.MiddleLeft,
-                14
-            );
-            row.color = TEXT_SOFT;
-            row.resizeTextForBestFit = false;
-            y -= rowHeight + 0.004f;
+            this.type = type;
+            this.cards = cards;
         }
-
-        // ---- 右栏：属性映射 ----
-        CreateText(
-            helpPanel.transform,
-            "HelpStatsLabel",
-            "YOUR HAND BECOMES YOUR FIGHTER",
-            new Vector2(0.51f, 0.845f),
-            new Vector2(0.91f, 0.880f),
-            TextAnchor.MiddleLeft,
-            14
-        ).color = TEXT_MUTED;
-
-        CreateText(
-            helpPanel.transform,
-            "HelpSpade",
-            "<color=" + HEX_SPADE + ">♠ SPADES</color>  →  ATK  (damage per shot)",
-            new Vector2(0.51f, 0.790f),
-            new Vector2(0.91f, 0.830f),
-            TextAnchor.MiddleLeft,
-            15
-        ).color = TEXT_SOFT;
-
-        CreateText(
-            helpPanel.transform,
-            "HelpHeart",
-            "<color=" + HEX_HEART + ">♥ HEARTS</color>  →  HP  (how much you survive)",
-            new Vector2(0.51f, 0.750f),
-            new Vector2(0.91f, 0.790f),
-            TextAnchor.MiddleLeft,
-            15
-        ).color = TEXT_SOFT;
-
-        CreateText(
-            helpPanel.transform,
-            "HelpClub",
-            "<color=" + HEX_CLUB + ">♣ CLUBS</color>  →  ROF  (rate of fire)",
-            new Vector2(0.51f, 0.710f),
-            new Vector2(0.91f, 0.750f),
-            TextAnchor.MiddleLeft,
-            15
-        ).color = TEXT_SOFT;
-
-        CreateText(
-            helpPanel.transform,
-            "HelpDiamond",
-            "<color=" + HEX_DIAMOND + ">♦ DIAMONDS</color>  →  SPD  (movement speed)",
-            new Vector2(0.51f, 0.670f),
-            new Vector2(0.91f, 0.710f),
-            TextAnchor.MiddleLeft,
-            15
-        ).color = TEXT_SOFT;
-
-        helpAtkValue = CreateStatValue(0.790f);
-        helpHpValue = CreateStatValue(0.750f);
-        helpRofValue = CreateStatValue(0.710f);
-        helpSpdValue = CreateStatValue(0.670f);
-
-        helpStatsLine = CreateText(
-            helpPanel.transform,
-            "HelpStatsLine",
-            "",
-            new Vector2(0.51f, 0.575f),
-            new Vector2(0.91f, 0.612f),
-            TextAnchor.MiddleLeft,
-            13
-        );
-        helpStatsLine.color = new Color(1.00f, 0.78f, 0.30f);
-
-        CreateText(
-            helpPanel.transform,
-            "HelpStatsNote",
-            "Only your best five cards count. The hand rank multiplies the totals.",
-            new Vector2(0.51f, 0.615f),
-            new Vector2(0.91f, 0.665f),
-            TextAnchor.MiddleLeft,
-            13
-        ).color = TEXT_MUTED;
-
-        // ---- 右栏：规则 ----
-        CreateText(
-            helpPanel.transform,
-            "HelpRulesLabel",
-            "THE POT",
-            new Vector2(0.51f, 0.505f),
-            new Vector2(0.91f, 0.540f),
-            TextAnchor.MiddleLeft,
-            14
-        ).color = TEXT_MUTED;
-
-        CreateText(
-            helpPanel.transform,
-            "HelpRules",
-            "A showdown only freezes the pot — you still have to win the duel to take it.\n"
-                + "Folding hands the pot to the opponent; it never costs you the stack.\n"
-                + "A tie splits the pot evenly.\n"
-                + "Below the buy-in, you cannot sit down — that is how a level ends.",
-            new Vector2(0.51f, 0.300f),
-            new Vector2(0.91f, 0.500f),
-            TextAnchor.UpperLeft,
-            14
-        ).color = TEXT_SOFT;
-
-        CreateButton(
-            helpPanel.transform,
-            "HelpClose",
-            "CLOSE",
-            new Vector2(0.40f, 0.095f),
-            new Vector2(0.60f, 0.155f),
-            BTN_HELP,
-            CloseHelp
-        );
-
-        helpPanel.SetActive(false);
     }
+
+    private static readonly Dictionary<string, Sprite> helpCardSprites = new Dictionary<string, Sprite>();
+
+    /// <summary>从 Resources 取一张牌面；取不到返回 null（调用方保留文字兜底）。</summary>
+    private static Sprite HelpCardSprite(string key)
+    {
+        Sprite cached;
+        if (helpCardSprites.TryGetValue(key, out cached))
+            return cached;
+        Sprite sprite = Resources.Load<Sprite>("PokerUI/Cards/" + key);
+        helpCardSprites[key] = sprite;
+        return sprite;
+    }
+
+    /// <summary>在参考面板里摆一张小牌面（纯展示，不吃点击）。</summary>
+    private Image CreateCardImage(Transform parent, string name, string key, Vector2 min, Vector2 max)
+    {
+        GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image));
+        go.transform.SetParent(parent, false);
+        RectTransform rt = go.GetComponent<RectTransform>();
+        rt.anchorMin = min;
+        rt.anchorMax = max;
+        rt.offsetMin = Vector2.zero;
+        rt.offsetMax = Vector2.zero;
+        Image img = go.GetComponent<Image>();
+        img.sprite = HelpCardSprite(key);
+        img.preserveAspect = true;
+        img.raycastTarget = false;
+        return img;
+    }
+
 
     /// <summary>
     /// "Three of a Kind — three of one rank  ×1.35"：牌型名用枚举，倍数用 HandEvaluator，
@@ -463,18 +412,35 @@ public class PokerTutorialUI : MonoBehaviour
     // =========================================================
     private void BuildResultLine()
     {
+        // 结果行贴在公共牌正下方，不能压到牌面：牌的下沿是 0.450，
+        // 所以整行收在 0.404–0.440，并加一层半透明底衬保证任何桌布上都读得清。
+        GameObject backGO = new GameObject("TutorialResultBack", typeof(RectTransform), typeof(Image));
+        backGO.transform.SetParent(canvasRoot.transform, false);
+        RectTransform backRT = backGO.GetComponent<RectTransform>();
+        backRT.anchorMin = new Vector2(0.26f, 0.392f);
+        backRT.anchorMax = new Vector2(0.74f, 0.434f);
+        backRT.offsetMin = Vector2.zero;
+        backRT.offsetMax = Vector2.zero;
+        Image back = backGO.GetComponent<Image>();
+        back.color = new Color(0.055f, 0.09f, 0.063f, 0.72f);
+        back.raycastTarget = false;
+        resultBack = back;
+
         resultText = CreateText(
             canvasRoot.transform,
             "TutorialResultLine",
             "",
-            new Vector2(0.08f, 0.452f),
-            new Vector2(0.92f, 0.500f),
+            new Vector2(0.27f, 0.396f),
+            new Vector2(0.73f, 0.431f),
             TextAnchor.MiddleCenter,
-            17
+            15
         );
         resultText.color = TEXT_STRONG;
         resultText.raycastTarget = false; // 结果行不该吃掉桌面的点击
+        resultText.horizontalOverflow = HorizontalWrapMode.Wrap;
+        resultText.verticalOverflow = VerticalWrapMode.Truncate;
         resultText.gameObject.SetActive(false);
+        backGO.SetActive(false);
     }
 
     private void HandleStateChanged()
@@ -508,8 +474,17 @@ public class PokerTutorialUI : MonoBehaviour
         shown.a = 1f;
         resultText.text = line;
         resultText.color = shown;
-        resultText.gameObject.SetActive(true);
+        SetResultRowVisible(true);
         resultHideAt = Time.time + ResultStaySeconds;
+    }
+
+    // 结果行和它的底衬永远一起开关，避免只剩一块黑底或只剩一行字
+    private void SetResultRowVisible(bool visible)
+    {
+        if (resultText != null)
+            resultText.gameObject.SetActive(visible);
+        if (resultBack != null)
+            resultBack.gameObject.SetActive(visible);
     }
 
     private string BuildResultSentence()
@@ -606,7 +581,7 @@ public class PokerTutorialUI : MonoBehaviour
             opaque.a = 1f;
             resultText.color = opaque;
             resultText.text = "";
-            resultText.gameObject.SetActive(false);
+            SetResultRowVisible(false);
         }
     }
 

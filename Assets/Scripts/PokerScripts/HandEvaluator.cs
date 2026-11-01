@@ -116,22 +116,22 @@ public class HandResult
             case HandType.RoyalFlush:
                 return "Royal flush";
             case HandType.StraightFlush:
-                return "Straight flush, " + RankWord(main) + " high";
+                return "Straight flush: " + RankWord(main) + " high";
             case HandType.FourOfAKind:
                 return "Four " + RankWordPlural(main);
             case HandType.FullHouse:
                 return tiebreakers.Length > 2
-                    ? "Full house, " + RankWordPlural(main) + " over " + RankWordPlural(tiebreakers[2])
+                    ? "Full house: " + RankWordPlural(main) + " over " + RankWordPlural(tiebreakers[2])
                     : "Full house";
             case HandType.Flush:
-                return "Flush (" + SuitWordOfBestFive() + "), " + RankWord(main) + " high";
+                return "Flush: " + SuitWordOfBestFive() + ", " + RankWord(main) + " high";
             case HandType.Straight:
-                return "Straight, " + RankWord(main) + " high";
+                return "Straight: " + RankWord(main) + " high";
             case HandType.ThreeOfAKind:
                 return "Three " + RankWordPlural(main);
             case HandType.TwoPair:
                 return tiebreakers.Length > 2
-                    ? "Two pair, " + RankWordPlural(main) + " and " + RankWordPlural(tiebreakers[2])
+                    ? "Two pair: " + RankWordPlural(main) + " + " + RankWordPlural(tiebreakers[2])
                     : "Two pair";
             case HandType.OnePair:
                 return "Pair of " + RankWordPlural(main);

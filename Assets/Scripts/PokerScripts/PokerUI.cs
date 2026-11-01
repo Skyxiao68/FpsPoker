@@ -35,6 +35,10 @@ public class PokerUI : MonoBehaviour
     private Button raiseButton;
     private Button foldButton;
     private Button matchButton;
+
+    // 危险动作的「再点一次确认」窗口（现在只有 Fold 用）
+    private const float FoldConfirmSeconds = 2.5f;
+    private float foldArmedAt;
     private Button nextHandButton;
 
     // Slider.
@@ -71,11 +75,21 @@ public class PokerUI : MonoBehaviour
     // 参与当前 best-five 的牌用这个边框，把「为什么是你的最好五张」画出来
     private static readonly Color SLOT_EDGE_BEST = new Color(1.00f, 0.78f, 0.30f, 0.95f);
     private static readonly Color SLOT_BG_BEST = new Color(0.12f, 0.11f, 0.06f, 0.97f);
-    private static readonly Color BTN_FOLD = new Color(0.52f, 0.18f, 0.16f);
-    private static readonly Color BTN_CHECK = new Color(0.12f, 0.48f, 0.30f);
-    private static readonly Color BTN_RAISE = new Color(0.82f, 0.52f, 0.12f);
-    private static readonly Color BTN_MATCH = new Color(0.68f, 0.42f, 0.10f);
-    private static readonly Color BTN_NEUTRAL = new Color(0.22f, 0.22f, 0.26f);
+    // 动作按钮三档：退出（幽灵）/ 维持（Check、Match 同族）/ 推进（Raise 唯一重音）
+    // 可点的按钮必须比面板/桌面明显亮一档，否则玩家分不清哪几个能按
+    private static readonly Color BTN_FOLD = new Color(0.176f, 0.243f, 0.157f);           // #2D3E28
+    private static readonly Color BTN_CHECK = new Color(0.208f, 0.290f, 0.212f);           // #354A36
+    private static readonly Color BTN_MATCH = new Color(0.255f, 0.341f, 0.224f);           // #415739
+    private static readonly Color BTN_RAISE = new Color(0.949f, 0.702f, 0.239f);           // #F2B33D
+    private static readonly Color EDGE_FOLD = new Color(0.478f, 0.227f, 0.204f);          // #7A3A34
+    private static readonly Color EDGE_CHECK = new Color(0.310f, 0.380f, 0.286f);         // #4F6149
+    private static readonly Color EDGE_MATCH = new Color(0.561f, 0.627f, 0.498f);         // #8FA07F
+    private static readonly Color EDGE_RAISE = new Color(1.000f, 0.878f, 0.627f);         // #FFE0A0
+    private static readonly Color TEXT_ON_FOLD = new Color(0.851f, 0.549f, 0.522f);       // #D98C85
+    private static readonly Color TEXT_ON_DARK = new Color(0.910f, 0.929f, 0.902f);       // #E8EDE6
+    private static readonly Color TEXT_ON_RAISE = new Color(0.102f, 0.071f, 0.024f);      // #1A1206
+    private Sprite actionButtonSprite;
+    private static readonly Color BTN_NEUTRAL = new Color(0.278f, 0.298f, 0.341f);        // 快捷下注：比桌面亮，明确可点
 
     // Tracking for slider reset on street change.
     private Street lastStreet = Street.PreFlop;
@@ -177,6 +191,9 @@ public class PokerUI : MonoBehaviour
         CanvasScaler scaler = canvasGO.AddComponent<CanvasScaler>();
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1280, 720);
+        // match 0 只按宽度缩放：窗口一变扁（不是 16:9）上下就被裁掉，面板直接看不见。
+        // 0.5 在宽高之间取中，任何窗口比例下整张桌子都还在画面里。
+        scaler.matchWidthOrHeight = 0.5f;
 
         canvasGO.AddComponent<GraphicRaycaster>();
         canvasGO.transform.SetParent(transform);
@@ -207,16 +224,16 @@ public class PokerUI : MonoBehaviour
         CreatePanel(
             canvasGO.transform,
             PANEL_BG,
-            new Vector2(0.020f, 0.584f),
-            new Vector2(0.2157f, 0.912f)
+            new Vector2(0.0204f, 0.598f),
+            new Vector2(0.2153f, 0.912f)
         );
 
         enemyNameText = CreateText(
             canvasGO.transform,
             "EnemyNameText",
             "",
-            new Vector2(0.0302f, 0.874f),
-            new Vector2(0.134f, 0.908f),
+            new Vector2(0.0334f, 0.882f),
+            new Vector2(0.1270f, 0.910f),
             TextAnchor.MiddleLeft,
             22
         );
@@ -226,8 +243,8 @@ public class PokerUI : MonoBehaviour
             canvasGO.transform,
             "EnemyChipsText",
             "0 chips",
-            new Vector2(0.126f, 0.874f),
-            new Vector2(0.2056f, 0.908f),
+            new Vector2(0.129f, 0.882f),
+            new Vector2(0.2103f, 0.910f),
             TextAnchor.MiddleRight,
             16
         );
@@ -237,22 +254,22 @@ public class PokerUI : MonoBehaviour
         enemySlots[0] = CreateCardSlot(
             canvasGO.transform,
             "EnemySlot1",
-            new Vector2(0.0302f, 0.632f),
-            new Vector2(0.1149f, 0.8487f)
+            new Vector2(0.0297f, 0.658f),
+            new Vector2(0.1144f, 0.8747f)
         );
         enemySlots[1] = CreateCardSlot(
             canvasGO.transform,
             "EnemySlot2",
-            new Vector2(0.1209f, 0.632f),
-            new Vector2(0.2056f, 0.8487f)
+            new Vector2(0.1213f, 0.658f),
+            new Vector2(0.2060f, 0.8747f)
         );
 
         enemyHandTypeText = CreateText(
             canvasGO.transform,
             "EnemyHandType",
             "",
-            new Vector2(0.0302f, 0.602f),
-            new Vector2(0.2056f, 0.630f),
+            new Vector2(0.0334f, 0.616f),
+            new Vector2(0.2103f, 0.656f),
             TextAnchor.MiddleLeft,
             18
         );
@@ -426,8 +443,8 @@ public class PokerUI : MonoBehaviour
             canvasGO.transform,
             "PlayerHandType",
             "",
-            new Vector2(0.7915f, 0.174f),
-            new Vector2(0.966f, 0.214f),
+            new Vector2(0.786f, 0.174f),
+            new Vector2(0.972f, 0.214f),
             TextAnchor.MiddleLeft,
             20
         );
@@ -446,7 +463,12 @@ public class PokerUI : MonoBehaviour
         turnBar.raycastTarget = false;
         turnBar.gameObject.SetActive(false);
         playerHandTypeText.lineSpacing = 1f;
-        playerHandTypeText.verticalOverflow = VerticalWrapMode.Overflow;
+        // 单行显示，靠 best-fit 自动缩到盒宽以内（Wrap + Truncate 会把后半句切掉）
+        playerHandTypeText.horizontalOverflow = HorizontalWrapMode.Overflow;
+        playerHandTypeText.verticalOverflow = VerticalWrapMode.Truncate;
+        playerHandTypeText.resizeTextForBestFit = true;
+        playerHandTypeText.resizeTextMinSize = 10;
+        playerHandTypeText.resizeTextMaxSize = 18;
 
         // ---- Swap：改成玩家面板内右上角的中性小按钮 ----
         playerChipsValueText = CreateText(
@@ -465,12 +487,12 @@ public class PokerUI : MonoBehaviour
             "SwapBtn",
 
             "Swap",
-            new Vector2(0.925f, 0.423f),
-            new Vector2(0.984f, 0.449f),
+            new Vector2(0.7813f, 0.478f),
+            new Vector2(0.9762f, 0.508f),
             BTN_NEUTRAL,
             () => OnSwapClicked()
         );
-        swapButton.GetComponentInChildren<Text>().fontSize = 13;
+        swapButton.GetComponentInChildren<Text>().fontSize = 14;
 
         // ---------- 下注提示（顶栏，底池正下方） ----------
         // 玩家反馈「看不出对手下了多少」，所以把当前注额直接摆到桌面上，
@@ -497,8 +519,8 @@ public class PokerUI : MonoBehaviour
         qbrRT.offsetMin = Vector2.zero;
         qbrRT.offsetMax = Vector2.zero;
 
-        float qbY0 = 0.093f,
-            qbY1 = 0.151f;
+        float qbY0 = 0.098f,
+            qbY1 = 0.150f;
 
         // 四个百分比按钮
         CreateButton(
@@ -534,7 +556,7 @@ public class PokerUI : MonoBehaviour
         CreateButton(
             quickBetRow.transform,
             "BtnMax",
-            "Max",
+            "All in",
             new Vector2(0.5592f, qbY0),
             new Vector2(0.6305f, qbY1),
             BTN_NEUTRAL,
@@ -583,7 +605,10 @@ public class PokerUI : MonoBehaviour
         vpRT.offsetMin = Vector2.zero;
         vpRT.offsetMax = Vector2.zero;
         Image vpImg = valuePill.GetComponent<Image>();
-        vpImg.color = new Color(0.03f, 0.03f, 0.03f, 0.95f);
+        vpImg.color = new Color(0.176f, 0.196f, 0.176f, 1f);
+        Outline vpEdge = valuePill.AddComponent<Outline>();
+        vpEdge.effectColor = CTRL_EDGE;
+        vpEdge.effectDistance = new Vector2(1f, -1f);
 
         raiseValueText = CreateText(
             valuePill.transform,
@@ -594,12 +619,21 @@ public class PokerUI : MonoBehaviour
             TextAnchor.MiddleCenter,
             20
         );
-        raiseValueText.color = TEXT_STRONG;
+        raiseValueText.color = new Color(1.00f, 0.78f, 0.30f);
         raiseValueText.fontStyle = FontStyle.Bold;
 
-        raiseSlider.onValueChanged.AddListener(
-            (value) => raiseValueText.text = Mathf.RoundToInt(value).ToString()
-        );
+        raiseSlider.onValueChanged.AddListener(value =>
+        {
+            int v = Mathf.RoundToInt(value);
+            raiseValueText.text = v.ToString();
+            // Raise 按钮上的金额也跟着滑条走（否则点 All in / 拖滑条后按钮还显示旧数字）
+            if (raiseButton != null && raiseButton.interactable)
+            {
+                Text btnLabel = raiseButton.GetComponentInChildren<Text>();
+                if (btnLabel != null)
+                    btnLabel.text = "Raise " + v;
+            }
+        });
 
         // ---------- 操作按钮行（底部） ----------
         actionRow = new GameObject("ActionRow");
@@ -610,48 +644,53 @@ public class PokerUI : MonoBehaviour
         arRT.offsetMin = Vector2.zero;
         arRT.offsetMax = Vector2.zero;
 
-        float aY0 = 0.02f,
-            aY1 = 0.09f;
+        float aY0 = 0.020f,
+            aY1 = 0.086f;
 
+        // 宽度按语义权重：退出窄、维持等宽、推进最宽；Check 与 Match 相邻（同一个选择的两面）
         foldButton = CreateButton(
             actionRow.transform,
             "FoldBtn",
             "Fold",
-            new Vector2(0.3300f, aY0),
-            new Vector2(0.4877f, aY1),
+            new Vector2(0.3198f, aY0),
+            new Vector2(0.4511f, aY1),
             BTN_FOLD,
-            () => poker.PlayerFold()
+            () => OnFoldClicked()
         );
+        StyleActionButton(foldButton, EDGE_FOLD, TEXT_ON_FOLD, 19, false);
 
         checkButton = CreateButton(
             actionRow.transform,
             "CheckBtn",
             "Check",
-            new Vector2(0.4928f, aY0),
-            new Vector2(0.6505f, aY1),
+            new Vector2(0.4573f, aY0),
+            new Vector2(0.6136f, aY1),
             BTN_CHECK,
             () => poker.PlayerCheck()
         );
-
-        raiseButton = CreateButton(
-            actionRow.transform,
-            "RaiseBtn",
-            "Raise",
-            new Vector2(0.6556f, aY0),
-            new Vector2(0.8133f, aY1),
-            BTN_RAISE,
-            () => poker.PlayerRaise(Mathf.RoundToInt(raiseSlider.value))
-        );
+        StyleActionButton(checkButton, EDGE_CHECK, TEXT_ON_DARK, 20, false);
 
         matchButton = CreateButton(
             actionRow.transform,
             "MatchBtn",
             "Match",
-            new Vector2(0.8184f, aY0),
-            new Vector2(0.9761f, aY1),
+            new Vector2(0.6198f, aY0),
+            new Vector2(0.7761f, aY1),
             BTN_MATCH,
             () => poker.PlayerMatchRaise()
         );
+        StyleActionButton(matchButton, EDGE_MATCH, TEXT_ON_DARK, 20, false);
+
+        raiseButton = CreateButton(
+            actionRow.transform,
+            "RaiseBtn",
+            "Raise",
+            new Vector2(0.7823f, aY0),
+            new Vector2(0.9761f, aY1),
+            BTN_RAISE,
+            () => OnRaiseClicked()
+        );
+        StyleActionButton(raiseButton, EDGE_RAISE, TEXT_ON_RAISE, 22, true);
 
         // ---------- Next / Enter Combat 行 ----------
         nextHandRow = new GameObject("NextHandRow");
@@ -905,23 +944,64 @@ public class PokerUI : MonoBehaviour
         }
     }
 
-    private void SetButtonEmphasis(Button button, Color baseColor, bool primary)
+    // 按钮的层级由颜色分档承担，不再用缩放/提亮（整行跳动比没反馈更廉价）
+    private static Color DimOf(Color c)
     {
-        if (button == null)
+        return new Color(
+            Mathf.Lerp(0.20f, c.r, 0.42f),
+            Mathf.Lerp(0.24f, c.g, 0.42f),
+            Mathf.Lerp(0.20f, c.b, 0.42f),
+            c.a * 0.75f
+        );
+    }
+
+    private static void DimLabel(Button b, bool live, Color baseColor)
+    {
+        if (b == null)
             return;
-        button.transform.localScale = primary ? new Vector3(1.05f, 1.05f, 1f) : Vector3.one;
-        Image img = button.GetComponent<Image>();
-        if (img != null)
+        Text t = b.GetComponentInChildren<Text>();
+        if (t == null)
+            return;
+        // 两个方向都要写：只压不还原的话，一旦某个回合被压暗，之后再也亮不回来
+        t.color = live ? baseColor : DimOf(baseColor);
+    }
+
+    private void StyleActionButton(Button b, Color edgeColor, Color textColor, int fontSize, bool bold)
+    {
+        if (b == null)
+            return;
+        Outline edge = b.GetComponent<Outline>();
+        if (edge != null)
+            edge.effectColor = edgeColor;
+        Text label = b.GetComponentInChildren<Text>();
+        if (label != null)
         {
-            img.color = primary
-                ? new Color(
-                    Mathf.Min(1f, baseColor.r * 1.15f),
-                    Mathf.Min(1f, baseColor.g * 1.15f),
-                    Mathf.Min(1f, baseColor.b * 1.15f),
-                    baseColor.a
-                )
-                : baseColor;
+            label.color = textColor;
+            label.fontSize = fontSize;
+            label.fontStyle = bold ? FontStyle.Bold : FontStyle.Normal;
         }
+    }
+
+    // Fold 与超大额 Raise 都要按两下：第一下只改文案，第二下才真的执行
+    private void OnFoldClicked()
+    {
+        if (foldArmedAt <= 0f)
+        {
+            foldArmedAt = Time.time;
+            Text label = foldButton.GetComponentInChildren<Text>();
+            if (label != null)
+                label.text = "Sure?";
+            return;
+        }
+        foldArmedAt = 0f;
+        poker.PlayerFold();
+    }
+
+    private void OnRaiseClicked()
+    {
+        // 不做二次确认（Ben: all-in 确认太麻烦），快捷里的 All in 按钮直接下满
+        int amount = Mathf.RoundToInt(raiseSlider.value);
+        poker.PlayerRaise(amount);
     }
 
     // =========================================================
@@ -980,11 +1060,11 @@ public class PokerUI : MonoBehaviour
                 : null;
         RenderSlots(enemySlots, poker.EnemyHand, !revealEnemy, enemyBest != null ? enemyBest.bestFive : null);
 
-        // 牌面已经是卡面图了，这里只留一句话说清「凑成的是什么牌」，
-        // 不再重复列五张牌（那行会挤成两行、还把面板塞满）。
+        // 牌面已经是卡面图了，这里只留牌型名（颜色+位置已经说明它是「最好五张」），
+        // 不再加 "Best five:" 前缀——加上去最长的那档会被挤到盒子外面。
         playerHandTypeText.text =
             playerBest != null && playerBestFive != null && playerBestFive.Count > 0
-                ? "Best five: " + playerBest.Describe()
+                ? playerBest.Describe()
                 : "";
         // 只在摊牌时显示敌方是什么牌；平时不占位（不要 "Hidden" 之类的占位词）
         enemyHandTypeText.text = enemyBest != null ? enemyBest.Describe() : "";
@@ -1000,35 +1080,35 @@ public class PokerUI : MonoBehaviour
 
         checkButton.interactable = isPlayerTurn && !mustMatch;
         raiseButton.interactable = isPlayerTurn && !mustMatch && canRaise;
-        // 按钮上直接写金额，省掉一个「看起来像按钮」的数值框
+        matchButton.interactable = isPlayerTurn && mustMatch;
+        foldButton.interactable = isPlayerTurn;
+
+        // 按钮上直接写金额；全下不再二次确认
         Text raiseLabel = raiseButton.GetComponentInChildren<Text>();
         int raiseAmount = Mathf.RoundToInt(raiseSlider.value);
         raiseLabel.text = canRaise ? "Raise " + raiseAmount : "Raise";
-        matchButton.interactable = isPlayerTurn && mustMatch;
+        raiseLabel.color = TEXT_ON_RAISE;
 
-        foldButton.interactable = isPlayerTurn;
-        StyleButtonLiveState(foldButton, foldButton.interactable);
-        StyleButtonLiveState(checkButton, checkButton.interactable);
-        StyleButtonLiveState(raiseButton, raiseButton.interactable);
-        StyleButtonLiveState(matchButton, matchButton.interactable);
+        Text foldLabel = foldButton.GetComponentInChildren<Text>();
+        foldLabel.text = foldArmedAt > 0f ? "Sure?" : "Fold";
 
-        // 可用动作放大 + 提亮，玩家一眼看到现在能点什么
-        SetButtonEmphasis(
-            checkButton,
-            BTN_CHECK,
-            isPlayerTurn && !mustMatch
-        );
-        SetButtonEmphasis(
-            foldButton,
-            BTN_FOLD,
-            isPlayerTurn && !mustMatch
-        );
-        SetButtonEmphasis(
-            raiseButton,
-            BTN_RAISE,
-            isPlayerTurn && !mustMatch && canRaise
-        );
-        SetButtonEmphasis(matchButton, BTN_MATCH, isPlayerTurn && mustMatch);
+        // 不能点的按钮：底压暗一档，字也退后；能点的保持本色
+        DimLabel(foldButton, foldButton.interactable, TEXT_ON_FOLD);
+        DimLabel(checkButton, checkButton.interactable, TEXT_ON_DARK);
+        DimLabel(matchButton, matchButton.interactable, TEXT_ON_DARK);
+        if (!raiseButton.interactable)
+            raiseLabel.color = DimOf(TEXT_ON_RAISE);
+
+        // 换手/换街时把 Fold 的一次确认复位，避免隔了很久还停在「Sure?」
+        if (!isPlayerTurn)
+        {
+            foldArmedAt = 0f;
+        }
+        else
+        {
+            if (foldArmedAt > 0f && Time.time - foldArmedAt > FoldConfirmSeconds)
+                foldArmedAt = 0f;
+        }
 
         // Swap 按钮：只有在可以换牌时才亮
         if (swapButton != null)
@@ -1459,6 +1539,15 @@ public class PokerUI : MonoBehaviour
         go.transform.SetParent(parent, false);
 
         Image img = go.AddComponent<Image>();
+        if (actionButtonSprite == null)
+            actionButtonSprite = Resources.Load<Sprite>("PokerUI/Rounded/panel_r10");
+        if (actionButtonSprite != null)
+        {
+            img.sprite = actionButtonSprite;
+            img.type = Image.Type.Sliced;
+        }
+        // 底色画在 Image 上，ColorTint 只做乘法：hover/pressed 变亮变暗，
+        // 禁用只压暗（保持不透明，否则 Outline 的四份拷贝会从半透明底下面透出来变成一圈怪色）
         img.color = normalColor;
         Outline edge = go.AddComponent<Outline>();
         edge.effectColor = CTRL_EDGE;
@@ -1469,13 +1558,13 @@ public class PokerUI : MonoBehaviour
         btn.onClick.AddListener(onClick);
 
         ColorBlock cb = btn.colors;
-        cb.normalColor = normalColor;
-        cb.highlightedColor = Brighten(normalColor, 1.25f);
-        cb.pressedColor = Darken(normalColor, 0.7f);
-        cb.selectedColor = normalColor;
-        cb.disabledColor = new Color(0.15f, 0.15f, 0.15f, 1f);
+        cb.normalColor = Color.white;
+        cb.highlightedColor = new Color(1.08f, 1.08f, 1.08f, 1f);
+        cb.pressedColor = new Color(0.88f, 0.88f, 0.88f, 1f);
+        cb.selectedColor = Color.white;
+        cb.disabledColor = new Color(0.40f, 0.40f, 0.40f, 1f);
         cb.colorMultiplier = 1f;
-        cb.fadeDuration = 0.1f;
+        cb.fadeDuration = 0.08f;
         btn.colors = cb;
 
         RectTransform rt = go.GetComponent<RectTransform>();
