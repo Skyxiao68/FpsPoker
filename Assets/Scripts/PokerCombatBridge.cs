@@ -23,6 +23,34 @@ public class PokerCombatBridge : MonoBehaviour
 
     private bool settlingDirectly = false;
 
+    [Header("调试")]
+    [Tooltip(
+        "只测扑克：摊牌不弹结算面板、不进战斗，直接按摊牌结果结算底池，"
+            + "然后照常点 Next Hand 开下一手。运行中按 F6 随时切换。"
+    )]
+    [SerializeField]
+    private bool pokerOnlyMode = false;
+
+    /// <summary>
+    /// 运行时开关（F6 切换）：只测扑克，不进入战斗场景。
+    /// 静态是因为教程/结算面板那边也要判断当前是不是调试模式。
+    /// </summary>
+    public static bool PokerOnlyMode { get; set; }
+
+    private void Start()
+    {
+        PokerOnlyMode = pokerOnlyMode;
+    }
+
+    private void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.F6))
+        {
+            PokerOnlyMode = !PokerOnlyMode;
+            Debug.Log($"[Bridge] 只测扑克模式 = {PokerOnlyMode}（F6 切换）");
+        }
+    }
+
     // 生命周期（用 Awake 确保先于 PokerGameTester.Start 执行）
 
     private void Awake()
@@ -99,7 +127,28 @@ public class PokerCombatBridge : MonoBehaviour
             return;
         }
 
+        // 只测扑克：直接按摊牌结果结算，不弹面板、不进战斗
+        if (PokerOnlyMode)
+        {
+            int potBefore = poker.Pot;
+            SettleDirectly();
+            SyncChipsToGameFlow();
+            Debug.Log(
+                $"[Bridge] 只测扑克模式：按摊牌结果结算 pot {potBefore}（{poker.Result}），不进入战斗"
+            );
+            return;
+        }
+
         ShowdownPanel();
+    }
+
+    /// <summary>把两侧筹码写回 GameFlowManager（跨场景的唯一账本）。</summary>
+    private void SyncChipsToGameFlow()
+    {
+        if (GameFlowManager.Instance == null)
+            return;
+        GameFlowManager.Instance.PlayerChips = poker.PlayerChips;
+        GameFlowManager.Instance.EnemyChips = poker.EnemyChips;
     }
 
     private ShowdownPanelUI showdownPanel;

@@ -59,7 +59,8 @@ public class PokerSceneBootstrap : MonoBehaviour
             Debug.Log("[Bootstrap] 从商店返回，开始下一关");
             GameFlowManager.Instance.ClearReturnedFromShop();
             GameFlowManager.Instance.AdvanceToNextEncounter();
-            GameFlowManager.Instance.EnemyChips = 500;
+            GameFlowManager.Instance.EnemyChips =
+                GameFlowManager.EnemyChipsForLevel(GameFlowManager.Instance.CurrentLevel);
         }
         else if (fromCombat)
         {
@@ -131,9 +132,13 @@ public class PokerSceneBootstrap : MonoBehaviour
         if (enemyChips < 0)
         {
             Debug.Log("[Bootstrap] 敌人筹码未初始化，使用默认 500");
-            enemyChips = 500;
+            enemyChips = 60;
             if (GameFlowManager.Instance != null)
+            {
                 GameFlowManager.Instance.EnemyChips = enemyChips;
+                if (GameFlowManager.Instance.LevelStartEnemyChips <= 0)
+                    GameFlowManager.Instance.LevelStartEnemyChips = enemyChips;
+            }
         }
 
         // ========== 6. 敌人参数 ==========
