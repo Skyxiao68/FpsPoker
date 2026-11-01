@@ -281,6 +281,8 @@ public class FpsOwnedItemsHud : MonoBehaviour
                 return Describe("Quickstep", "Adds FPS move and attack speed.", count);
             case ItemId.IronHeart:
                 return Describe("Iron Heart", "Adds FPS maximum health.", count);
+            case ItemId.Headhunter:
+                return Describe("Headhunter", "Raises FPS headshot damage from 1.5x to 2x.", count);
             default:
                 return Describe(id.ToString(), "Owned item.", count);
         }

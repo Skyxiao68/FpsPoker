@@ -9,10 +9,13 @@ public class FpsItemDefinition : ScriptableObject
     [TextArea]
     [SerializeField] private string description;
     [SerializeField] private CombatStats bonusStats;
+    [Min(1f)]
+    [SerializeField] private float headshotMultiplier = 1f;
 
     public string FpsItemId => fpsItemId;
     public ItemId ItemId => itemId;
     public string DisplayName => displayName;
     public string Description => description;
     public CombatStats BonusStats => bonusStats;
+    public float HeadshotMultiplier => headshotMultiplier;
 }
