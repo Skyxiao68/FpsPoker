@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 public class FpsAiPerception : MonoBehaviour
@@ -27,15 +28,27 @@ public class FpsAiPerception : MonoBehaviour
     [SerializeField] private float scanInterval = 0.2f;
 
     private Transform target;
+    private Transform selfRoot;
+    private Collider targetBody;
+    private Health targetHealth;
     private float nextScanTime;
+    private float closeAlertUntil;
 
-    // Memory
+    // Sightings and nearby hit identification update these snapshots;
+    // hidden target movement never does.
     private Vector3 lastKnownPosition;
+    private Vector3 lastKnownAimPoint;
+    private Vector3 lastKnownVelocity;
     private float lastSeenTime = -999f;
-
-    // Target velocity, estimated for aim leading.
-    private Vector3 lastTargetPosition;
+    private bool hasObservation;
+    private bool hasVelocitySample;
     private Vector3 targetVelocity;
+    private float lastKnownTopSpeed = 1f;
+
+    private Collider[] scanResults = new Collider[32];
+    private RaycastHit[] sightHits = new RaycastHit[16];
+    private readonly HashSet<Transform> scannedTargets =
+        new HashSet<Transform>();
 
     public Transform Target => target;
 
@@ -44,155 +57,443 @@ public class FpsAiPerception : MonoBehaviour
     public bool CanSeeTarget { get; private set; }
 
     public bool HasRecentMemory =>
+        hasObservation &&
         personality != null &&
-        Time.time - lastSeenTime <= personality.memoryDuration;
+        Time.time - lastSeenTime <= Mathf.Max(0f, personality.memoryDuration);
+
+    // Combat pursuit uses memoryDuration; a cautious search can continue
+    // longer without receiving any new target position through cover.
+    public bool HasSearchMemory =>
+        hasObservation && personality != null &&
+        personality.memoryDuration > 0f &&
+        Time.time - lastSeenTime <= personality.memoryDuration * 3.5f;
+
+    public float PossibleTravelDistance =>
+        hasObservation ? lastKnownTopSpeed * TimeSinceLastSeen : 0f;
+
+    public Vector3 EstimatedSearchCenter
+    {
+        get
+        {
+            if (!hasObservation || personality == null)
+                return lastKnownPosition;
+
+            float age = TimeSinceLastSeen;
+            float projectionTime = Mathf.Min(age, personality.memoryDuration * 0.5f) *
+                Mathf.Exp(-age / Mathf.Max(0.1f, personality.memoryDuration));
+            Vector3 movement = lastKnownVelocity;
+            movement.y = 0f;
+            return lastKnownPosition +
+                Vector3.ClampMagnitude(movement, lastKnownTopSpeed) * projectionTime;
+        }
+    }
 
     public Vector3 LastKnownPosition => lastKnownPosition;
 
     public Vector3 TargetVelocity => targetVelocity;
 
+    public Vector3 LastKnownVelocity => lastKnownVelocity;
+
+    public float TimeSinceLastSeen =>
+        hasObservation
+            ? Mathf.Max(0f, Time.time - lastSeenTime)
+            : Mathf.Infinity;
+
     /// <summary>
-    /// The world point the aim driver should track.
+    /// The actual visible body point, or its last observed position when hidden.
     /// </summary>
-    public Vector3 AimPoint =>
-        target != null
-            ? target.position + Vector3.up * aimHeightOffset
-            : lastKnownPosition;
+    public Vector3 AimPoint => lastKnownAimPoint;
 
     public float DistanceToTarget =>
-        target != null
-            ? Vector3.Distance(transform.position, target.position)
+        target != null && hasObservation
+            ? Vector3.Distance(transform.position, lastKnownPosition)
             : Mathf.Infinity;
 
     private Transform Eyes => eyes != null ? eyes : transform;
+
+    private void Awake()
+    {
+        Health ownHealth = GetComponentInParent<Health>();
+        FpsCharacterController ownController =
+            GetComponentInParent<FpsCharacterController>();
+
+        selfRoot = ownHealth != null
+            ? ownHealth.transform
+            : ownController != null ? ownController.transform : transform;
+    }
 
     public void Initialise(FPSPersonality assignedPersonality)
     {
         personality = assignedPersonality;
     }
 
+    // A nearby shooter is identifiable from the impact, even outside the
+    // normal view cone. Keep only a snapshot when cover blocks sight.
+    public void AlertFromNearbyDamage(Transform attacker)
+    {
+        if (personality == null || attacker == null)
+            return;
+
+        Health attackerHealth = attacker.GetComponent<Health>();
+        if (!IsValidTarget(attacker, attackerHealth))
+            return;
+
+        target = attacker;
+        targetHealth = attackerHealth;
+        targetBody = FindTargetBody(attacker, null);
+        lastKnownPosition = attacker.position;
+        lastKnownAimPoint = attacker.position + Vector3.up * aimHeightOffset;
+        lastKnownVelocity = Vector3.zero;
+        targetVelocity = Vector3.zero;
+        hasObservation = true;
+        hasVelocitySample = false;
+        CaptureTargetTopSpeed();
+        lastSeenTime = Time.time;
+        closeAlertUntil = Time.time + Mathf.Max(0.15f, personality.reactionTime);
+
+        CanSeeTarget = TryGetVisiblePoint(attacker, targetBody,
+            out Vector3 visiblePoint, true);
+        if (CanSeeTarget)
+            ObserveTarget(visiblePoint);
+    }
+
     public void Tick()
     {
-        if (personality == null)
+        if (!isActiveAndEnabled || personality == null)
+        {
+            CanSeeTarget = false;
+            targetVelocity = Vector3.zero;
+            hasVelocitySample = false;
             return;
+        }
+
+        // Do not spend the memory duration pursuing a dead or removed actor.
+        if ((target != null && !IsValidTarget(target, targetHealth)) ||
+            (hasObservation && target == null))
+        {
+            ForgetTarget();
+        }
+
+        Vector3 visiblePoint;
+        CanSeeTarget = TryGetVisiblePoint(target, targetBody, out visiblePoint,
+            Time.time < closeAlertUntil);
 
         if (Time.time >= nextScanTime)
         {
-            nextScanTime = Time.time + scanInterval;
-            AcquireTarget();
-        }
+            nextScanTime = Time.time + Mathf.Max(0f, scanInterval);
 
-        CanSeeTarget = EvaluateVisibility();
+            // Keep a visible opponent instead of hopping between nearby actors
+            // or between several colliders belonging to the same character.
+            if (!CanSeeTarget)
+                CanSeeTarget = AcquireTarget(out visiblePoint);
+        }
 
         if (CanSeeTarget)
         {
-            lastSeenTime = Time.time;
-            lastKnownPosition = target.position;
+            ObserveTarget(visiblePoint);
         }
+        else
+        {
+            // The next sighting begins a fresh velocity sample; movement
+            // behind cover must never feed aiming or update the search point.
+            hasVelocitySample = false;
+            targetVelocity = Vector3.zero;
 
-        EstimateTargetVelocity();
+            if (!HasSearchMemory && (target != null || hasObservation))
+                ForgetTarget();
+        }
     }
 
-
-
-    private void AcquireTarget()
+    private bool AcquireTarget(out Vector3 visiblePoint)
     {
-
-        Collider[] candidates =
-            Physics.OverlapSphere(
+        int count;
+        do
+        {
+            count = Physics.OverlapSphereNonAlloc(
                 transform.position,
-                personality.sightRange,
+                Mathf.Max(0f, personality.sightRange),
+                scanResults,
                 targetMask,
                 QueryTriggerInteraction.Ignore
             );
 
-        Transform best = null;
-        float bestDistance = Mathf.Infinity;
+            // A crowded scene must not silently omit the visible opponent.
+            if (count == scanResults.Length)
+                System.Array.Resize(ref scanResults, scanResults.Length * 2);
+            else
+                break;
+        } while (true);
 
-        foreach (Collider candidate in candidates)
+        scannedTargets.Clear();
+        Transform best = null;
+        Collider bestBody = null;
+        Health bestHealth = null;
+        float bestDistanceSquared = Mathf.Infinity;
+        visiblePoint = Vector3.zero;
+
+        for (int i = 0; i < count; i++)
         {
-            if (candidate.transform.IsChildOf(transform))
+            Collider candidate = scanResults[i];
+            if (candidate == null || IsOwnCollider(candidate))
                 continue;
 
-            float distance =
-                Vector3.Distance(
-                    transform.position,
-                    candidate.transform.position
-                );
+            Transform candidateTarget = ResolveTargetIdentity(candidate);
+            if (candidateTarget == null || !scannedTargets.Add(candidateTarget))
+                continue;
 
-            if (distance < bestDistance)
-            {
-                bestDistance = distance;
-                best = candidate.transform;
-            }
+            Health candidateHealth = candidateTarget.GetComponent<Health>();
+            if (!IsValidTarget(candidateTarget, candidateHealth))
+                continue;
+
+            Collider body = FindTargetBody(candidateTarget, candidate);
+            Vector3 candidatePoint;
+            if (!TryGetVisiblePoint(candidateTarget, body, out candidatePoint))
+                continue;
+
+            float distanceSquared =
+                (candidateTarget.position - transform.position).sqrMagnitude;
+
+            if (distanceSquared >= bestDistanceSquared)
+                continue;
+
+            bestDistanceSquared = distanceSquared;
+            best = candidateTarget;
+            bestBody = body;
+            bestHealth = candidateHealth;
+            visiblePoint = candidatePoint;
         }
 
-        if (best != null || !HasRecentMemory)
-            target = best;
-    }
-
-
-    private bool EvaluateVisibility()
-    {
-        if (target == null)
+        if (best == null)
             return false;
 
-        Vector3 eyePosition = Eyes.position;
-
-        Vector3 toTarget =
-            (target.position + Vector3.up * visibilityHeightOffset) -
-            eyePosition;
-
-        float distance = toTarget.magnitude;
-
-        if (distance > personality.sightRange)
-            return false;
-
-        float angle =
-            Vector3.Angle(
-                Eyes.forward,
-                toTarget
-            );
-
-        if (angle > personality.fieldOfView * 0.5f)
-            return false;
-
-        if (Physics.Raycast(
-                eyePosition,
-                toTarget.normalized,
-                distance,
-                obstructionMask,
-                QueryTriggerInteraction.Ignore))
+        if (target != best)
         {
-            return false;
+            closeAlertUntil = 0f;
+            hasObservation = false;
+            hasVelocitySample = false;
+            targetVelocity = Vector3.zero;
+            lastKnownVelocity = Vector3.zero;
         }
 
+        target = best;
+        targetBody = bestBody;
+        targetHealth = bestHealth;
         return true;
     }
 
-
-    private void EstimateTargetVelocity()
+    private bool TryGetVisiblePoint(
+        Transform candidateTarget,
+        Collider body,
+        out Vector3 visiblePoint,
+        bool ignoreFieldOfView = false)
     {
-        if (target == null)
+        visiblePoint = Vector3.zero;
+        if (candidateTarget == null || !candidateTarget.gameObject.activeInHierarchy ||
+            (body != null && (!body.enabled || !body.gameObject.activeInHierarchy)))
+            return false;
+
+        // Prefer the configured aim height. If it is behind cover, aim at
+        // the visible upper or lower body instead of shooting into the cover.
+        for (int sample = 0; sample < 3; sample++)
+        {
+            float height = sample == 0
+                ? aimHeightOffset
+                : sample == 1
+                    ? visibilityHeightOffset
+                    : Mathf.Min(aimHeightOffset, visibilityHeightOffset) * 0.5f;
+
+            Vector3 point = candidateTarget.position + Vector3.up * height;
+            if (body != null)
+            {
+                Bounds bounds = body.bounds;
+                float inset = Mathf.Min(0.05f, bounds.size.y * 0.1f);
+                point.x = bounds.center.x;
+                point.z = bounds.center.z;
+                point.y = Mathf.Clamp(point.y, bounds.min.y + inset, bounds.max.y - inset);
+            }
+
+            Vector3 toPoint = point - Eyes.position;
+            float sightRange = Mathf.Max(0f, personality.sightRange);
+            if (toPoint.sqrMagnitude > sightRange * sightRange)
+                continue;
+
+            if (!ignoreFieldOfView &&
+                Vector3.Angle(Eyes.forward, toPoint) > personality.fieldOfView * 0.5f)
+                continue;
+
+            if (!HasLineOfSight(Eyes.position, point, candidateTarget))
+                continue;
+
+            visiblePoint = point;
+            return true;
+        }
+
+        return false;
+    }
+
+    /// <summary>Checks a sightline, including from a prospective tactical position.</summary>
+    public bool HasLineOfSight(Vector3 origin, Vector3 point)
+    {
+        return HasLineOfSight(origin, point, target);
+    }
+
+    private bool HasLineOfSight(Vector3 origin, Vector3 point, Transform sightTarget)
+    {
+        Vector3 direction = point - origin;
+        float distance = direction.magnitude;
+        if (distance <= 0.0001f)
+            return true;
+
+        int count;
+        do
+        {
+            count = Physics.RaycastNonAlloc(
+                origin,
+                direction / distance,
+                sightHits,
+                distance,
+                obstructionMask,
+                QueryTriggerInteraction.Ignore
+            );
+
+            if (count == sightHits.Length)
+                System.Array.Resize(ref sightHits, sightHits.Length * 2);
+            else
+                break;
+        } while (true);
+
+        float nearestBlocker = Mathf.Infinity;
+        float nearestTarget = Mathf.Infinity;
+        for (int i = 0; i < count; i++)
+        {
+            Collider hit = sightHits[i].collider;
+            if (hit == null || IsOwnCollider(hit))
+                continue;
+
+            if (BelongsToTarget(hit, sightTarget))
+                nearestTarget = Mathf.Min(nearestTarget, sightHits[i].distance);
+            else
+                nearestBlocker = Mathf.Min(nearestBlocker, sightHits[i].distance);
+        }
+
+        // The target's own capsule is a successful sighting, not an obstruction.
+        return float.IsPositiveInfinity(nearestBlocker) || nearestTarget < nearestBlocker;
+    }
+
+    public bool IsTargetCollider(Collider collider)
+    {
+        return BelongsToTarget(collider, target);
+    }
+
+    private bool BelongsToTarget(Collider collider, Transform candidateTarget)
+    {
+        return collider != null && candidateTarget != null &&
+            (collider.transform.IsChildOf(candidateTarget) ||
+             ResolveTargetIdentity(collider) == candidateTarget);
+    }
+
+    private bool IsOwnCollider(Collider collider)
+    {
+        return collider != null &&
+            collider.transform.IsChildOf(selfRoot != null ? selfRoot : transform);
+    }
+
+    private bool IsValidTarget(Transform candidateTarget, Health candidateHealth)
+    {
+        Transform owner = selfRoot != null ? selfRoot : transform;
+        return candidateTarget != null && candidateTarget != owner &&
+            !candidateTarget.IsChildOf(owner) &&
+            candidateTarget.gameObject.activeInHierarchy &&
+            (candidateHealth == null || !candidateHealth.IsDead);
+    }
+
+    private static Transform ResolveTargetIdentity(Collider collider)
+    {
+        Health health = collider.GetComponentInParent<Health>();
+        if (health != null)
+            return health.transform;
+
+        FpsCharacterController controller =
+            collider.GetComponentInParent<FpsCharacterController>();
+        if (controller != null)
+            return controller.transform;
+
+        return collider.attachedRigidbody != null
+            ? collider.attachedRigidbody.transform
+            : collider.transform;
+    }
+
+    private static Collider FindTargetBody(Transform candidateTarget, Collider fallback)
+    {
+        CharacterController capsule = candidateTarget.GetComponent<CharacterController>();
+        if (capsule != null)
+            return capsule;
+
+        Collider body = candidateTarget.GetComponent<Collider>();
+        return body != null && !body.isTrigger ? body : fallback;
+    }
+
+    private void ObserveTarget(Vector3 visiblePoint)
+    {
+        float sampleDuration = Time.time - lastSeenTime;
+        if (hasVelocitySample && sampleDuration > 0.0001f)
+        {
+            Vector3 measuredVelocity =
+                (target.position - lastKnownPosition) / sampleDuration;
+            targetVelocity = Vector3.Lerp(
+                targetVelocity,
+                measuredVelocity,
+                1f - Mathf.Exp(-10f * sampleDuration)
+            );
+        }
+        else
         {
             targetVelocity = Vector3.zero;
-            return;
         }
 
-        if (Time.deltaTime > 0f)
+        lastKnownPosition = target.position;
+        lastKnownAimPoint = visiblePoint;
+        lastKnownVelocity = targetVelocity;
+        CaptureTargetTopSpeed();
+        lastSeenTime = Time.time;
+        hasObservation = true;
+        hasVelocitySample = true;
+    }
+
+    private void CaptureTargetTopSpeed()
+    {
+        FpsCharacterController controller = target.GetComponent<FpsCharacterController>();
+        FpsMovementSettings movement = controller != null
+            ? controller.MovementSettings : null;
+        if (movement != null)
         {
-            Vector3 delta =
-                target.position - lastTargetPosition;
-
-            targetVelocity =
-                Vector3.Lerp(
-                    targetVelocity,
-                    delta / Time.deltaTime,
-                    10f * Time.deltaTime
-                );
+            lastKnownTopSpeed = Mathf.Max(1f,
+                Mathf.Min(movement.maxSpeed,
+                    movement.moveSpeed * Mathf.Max(1f, movement.sprintMultiplier)));
         }
+        else
+            lastKnownTopSpeed = Mathf.Max(1f, targetVelocity.magnitude);
+    }
 
-        lastTargetPosition = target.position;
+    public void ForgetTarget()
+    {
+        closeAlertUntil = 0f;
+        target = null;
+        targetBody = null;
+        targetHealth = null;
+        CanSeeTarget = false;
+        hasObservation = false;
+        hasVelocitySample = false;
+        targetVelocity = Vector3.zero;
+        lastKnownVelocity = Vector3.zero;
+        lastSeenTime = -999f;
+        lastKnownTopSpeed = 1f;
+        nextScanTime = 0f;
+    }
+
+    private void OnDisable()
+    {
+        ForgetTarget();
     }
 
     private void OnDrawGizmosSelected()

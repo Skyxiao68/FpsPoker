@@ -31,8 +31,8 @@ public class FPSPersonality : ScriptableObject
     [Range(10f, 360f)]
     public float fieldOfView = 110f;
 
-    [Tooltip("Seconds the AI keeps chasing a target's last known " +
-             "position after losing sight of it.")]
+    [Tooltip("Seconds of precise combat memory after losing sight. " +
+             "A cautious search continues longer as uncertainty grows.")]
     [Min(0f)]
     public float memoryDuration = 4f;
 

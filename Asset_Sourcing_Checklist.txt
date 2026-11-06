@@ -1,0 +1,126 @@
+﻿CONFIRMED RELOAD APPROACH - 31 OCTOBER 2026
+This takes precedence over all earlier reload sourcing requirements below.
+- Keep the existing reload UI animation and existing reload timing/logic.
+- During reload, lower the first-person hands and existing rifle out of immediate view, then return them to their holding position when reloading finishes.
+- Emulate the reload through this lowering/raising motion; no detailed skeletal or mechanical 3D reload animation is required.
+- Do not source a reload animation pack, replacement gun, or moving rifle parts for this purpose. The existing static rifle model is sufficient for the planned visual treatment.
+- First-person hands still need a suitable rifle holding pose. Firing can use the existing procedural recoil as the integration baseline.
+- Full-body character locomotion/combat animations remain useful for visible characters. First-person reload concealment does not require a matching third-person mechanical reload.
+- This records the intended later integration only. No UI, code, gameplay settings, scenes or prefabs were changed.
+
+--- PREVIOUS SOURCING NOTES (reload requirements superseded above) ---
+UPDATED REQUIREMENT - 31 OCTOBER 2026
+Use the EXISTING rifle from tt-3d/LowPolyWesternWeaponPack. This supersedes all revolver/pistol sourcing targets below. Do not source a replacement gun. Existing gameplay still has revolver settings; no gameplay tuning was changed by this review.
+
+FREE ASSET SHORTLIST
+1. Human Soldier Animations FREE - Kevin Iglesias
+https://assetstore.unity.com/packages/3d/animations/human-soldier-animations-free-340690
+Official listing is FREE; includes humanoid rifle/other firearm actions, aim, shooting, reload, hit reactions, deaths and directional walk/run options. Standard Unity Asset Store EULA. Best first candidate for existing full-body Western character models. Check its linked free-version animation list before download. Retargeting and rifle hand placement need validation; modern reload motions may not suit this Western rifle.
+
+2. WRAD ARMS - wriks
+https://wriks.itch.io/wrad-arms
+Free/name-your-own-price, CC0. Rigged low-poly first-person arms in FBX/GLB/OBJ, approximately 1,200 triangles and two skin colours. Suitable candidate to hold the existing rifle. This supplies a rigged arms model, not a confirmed ready-made rifle animation set. First-person holding, firing and reloading still need adaptation or authoring for your rifle.
+
+3. Mixamo - Adobe
+https://www.mixamo.com/
+https://helpx.adobe.com/creative-cloud/faq/mixamo-faq.html
+Free with an Adobe ID; no Creative Cloud subscription required. Alternative source of full-body movement/combat animations. Search the signed-in library for rifle idle, rifle movement, aiming, firing, reload, jump, hit and death; exact clip availability was not verified inside the account library. Prefer in-place locomotion when offered. This is a full-body animation source, not a guaranteed first-person hands solution.
+
+RECOMMENDED FREE ROUTE
+Keep the existing three Western bodies, existing rifle and existing environment packs. Start with Human Soldier Animations FREE for full-body movement/combat, and WRAD ARMS for first-person hands. Use Mixamo to fill specific gaps after testing the downloaded clips. No additional environment purchase is currently necessary based on the inventory.
+
+IMPORTANT RIFLE FINDING
+The supplied rifle prefab is one MeshFilter/MeshRenderer with no child transforms, skinned rig or Animator. It is currently a static visual model. Whole-rifle movement/recoil can be animated, but mechanical reload movement requires checking the FBX geometry and potentially separating/rigging its moving parts. Do not assume that an assault-rifle magazine reload will fit this Western gun. Its exact action/reload mechanism needs visual inspection before choosing a reload clip.
+
+No verified free first-person animation set was found that plugs directly into this exact rifle. Expect hand-position adjustments and a rifle-specific reload pass. No assets were downloaded or integrated, and no UI or implementation was changed.
+
+--- ORIGINAL INVENTORY (revolver-specific sourcing requirements superseded above) ---
+FPS POKER - 3D ASSET SOURCING CHECKLIST
+Inventory date: 31 October 2026
+
+SCOPE
+Read-only review of project assets, importer settings, FPS scene/prefabs and relevant scripts. No UI, gameplay, scenes, prefabs or existing implementation changed. This is a file-level inventory; model appearance, embedded FBX animation contents and successful retargeting still need validation in Unity.
+Project: Unity 6000.6.0f1; Universal Render Pipeline package 17.6.0.
+
+WHAT YOU ALREADY HAVE - CHECK THESE BEFORE SOURCING MORE
+
+1. Western character models
+Assets/Assets/Asset Packs/tt-3d/Low-PolyWesternStarterPack/Character/
+- sheriff.fbx + prefab
+- outlow.fbx + prefab (asset's original spelling)
+- gunman.fbx + prefab
+Importer settings contain humanoid bone mappings and use Humanoid animation type. These are candidates for the player body and enemy visuals; you may not need new character models.
+No complete character animation library was found. Their explicit clipAnimations lists are empty; that alone does not prove the FBXs have no embedded takes. Check their Animation tabs before buying animation packs.
+
+2. Weapon models
+Assets/Assets/Asset Packs/tt-3d/LowPolyWesternWeaponPack/Weapon/
+- pistol, rifle, shotgun, knife and cigar models, each with a prefab.
+These can potentially replace placeholder visuals. Existing gameplay settings are for a six-shot revolver. Verify whether the pistol model is the revolver design you want and whether its cylinder/hammer/trigger are separate movable parts. Filenames alone do not establish this.
+No dedicated first-person arm rig or complete weapon animation set was found.
+
+3. Environment assets
+Assets/Assets/Asset Packs/Aletheia/
+- 30 FBX models with corresponding prefabs: building, stable, shed, two sawmills, four booths, tunnel, two transports, water tank, wanted poster board, two signs, animal fence, barrel, box, chair, chaff, gallows, two graves, three cacti and four rocks.
+Assets/Assets/Asset Packs/PolyRonin/Wild West Village/
+- Village mesh and 24 prefabs: five buildings, ground, grass, five cacti, three rocks, fence, hitching rail, cart, three crates, barrel and box.
+Both include demo scenes. Materials/textures are present in the asset-pack folders, but shader compatibility and visual consistency still need an editor check.
+You already have substantial outdoor Western scenery. Start by reusing one coherent pack rather than purchasing a whole replacement town.
+
+4. Existing animation/effects
+- Assets/visuals/anim/reload.anim
+- Assets/visuals/anim/reload.controller
+- Assets/visuals/texture/Player(FPS).controller
+The inspected player controller contains one reload state and no animator parameters. The reload clip has root transform tracks; it is not evidence of a full skeletal hand/revolver reload.
+- Muzzle flash, bullet trail and impact decal prefabs already exist under Assets/prefabs/visual/.
+FPS.unity and player/enemy prefabs contain ProBuilder/primitive placeholders. Player movement and AI already support movement, sprint and jump. Weapon code already handles firing, timed reload and procedural visual recoil; animation integration will need to follow those existing systems.
+
+WHAT TO SOURCE - PRIORITY ORDER
+
+PRIORITY 1: FIRST-PERSON REVOLVER + HANDS ANIMATION SET
+[ ] Rigged first-person hands/forearms matching the Western character style.
+[ ] Revolver with textures/materials and animatable cylinder, hammer and trigger where the reload requires them, unless the existing pistol meets these requirements.
+[ ] Matching hands AND weapon animations: idle/hold, fire, reload, draw/equip, holster and sprint pose/loop. Aim-down-sights only if wanted later.
+[ ] Reload should suit a six-round revolver. Supply clip durations and any timestamps for firing, cylinder opening/closing and reload completion.
+[ ] Prefer hands, gun and animations authored together on the same rig. A generic humanoid animation pack alone will not provide a convincing first-person revolver reload.
+Minimum immediate sourcing target: one complete animated revolver-and-hands set.
+
+PRIORITY 2: THIRD-PERSON HUMANOID COMBAT ANIMATIONS
+Use the existing sheriff/outlow/gunman if their appearance is suitable.
+[ ] Idle and weapon-ready idle.
+[ ] Walk, run/sprint, backward movement and left/right strafe, preferably with a consistent pistol stance.
+[ ] Jump start, airborne and landing to match existing movement.
+[ ] Pistol aim, fire and reload compatible with a revolver; draw/holster if available.
+[ ] Hit reactions and death.
+[ ] Optional: melee attack for the Melee enemy and dodge steps for the Dodge enemy, subject to checking their actual gameplay needs during integration.
+[ ] Prefer in-place locomotion clips, so animation can follow the existing controller-driven movement.
+[ ] Unity Humanoid-compatible FBXs with a reference pose, consistent skeleton and looping locomotion clips.
+If replacing the characters, source one rigged player body and enough enemy variants for the desired visual variety; three separate skeletons are not required.
+
+PRIORITY 3: ONLY ENVIRONMENT GAPS AFTER REVIEWING EXISTING PACKS
+[ ] Modular walls, floors, doorways, doors, windows, roofs and stairs if existing buildings cannot reproduce the arena layout.
+[ ] Enterable building interiors only where players need access; verify existing buildings are not exterior shells.
+[ ] Ground/terrain textures and transition pieces if the supplied ground is insufficient.
+[ ] Additional cover props only where current barrels, crates, carts, fences and rocks cannot fit the combat layout.
+[ ] Optional saloon/poker interior props (table, chairs, bottles, lamps) only if you want a physical 3D poker setting later. No UI replacement is needed.
+Choose assets matching the existing low-poly Western style, scale and palette.
+
+WHAT TO GET WITH EVERY DOWNLOAD
+[ ] Original FBX/source files or Unity package, textures, materials and example prefab/demo scene.
+[ ] Unity 6 / URP support, or materials that can be converted without a proprietary shader dependency.
+[ ] Character rig description: Humanoid for full bodies; identify the exact rig used for first-person arms/weapons.
+[ ] Animation list, durations, root-motion/in-place information and compatibility with the chosen character/weapon.
+[ ] Reasonable real-world scale, usable pivots, separated moving weapon parts and attachment points or clear hand-grip references.
+[ ] Environment collisions or meshes suitable for simple collision, plus modular dimensions. LODs are useful where available.
+[ ] License permitting use in your game, seller/source link, receipt/license text and any attribution requirements.
+Avoid packs requiring replacement player controllers, combat systems or UI just to use their art. We can assess the art separately.
+
+SMALLEST USEFUL HANDOFF FOR THE NEXT INTEGRATION PASS
+1. One complete rigged revolver + first-person arms + matching animations.
+2. One compatible humanoid pistol locomotion/combat animation set for existing characters.
+3. Your choice of the existing environment pack; source extra modular/interior pieces only if needed.
+4. Put downloads in a clearly named staging folder and keep their source/license information together. Tell me which visuals you prefer.
+
+LATER INTEGRATION PLAN (NOT PERFORMED NOW)
+Validate rigs/materials and animation clips in Unity; attach visual models to existing player/enemy roots; align hands, weapon and muzzle; synchronize clips with existing firing/reload timings; replace greybox visuals while preserving arena dimensions and gameplay collision intent; validate navigation, visibility and performance. Existing UI and gameplay implementation remain the baseline.
+
+

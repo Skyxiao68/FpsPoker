@@ -191,6 +191,12 @@ public class FpsCharacterController : MonoBehaviour
         fireRequested = held;
     }
 
+    public void RequestReload()
+    {
+        if (weapon != null)
+            weapon.TryReload();
+    }
+
     /// <summary>
     /// Swaps the held weapon at runtime. Releases the old trigger
     /// so a burst can't leak across the swap.

@@ -8,6 +8,7 @@ public struct CombatHandoff
 {
     public CombatStats playerStats;
     public CombatStats enemyStats;
+    public FpsItemDefinition[] playerFpsItems;
     public int pot;
     public string enemyName;
 
