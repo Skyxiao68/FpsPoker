@@ -6,8 +6,7 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
-// A read-only inventory panel shared by poker and FPS scenes. It uses the
-// existing catalog and inventory without changing either game's item logic.
+
 public class FpsOwnedItemsHud : MonoBehaviour
 {
     private static FpsOwnedItemsHud instance;
@@ -282,6 +281,8 @@ public class FpsOwnedItemsHud : MonoBehaviour
                 return Describe("Quickstep", "Adds FPS move and attack speed.", count);
             case ItemId.IronHeart:
                 return Describe("Iron Heart", "Adds FPS maximum health.", count);
+            case ItemId.Headhunter:
+                return Describe("Headhunter", "Raises FPS headshot damage from 1.5x to 2x.", count);
             default:
                 return Describe(id.ToString(), "Owned item.", count);
         }

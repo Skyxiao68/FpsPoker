@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using PokerShop;
+using UnityEngine;
 
 
 public static class FpsItemCombatHandler
@@ -25,6 +26,23 @@ public static class FpsItemCombatHandler
         }
 
         return owned.ToArray();
+    }
+
+    public static float GetHeadshotMultiplier(
+        float baseMultiplier,
+        IReadOnlyList<FpsItemDefinition> items)
+    {
+        float multiplier = Mathf.Max(1f, baseMultiplier);
+        if (items == null)
+            return multiplier;
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (items[i] != null)
+                multiplier = Mathf.Max(multiplier, items[i].HeadshotMultiplier);
+        }
+
+        return multiplier;
     }
 
     public static CombatStats Apply(

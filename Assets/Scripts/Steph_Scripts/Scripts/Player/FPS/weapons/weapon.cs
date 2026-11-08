@@ -12,7 +12,6 @@ public class Weapon : MonoBehaviour
     [SerializeField] private TrailRenderer bulletTrail;
     [SerializeField] private ParticleSystem muzzleFlash;
     [SerializeField] private FpsCharacterController characterController;
-
     [Header("Hit Detection")]
     [SerializeField] private LayerMask hitMask = ~0;
 
@@ -42,12 +41,11 @@ public class Weapon : MonoBehaviour
     // treating a wall impact or an already-dead target as damage.
     public event System.Action OnDamageDealt;
 
-    /// <summary>
-    /// Swaps in a new settings asset at runtime. Used to apply a
-    /// per-duel combat stat bonus via a cloned copy - never pass
-    /// the original shared asset in after mutating it, since every
-    /// Weapon using that asset would see the change permanently.
-    /// </summary>
+    // Visuals observe real shots, including the final round before auto-reload.
+    public event System.Action OnShotFired;
+
+    public event System.Action<bool> OnHitConfirmed;
+
     public void SetSettings(WeaponSettings settings)
     {
         weaponSettings = settings;
@@ -85,8 +83,7 @@ public class Weapon : MonoBehaviour
 
         isReloading = true;
         reloadEndTime = Time.time + Mathf.Max(0f, weaponSettings.reloadTime);
-        // A held semi-auto trigger must not fire a free shot when the
-        // reload finishes. The AI releases its trigger while seeking cover.
+
         waitForTriggerRelease = triggerHeld;
         triggerHeld = false;
         if (reloadEndTime <= Time.time)
@@ -116,26 +113,16 @@ public class Weapon : MonoBehaviour
         }
     }
 
-    // =========================================================
-    // TRIGGER SOURCE
-    // =========================================================
-    // The weapon never reads input itself. FpsCharacterController
-    // owns the trigger for both the player and the AI, so both go
-    // down an identical fire path.
+
 
     private bool triggerHeld;
-    private bool hasFiredThisPress; // Track if we've fired during the current semi-auto pull
+    private bool hasFiredThisPress; 
 
-    /// <summary>
-    /// Holds or releases the trigger. Called by
-    /// FpsCharacterController every frame.
-    /// </summary>
     public void SetTriggerHeld(bool held)
     {
         if (!held)
             waitForTriggerRelease = false;
 
-        // If the trigger was just pulled this frame, reset our semi-auto lockout
         if (held && !triggerHeld)
         {
             hasFiredThisPress = false;
@@ -158,7 +145,7 @@ public class Weapon : MonoBehaviour
 
         if (triggerHeld && !combatLocked && !isReloading && !waitForTriggerRelease)
         {
-            // Default to full-auto if settings are missing to prevent errors
+            
             bool isAuto = weaponSettings != null ? weaponSettings.isAutomatic : true;
 
             if (isAuto)
@@ -172,15 +159,11 @@ public class Weapon : MonoBehaviour
                 if (!hasFiredThisPress)
                 {
                     Fire();
-                    hasFiredThisPress = true; // Lock out until trigger is released and pulled again
+                    hasFiredThisPress = true; 
                 }
             }
         }
     }
-
-    // =========================================================
-    // FIRE
-    // =========================================================
 
     public void Fire()
     {
@@ -211,12 +194,6 @@ public class Weapon : MonoBehaviour
             return;
         }
 
-        // Restart the spray pattern from the beginning once
-        // enough time has passed without firing. This only resets
-        // which pattern index the next shot uses - the actual
-        // recoilTarget/visualRecoilTarget offsets are NOT snapped
-        // here, they decay gradually on their own in
-        // HandleRecoilRecovery whenever the trigger isn't held.
         if (Time.time - lastShotTime >
             weaponSettings.recoilResetTime)
         {
@@ -231,16 +208,14 @@ public class Weapon : MonoBehaviour
 
         ammoInMagazine--;
         PerformFire();
+        OnShotFired?.Invoke();
         if (ammoInMagazine == 0)
             TryReload();
     }
 
     private void PerformFire()
     {
-        // Aim from the camera position/orientation, then apply
-        // the spray offset on top of it (see GetSprayDirection).
-        // We don't aim from firePoint.forward because it only
-        // follows the player's yaw, not the camera's pitch.
+
         Transform aimTransform =
             characterController != null
                 ? characterController.CameraTransform
@@ -249,11 +224,7 @@ public class Weapon : MonoBehaviour
         Vector3 origin =
             aimTransform.position;
 
-        // The spray pattern offsets where the shot goes, not
-        // where the camera is pointed. recoilTarget accumulates
-        // the pattern values (see ApplyRecoil) and decays on its
-        // own in HandleRecoilRecovery — it never touches any
-        // transform's actual rotation.
+
         Vector3 direction =
             GetSprayDirection(aimTransform);
 
@@ -262,46 +233,53 @@ public class Weapon : MonoBehaviour
             direction *
             weaponSettings.range;
 
-        // =====================================================
-        // HITSCAN
-        // =====================================================
 
-        if (Physics.Raycast(
-            origin,
-            direction,
-            out RaycastHit hit,
-            weaponSettings.range,
-            hitMask,
-            QueryTriggerInteraction.Ignore))
+        if (TryGetShotHit(origin, direction, out RaycastHit hit))
         {
             hitPoint = hit.point;
 
             HandleHit(hit, origin);
         }
 
-        // =====================================================
-        // MUZZLE FLASH
-        // =====================================================
 
         SpawnMuzzleFlash();
 
-        // =====================================================
-        // BULLET TRAIL
-        // =====================================================
-        // Tracer still starts at the visible muzzle so it doesn't
-        // appear to come out of the camera, it just ends wherever
-        // the camera-based trace (including recoil) actually hit.
 
         SpawnBulletTrail(
             firePoint.position,
             hitPoint
         );
 
-        // =====================================================
-        // RECOIL
-        // =====================================================
+
 
         ApplyRecoil();
+    }
+
+    private bool TryGetShotHit(Vector3 origin, Vector3 direction, out RaycastHit closest)
+    {
+        closest = default;
+        float distance = float.PositiveInfinity;
+        Transform attacker = characterController != null ? characterController.transform : transform.root;
+        Physics.SyncTransforms();
+        foreach (RaycastHit candidate in Physics.RaycastAll(origin, direction, weaponSettings.range,
+                     hitMask, QueryTriggerInteraction.Collide))
+        {
+            Collider collider = candidate.collider;
+            CombatHitbox hitbox = collider.GetComponent<CombatHitbox>();
+            if (hitbox != null && (!hitbox.isActiveAndEnabled || hitbox.Owner == null)) continue;
+            if (collider.isTrigger && hitbox == null) continue;
+            Health target = hitbox != null ? hitbox.Owner : collider.GetComponentInParent<Health>();
+            if (collider.transform.IsChildOf(attacker) || (target != null && target.transform == attacker)) continue;
+            if (hitbox == null && target != null)
+            {
+                CharacterHitboxes regions = target.GetComponent<CharacterHitboxes>();
+                if (regions != null && regions.HasActiveHitboxes) continue;
+            }
+            if (candidate.distance >= distance) continue;
+            distance = candidate.distance;
+            closest = candidate;
+        }
+        return distance < float.PositiveInfinity;
     }
 
     // =========================================================
@@ -345,18 +323,26 @@ public class Weapon : MonoBehaviour
 
     private void HandleHit(RaycastHit hit, Vector3 shotOrigin)
     {
+        CombatHitbox hitbox = hit.collider.GetComponent<CombatHitbox>();
         IDamagable damagable =
-            hit.collider.GetComponentInParent<IDamagable>();
+            hitbox != null ? hitbox.Owner : hit.collider.GetComponentInParent<IDamagable>();
 
         if (damagable is Health hitHealth)
         {
             Transform attacker = characterController != null
                 ? characterController.transform : transform.root;
-            bool hitOpponent = hitHealth.transform.root != attacker.root;
+            bool hitOpponent = hitHealth.transform != attacker;
             int healthBefore = hitHealth.CurrentHealth;
-            hitHealth.TakeDamage(weaponSettings.damage, attacker, shotOrigin);
+            bool headshot = hitbox != null && hitbox.IsHeadshot;
+            int damage = headshot
+                ? Mathf.RoundToInt(weaponSettings.damage * Mathf.Max(1f, weaponSettings.headshotMultiplier))
+                : weaponSettings.damage;
+            hitHealth.TakeDamage(damage, attacker, shotOrigin);
             if (hitOpponent && hitHealth.CurrentHealth < healthBefore)
+            {
                 OnDamageDealt?.Invoke();
+                OnHitConfirmed?.Invoke(headshot);
+            }
         }
         else if (damagable != null)
         {
@@ -365,7 +351,7 @@ public class Weapon : MonoBehaviour
             );
         }
 
-        SpawnImpactDecal(hit);
+        if (damagable == null) SpawnImpactDecal(hit);
     }
 
     // =========================================================

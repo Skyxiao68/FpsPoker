@@ -86,7 +86,7 @@ public class CombatSceneController : MonoBehaviour
             }
         }
 
-        ApplyStats(playerHealth, playerController, playerStats, 100);
+        ApplyStats(playerHealth, playerController, playerStats, 100, handoff.playerFpsItems);
         FPS_HUD playerHud = playerController != null
             ? playerController.GetComponent<FPS_HUD>() : null;
         if (playerHud != null)
@@ -304,7 +304,7 @@ public class CombatSceneController : MonoBehaviour
         if (enemyHealth == null || enemyHealthBar == null || enemyHealthFill == null)
             return;
 
-        if (enemyHealth.IsDead)
+        if (resolved || enemyHealth.IsDead)
         {
             enemyHealthBar.gameObject.SetActive(false);
             return;
@@ -345,7 +345,8 @@ public class CombatSceneController : MonoBehaviour
         Health health,
         FpsCharacterController controller,
         CombatStats stats,
-        int minimumHealth = 1)
+        int minimumHealth = 1,
+        FpsItemDefinition[] fpsItems = null)
     {
         if (health != null)
         {
@@ -358,11 +359,11 @@ public class CombatSceneController : MonoBehaviour
         if (controller == null)
             return;
 
-        ApplyWeaponStats(controller.EquippedWeapon, stats);
+        ApplyWeaponStats(controller.EquippedWeapon, stats, fpsItems);
         ApplyMovementStats(controller, stats);
     }
 
-    private void ApplyWeaponStats(Weapon weapon, CombatStats stats)
+    private void ApplyWeaponStats(Weapon weapon, CombatStats stats, FpsItemDefinition[] fpsItems)
     {
         if (weapon == null || weapon.Settings == null)
             return;
@@ -372,6 +373,9 @@ public class CombatSceneController : MonoBehaviour
 
         runtimeSettings.damage +=
             Mathf.RoundToInt(stats.attack);
+
+        runtimeSettings.headshotMultiplier = FpsItemCombatHandler.GetHeadshotMultiplier(
+            runtimeSettings.headshotMultiplier, fpsItems);
 
         // WeaponSettings.fireRate is the cooldown between shots
         // (smaller = faster). CombatStats.fireRate represents
@@ -432,6 +436,13 @@ public class CombatSceneController : MonoBehaviour
 
         EndSubscriptions();
 
+        CombatEndSequence endSequence = gameObject.AddComponent<CombatEndSequence>();
+        endSequence.Begin(winner, playerHealth, playerController, enemyHealth,
+            currentPot, () => ReportResult(winner));
+    }
+
+    private void ReportResult(CombatWinner winner)
+    {
         if (GameFlowManager.Instance != null)
         {
             GameFlowManager.Instance.ReportCombatResult(
