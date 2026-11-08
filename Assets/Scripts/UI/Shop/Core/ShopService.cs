@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 namespace PokerShop
 {
-    public enum PurchaseResult { Success, UnknownItem, NotOffered, AtLimit, NotEnoughFunds, GrantFailed, Closed }
+    public enum PurchaseResult { Success, UnknownItem, NotOffered, AtLimit, NotEnoughFunds, GrantFailed, Closed, NotOwned }
 
     sealed class AllVisibleOffers : IOfferProvider
     {
@@ -23,6 +23,7 @@ namespace PokerShop
         public event Action<ShopContext> ShopOpened;
         public event Action ShopClosed;
         public event Action<ShopItem> ItemPurchased;
+        public event Action<ShopItem> ItemSold;
         public event Action<ShopItem, PurchaseResult> PurchaseFailed;
         public event Action Changed;
 
@@ -65,6 +66,26 @@ namespace PokerShop
             if (!_currency.TrySpend(item.price)) return Fail(item, PurchaseResult.NotEnoughFunds);
             if (!_inventory.Grant(item)) { _currency.Refund(item.price); return Fail(item, PurchaseResult.GrantFailed); }
             ItemPurchased?.Invoke(item); Changed?.Invoke();
+            return PurchaseResult.Success;
+        }
+
+        /// <summary>手上的数量（卖掉时用）。</summary>
+        public int OwnedCount(ShopItem i) => _inventory.GetCount(i);
+
+        /// <summary>卖价：原价一半，最少 1（Ben 2026-11-08 定）。</summary>
+        public int RefundValue(ShopItem i) => Math.Max(1, i.price / 2);
+
+        /// <summary>卖掉 1 个：先回收物品再退钱，避免两边数量对不上。</summary>
+        public PurchaseResult TrySell(string itemId)
+        {
+            var item = Catalog.Find(itemId);
+            if (item == null) return Fail(null, PurchaseResult.UnknownItem);
+            if (!IsOpen) return Fail(item, PurchaseResult.Closed);
+            if (OwnedCount(item) <= 0) return Fail(item, PurchaseResult.NotOwned);
+
+            _inventory.Revoke(item);
+            _currency.Refund(RefundValue(item));
+            ItemSold?.Invoke(item); Changed?.Invoke();
             return PurchaseResult.Success;
         }
 

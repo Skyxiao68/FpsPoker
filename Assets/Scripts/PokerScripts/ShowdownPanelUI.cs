@@ -465,6 +465,9 @@ public class ShowdownPanelUI : MonoBehaviour
 
         // ---- 增量 ----
         CombatStats yours = ItemEffectBridge.GetCombatStats(poker.PlayerBestHand);
+        // 与实战一致：赢了这一手，面板显示的数字也要含"最高 10% 补给最低"的加成
+        if (playerWon)
+            yours = ItemEffectBridge.ApplyWinBonus(yours);
         CombatStats theirs = CombatStatsFactory.Compute(poker.EnemyBestHand);
         float[] you = { yours.attack, yours.health, yours.fireRate, yours.moveSpeed };
         float[] them = { theirs.attack, theirs.health, theirs.fireRate, theirs.moveSpeed };

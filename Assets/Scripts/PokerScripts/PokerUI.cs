@@ -104,6 +104,9 @@ public class PokerUI : MonoBehaviour
     // M3 引导层（? 参照面板 + 本手结果行），自建 Canvas order 300。
     private PokerTutorialUI tutorial;
 
+    // 牌桌自己的道具面板（共享 HUD 在 poker 场景已关）。
+    private PokerItemsPanel itemsPanel;
+
     // 教程场景按名字定位牌桌上的控件（只读，不改行为）。
     public Button CheckButton { get { return checkButton; } }
     public Button RaiseButton { get { return raiseButton; } }
@@ -717,6 +720,11 @@ public class PokerUI : MonoBehaviour
         // 放在 BuildUI 末尾：此时 poker 已注入（Initialize 里先 poker = manager 再 BuildUI）。
         tutorial = gameObject.AddComponent<PokerTutorialUI>();
         tutorial.Initialize(poker);
+
+        // ---------- 道具面板（poker 专用）----------
+        // 共享的 FpsOwnedItemsHud 在 poker 场景里已关掉，这里给牌桌一份紧凑版本。
+        itemsPanel = gameObject.AddComponent<PokerItemsPanel>();
+        itemsPanel.Initialize(canvasGO.transform);
     }
 
     // =========================================================
