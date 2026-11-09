@@ -44,13 +44,24 @@ namespace PokerShopBridge
             new Dictionary<string, ItemId>
         {
             { "card_swap",       ItemId.CardSwapTicket },
-            { "double_swap",     ItemId.CardSwapTicket },
+            { "double_swap",     ItemId.DoubleSwap },
             { "cheat_glove",     ItemId.CheatGlove },
+            { "cold_read",       ItemId.ColdRead },
             { "queen_of_hearts", ItemId.QueenOfHearts },
+            { "spade_tattoo",    ItemId.SpadeTattoo },
+            { "red_shift",       ItemId.RedShift },
+            { "flat_bonus",      ItemId.FlatBonus },
+            { "lucky_high",      ItemId.LuckyHigh },
+            { "pressure",        ItemId.Pressure },
+            { "bait",            ItemId.Bait },
+            { "draw_six",        ItemId.DrawSix },
+            { "precog",          ItemId.Precog },
+            { "monochrome",      ItemId.Monochrome },
+            { "pair_up",         ItemId.PairUp },
+            { "momentum",        ItemId.Momentum },
             { "deadeye",         ItemId.Deadeye },
             { "quickstep",       ItemId.Quickstep },
             { "iron_heart",      ItemId.IronHeart },
-            { "headhunter",      ItemId.Headhunter },
         };
 
         // 跨场景保留的购买计数
@@ -82,6 +93,24 @@ namespace PokerShopBridge
 
             PlayerInventory.Instance.Add(gameId);
             purchaseCounts[item.id] = GetCount(item) + 1;
+
+            // 双换比单换强，两件同时持有只会按高的算（见 PokerItemTraits）。
+            // 买到双换就把单换退回，别让玩家白占一格背包。
+            if (gameId == ItemId.DoubleSwap && PlayerInventory.Instance.Has(ItemId.CardSwapTicket))
+            {
+                PlayerInventory.Instance.Remove(ItemId.CardSwapTicket);
+                purchaseCounts["card_swap"] = 0;
+                Debug.Log("[Shop] Double Swap supersedes Card Swap — Card Swap returned.");
+            }
+
+            // 同理：冷读（看 2 张）比手套（看 1 张）强，买到就把手套退回。
+            if (gameId == ItemId.ColdRead && PlayerInventory.Instance.Has(ItemId.CheatGlove))
+            {
+                PlayerInventory.Instance.Remove(ItemId.CheatGlove);
+                purchaseCounts["cheat_glove"] = 0;
+                Debug.Log("[Shop] Cold Read supersedes Cheat Glove — Cheat Glove returned.");
+            }
+
             Debug.Log($"[Shop] Grant {item.id} → ItemId.{gameId}, 总计 {purchaseCounts[item.id]}");
             return true;
         }

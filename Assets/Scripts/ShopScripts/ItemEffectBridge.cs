@@ -18,24 +18,71 @@ public static class ItemEffectBridge
         if (bestHand == null || bestHand.bestFive == null)
             return stats;
 
-        // ---- 红桃皇后：把红桃贡献的 HP 挪到 ATK ----
-        if (PlayerInventory.Instance != null
-            && PlayerInventory.Instance.Has(ItemId.QueenOfHearts))
+        float baseMult = bestHand.GetMultiplier();
+        float mult = baseMult
+            + PokerItemTraits.MultiplierBonus(bestHand.handType)
+            + PokerItemTraits.MomentumBonus(PokerGameManager.LastHandRaiseCount);
+
+        // 倍率类道具（平A加成 / 赌高牌）：整体等比缩放，保持四项之间的比例不变。
+        if (!Mathf.Approximately(mult, baseMult) && baseMult > 0f)
         {
-            float heartsSum = 0;
-            foreach (var c in bestHand.bestFive)
-                if (c.Suit == Suit.Hearts)
-                    heartsSum += c.GetAttributeValue();
-
-            float mult = bestHand.GetMultiplier();
-            float heartsHP = heartsSum * mult;
-
-            stats.health -= heartsHP;
-            stats.attack += heartsHP;
-
-            // 防止浮点误差留负数
-            if (stats.health < 0) stats.health = 0;
+            float k = mult / baseMult;
+            stats.attack *= k;
+            stats.health *= k;
+            stats.fireRate *= k;
+            stats.moveSpeed *= k;
         }
+
+        float spadesSum = 0f, heartsSum = 0f, clubsSum = 0f, diamondsSum = 0f;
+        foreach (var c in bestHand.bestFive)
+        {
+            float v = c.GetAttributeValue();
+            if (c.Suit == Suit.Spades) spadesSum += v;
+            else if (c.Suit == Suit.Hearts) heartsSum += v;
+            else if (c.Suit == Suit.Clubs) clubsSum += v;
+            else if (c.Suit == Suit.Diamonds) diamondsSum += v;
+        }
+
+        // ---- 四色归一：整手都按「点数总和最高的花色」结算 ----
+        // 并列时按 ♠ ♥ ♣ ♦ 的顺序取靠前的那个。
+        if (PokerItemTraits.HasMonochrome())
+        {
+            float spade = spadesSum, heart = heartsSum, club = clubsSum, diamond = diamondsSum;
+            float[] totals = { spade, heart, club, diamond };
+            int best = 0;
+            for (int i = 1; i < totals.Length; i++)
+                if (totals[i] > totals[best])
+                    best = i;
+
+            float all = spade + heart + club + diamond;
+
+            stats.attack = 0f;
+            stats.health = 0f;
+            stats.fireRate = 0f;
+            stats.moveSpeed = 0f;
+
+            switch (best)
+            {
+                case 0: stats.attack = all * mult; break;
+                case 1: stats.health = all * mult; break;
+                case 2: stats.fireRate = all * mult; break;
+                default: stats.moveSpeed = all * mult; break;
+            }
+
+            return stats;
+        }
+
+        // ---- 黑桃刺青：♠ 按 70% 兼给 HP ----
+        if (PokerItemTraits.Has(ItemId.SpadeTattoo))
+            stats.health += spadesSum * PokerItemTraits.SpadeHealthShare * mult;
+
+        // ---- 红移：♦ 按 50% 兼给 ATK ----
+        if (PokerItemTraits.Has(ItemId.RedShift))
+            stats.attack += diamondsSum * PokerItemTraits.DiamondAttackShare * mult;
+
+        // ---- 红桃皇后：♥ 按 50% 兼给 ATK（保留原来的 HP） ----
+        if (PokerItemTraits.Has(ItemId.QueenOfHearts))
+            stats.attack += heartsSum * PokerItemTraits.QueenHeartsAttackShare * mult;
 
         return stats;
     }

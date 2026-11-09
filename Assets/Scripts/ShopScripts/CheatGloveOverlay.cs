@@ -1,65 +1,52 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.UI;
 
 /// <summary>
-/// 老千手套：在 PokerUI 刷新敌人手牌之后，覆盖显示第一张。
-/// 完全不动 PokerUI.cs —— 用"后订阅"+"覆盖"的方式生效。
+/// 窥牌工具（老千手套 = 看 1 张，冷读 = 看 2 张）：让 PokerUI 在牌局进行中
+/// 把敌人的前 N 张牌正面画出来。
 ///
-/// 挂载：和 PokerUI 同一个 GameObject，或者 UI 生成的父级上。
+/// 旧实现是往 EnemySlot1/Face 的 Text 里写牌，但卡面换成 Art 图片之后，
+/// 有图时 PokerUI 会把 Text 清空（PokerUI.cs 的 RenderSlots），所以那套写法
+/// 表面上没报错、实际什么都不显示。现在改成只改 PokerUI 的「揭示张数」，
+/// 由 PokerUI 自己用卡面图和暖色描边绘制，逻辑不再有两份。
+///
+/// 张数不在这里写死：查 <see cref="PokerItemTraits.OwnedRevealCount"/>，
+/// 以后加第三件窥牌道具只改那张表。
 /// </summary>
 public class CheatGloveOverlay : MonoBehaviour
 {
     [SerializeField]
     private PokerGameManager poker;
 
-    private Text firstCardText;
-    private Text secondCardText;
-    private bool subscribed = false;
+    private PokerUI ui;
+    private bool subscribed;
 
     private void Start()
     {
         if (poker == null)
             poker = FindAnyObjectByType<PokerGameManager>();
 
-        if (poker == null)
+        ui = FindAnyObjectByType<PokerUI>();
+
+        if (poker == null || ui == null)
         {
-            Debug.LogError("[CheatGlove] 找不到 PokerGameManager");
+            Debug.LogError("[CheatGlove] 找不到 PokerGameManager 或 PokerUI，Overlay 不生效");
             return;
         }
 
-        // 等一帧，保证 PokerUI.BuildUI 已经执行
+        // 等两帧：一帧给 PokerUI 建 UI，一帧给它先订阅 OnStateChanged
         StartCoroutine(SubscribeNextFrame());
     }
 
     private IEnumerator SubscribeNextFrame()
     {
-        // 等两帧：一帧给 PokerUI 创建 UI，一帧给它订阅事件
         yield return null;
         yield return null;
 
-        // 找敌人两个卡牌槽位（PokerUI 结构：PokerCanvas/EnemySlot1/Face）
-        firstCardText = FindSlotText("EnemySlot1");
-        secondCardText = FindSlotText("EnemySlot2");
-
-        if (firstCardText == null)
-        {
-            Debug.LogError("[CheatGlove] 找不到 EnemySlot1 的文本，Overlay 无法生效");
-            yield break;
-        }
-
-        if (secondCardText == null)
-        {
-            Debug.LogError("[CheatGlove] 找不到 EnemySlot2 的文本，Overlay 无法生效");
-            yield break;
-        }
-
-        // 我们比 PokerUI 晚订阅，所以每次事件都会在它之后执行 → 覆盖生效
         poker.OnStateChanged += OnStateChanged;
         subscribed = true;
 
-        OnStateChanged(); // 立即刷新一次，防止刚进入场景时敌人手牌已经显示
-
+        OnStateChanged(); // 进场景时敌人手牌可能已经发好了
         Debug.Log("[CheatGlove] Overlay 已订阅");
     }
 
@@ -70,77 +57,49 @@ public class CheatGloveOverlay : MonoBehaviour
             poker.OnStateChanged -= OnStateChanged;
             subscribed = false;
         }
+
+        if (ui != null)
+            ui.SetEnemyReveal(0);
     }
 
     private void OnStateChanged()
     {
-        if (firstCardText == null || secondCardText == null)
+        lastRevealCount = PokerItemTraits.OwnedRevealCount();
+        ApplyReveal();
+    }
+
+    private int lastRevealCount = -1;
+
+    /// <summary>
+    /// Poker 的状态事件只在出牌时触发，但道具可能是在一手牌中途才拿到的
+    /// （商店、debug 发道具）。这里低频轮询变化，避免「买了却要等下一手」。
+    /// </summary>
+    private void Update()
+    {
+        int now = PokerItemTraits.OwnedRevealCount();
+        if (now == lastRevealCount)
             return;
 
-        // 没有物品就什么都不做
-        if (PlayerInventory.Instance == null || !PlayerInventory.Instance.Has(ItemId.CheatGlove))
+        lastRevealCount = now;
+        ApplyReveal();
+    }
+
+    private void ApplyReveal()
+    {
+        if (ui == null || poker == null)
             return;
 
-        // 摊牌 / 牌局结束时，PokerUI 已经显示完整手牌，不覆盖
-        bool revealEnemy =
+        // 摊牌 / 牌局结束后 PokerUI 本来就显示全部手牌，这时把揭示张数归零，
+        // 免得「窥的那张」和「摊牌亮出的牌」两套高亮打架。
+        bool handOver =
             poker.State == PokerState.Showdown
             || poker.State == PokerState.HandEnded
             || poker.State == PokerState.PlayerFolded
             || poker.State == PokerState.EnemyFolded;
-        if (revealEnemy)
-            return;
 
-        if (poker.EnemyHand == null || poker.EnemyHand.Count == 0)
-            return;
+        bool dealing = poker.EnemyHand == null || poker.EnemyHand.Count == 0;
+        int reveal = handOver || dealing ? 0 : lastRevealCount;
 
-        // 只显示第一张，第二张保持隐藏
-        firstCardText.text = CardToColored(poker.EnemyHand[0]);
-        secondCardText.text = "?";
-    }
-
-    /// <summary>从 PokerCanvas 下按名字找卡牌槽位里的文字（新 UI 是槽位结构）。</summary>
-    private Text FindSlotText(string slotName)
-    {
-        Transform uiRoot = transform.Find("PokerCanvas");
-        if (uiRoot == null)
-        {
-            var uiGO = GameObject.Find("PokerCanvas");
-            if (uiGO != null)
-                uiRoot = uiGO.transform;
-        }
-        if (uiRoot == null)
-            return null;
-
-        Transform slot = uiRoot.Find(slotName);
-        if (slot == null)
-            return null;
-
-        Transform face = slot.Find("Face");
-        return face != null ? face.GetComponent<Text>() : slot.GetComponent<Text>();
-    }
-
-    /// <summary>把单张牌转成带 <color> 的富文本字符串。</summary>
-    private string CardToColored(Card c)
-    {
-        string hex;
-        switch (c.Suit)
-        {
-            case Suit.Spades:
-                hex = "#EDEDED";
-                break;
-            case Suit.Hearts:
-                hex = "#FF8C94";
-                break;
-            case Suit.Clubs:
-                hex = "#A8E0FF";
-                break;
-            case Suit.Diamonds:
-                hex = "#FFD973";
-                break;
-            default:
-                hex = "#FFFFFF";
-                break;
-        }
-        return $"<color={hex}>{c}</color>";
+        ui.SetEnemyReveal(reveal);
     }
 }

@@ -504,7 +504,11 @@ public class ShowdownPanelUI : MonoBehaviour
         netText.text = $"This hand: {favour} of 4 in your favour";
 
         // ---- 倍率标尺 ----
-        float mult = poker.PlayerBestHand != null ? poker.PlayerBestHand.GetMultiplier() : 1f;
+        float mult = poker.PlayerBestHand != null
+            ? poker.PlayerBestHand.GetMultiplier()
+                + PokerItemTraits.MultiplierBonus(poker.PlayerBestHand.handType)
+                + PokerItemTraits.MomentumBonus(PokerGameManager.LastHandRaiseCount)
+            : 1f;
         string multName = poker.PlayerBestHand != null ? poker.PlayerBestHand.GetDisplayName() : "—";
         multNameText.text = multName;
         multValueText.text = "×" + mult.ToString("0.00");

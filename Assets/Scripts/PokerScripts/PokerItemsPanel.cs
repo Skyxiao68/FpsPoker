@@ -59,7 +59,11 @@ public class PokerItemsPanel : MonoBehaviour
 
     private static readonly ItemId[] PokerOrder =
     {
-        ItemId.CardSwapTicket, ItemId.CheatGlove, ItemId.QueenOfHearts
+        ItemId.DoubleSwap, ItemId.CardSwapTicket, ItemId.ColdRead, ItemId.CheatGlove,
+        ItemId.Precog, ItemId.Monochrome, ItemId.DrawSix,
+        ItemId.PairUp, ItemId.Momentum,
+        ItemId.QueenOfHearts, ItemId.SpadeTattoo, ItemId.RedShift, ItemId.FlatBonus, ItemId.LuckyHigh,
+        ItemId.Pressure, ItemId.Bait
     };
 
     private static readonly ItemId[] CombatOrder =
@@ -395,7 +399,8 @@ public class PokerItemsPanel : MonoBehaviour
             rows[i].monogram.text = meta.Monogram;
             rows[i].monogram.color = combat ? TEXT_MUTED : AMBER;
             int count = inventory.GetCount(id);
-            rows[i].count.text = "x" + count;
+            // 永久工具不消耗，数量没有意义，直接用 ∞ 表示「一直在」。
+            rows[i].count.text = PokerItemTraits.IsPermanentTool(id) ? "∞" : "x" + count;
             rows[i].count.color = combat ? TEXT_MUTED : AMBER;
         }
 
@@ -428,8 +433,16 @@ public class PokerItemsPanel : MonoBehaviour
                 {
                     Name = "Card Swap",
                     Monogram = "S",
-                    Short = "Swap one card from your hand",
-                    Long = "Consumed once per swap. Only usable before the hand is decided.",
+                    Short = "Swap one card every hand",
+                    Long = "One swap per hand, every hand. Permanent tool — never used up.",
+                };
+            case ItemId.DoubleSwap:
+                return new ItemMeta
+                {
+                    Name = "Double Swap",
+                    Monogram = "D",
+                    Short = "Swap two cards every hand",
+                    Long = "Two swaps per hand, every hand. Permanent tool — never used up.",
                 };
             case ItemId.CheatGlove:
                 return new ItemMeta
@@ -437,15 +450,111 @@ public class PokerItemsPanel : MonoBehaviour
                     Name = "Cheat Glove",
                     Monogram = "G",
                     Short = "Peek at one enemy card",
-                    Long = "Reveals one of the enemy's hole cards for this hand.",
+                    Long = "Reveals one of the enemy's hole cards for this hand. Permanent tool.",
+                };
+            case ItemId.ColdRead:
+                return new ItemMeta
+                {
+                    Name = "Cold Read",
+                    Monogram = "R",
+                    Short = "Peek at both enemy cards",
+                    Long = "Reveals both of the enemy's hole cards for this hand. Permanent tool.",
                 };
             case ItemId.QueenOfHearts:
                 return new ItemMeta
                 {
                     Name = "Queen of Hearts",
                     Monogram = "Q",
-                    Short = "Hearts feed damage, not health",
-                    Long = "Every heart now adds ATK instead of HP. Permanent for the run.",
+                    Short = "Hearts also feed ATK (50%)",
+                    Long = "Hearts still give HP, and now also add 50% of their points to ATK.",
+                };
+            case ItemId.SpadeTattoo:
+                return new ItemMeta
+                {
+                    Name = "Spade Tattoo",
+                    Monogram = "T",
+                    Short = "Spades also feed health",
+                    Long = "Every spade still adds ATK, and now adds 70% of its value to HP too.",
+                };
+            case ItemId.RedShift:
+                return new ItemMeta
+                {
+                    Name = "Red Shift",
+                    Monogram = "X",
+                    Short = "Diamonds also feed attack",
+                    Long = "Every diamond still adds SPD, and now adds 50% of its value to ATK too.",
+                };
+            case ItemId.FlatBonus:
+                return new ItemMeta
+                {
+                    Name = "Flat Bonus",
+                    Monogram = "F",
+                    Short = "Every hand type ×+0.10",
+                    Long = "Adds +0.10 to the hand multiplier, whatever the hand turns out to be.",
+                };
+            case ItemId.LuckyHigh:
+                return new ItemMeta
+                {
+                    Name = "Lucky High",
+                    Monogram = "H",
+                    Short = "High card ×1.30, others −0.05",
+                    Long = "High card pays 1.30 instead of 1.00; every stronger hand loses 0.05.",
+                };
+            case ItemId.Pressure:
+                return new ItemMeta
+                {
+                    Name = "Pressure",
+                    Monogram = "P",
+                    Short = "Your raises scare them more",
+                    Long = "When you raise, the opponent folds more often. It does nothing while you check.",
+                };
+            case ItemId.Bait:
+                return new ItemMeta
+                {
+                    Name = "Bait",
+                    Monogram = "B",
+                    Short = "Your checks invite a bet",
+                    Long = "When you check, the opponent is more likely to bet into you.",
+                };
+            case ItemId.PairUp:
+                return new ItemMeta
+                {
+                    Name = "Pair Up",
+                    Monogram = "U",
+                    Short = "A pair counts as two pair",
+                    Long = "A single pair is settled as two pair: it beats any other single pair, but still loses to a real two pair or better.",
+                };
+            case ItemId.Momentum:
+                return new ItemMeta
+                {
+                    Name = "Momentum",
+                    Monogram = "M",
+                    Short = "Each raise adds +0.05 (max +0.15)",
+                    Long = "Every raise you make this hand adds 0.05 to the showdown multiplier, up to 0.15. Checking adds nothing.",
+                };
+            case ItemId.Precog:
+                return new ItemMeta
+                {
+                    Name = "Precog",
+                    Monogram = "V",
+                    Short = "See the deck top every hand",
+                    Long = "The next three cards from the deck are shown at the start of every hand.",
+                };
+            case ItemId.Monochrome:
+                return new ItemMeta
+                {
+                    Name = "Monochrome",
+                    Monogram = "M",
+                    Short = "Whole hand counts as one suit",
+                    Long = "Every card counts as the suit with the highest total points; the rest read 0.",
+                };
+            case ItemId.DrawSix:
+                return new ItemMeta
+                {
+                    Name = "Draw Six",
+                    Monogram = "6",
+                    Short = "A third hole card",
+                    Long = "You are dealt three hole cards and keep the best five of the eight you can see.",
                 };
             case ItemId.Deadeye:
                 return new ItemMeta

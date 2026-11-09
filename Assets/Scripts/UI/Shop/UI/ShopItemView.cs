@@ -28,7 +28,7 @@ namespace PokerShop
         {
             if (icon) icon.sprite = item.icon;
             nameText.text = item.displayName;
-            priceText.text = item.price.ToString("N0");
+            priceText.text = PokerItemPricing.Price(item).ToString("N0");
 
             // 买之前就能看到这件道具做什么（playtest 两份反馈都提过这条）。
             if (descriptionText) descriptionText.text = item.description;
