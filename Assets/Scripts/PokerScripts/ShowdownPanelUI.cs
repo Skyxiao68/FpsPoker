@@ -465,8 +465,10 @@ public class ShowdownPanelUI : MonoBehaviour
 
         // ---- 增量 ----
         CombatStats yours = ItemEffectBridge.GetCombatStats(poker.PlayerBestHand);
-        // 与实战一致：赢了这一手，面板显示的数字也要含"最高 10% 补给最低"的加成
-        if (playerWon)
+        // 与实战一致：赢了这一手，面板显示的数字也要含"最弱项总量 +15%"的加成。
+        // 对手已经付不起买入时本关已结束、实战不发，这里也不发。
+        bool bonusApplies = playerWon && poker.EnemyChips >= poker.BuyIn;
+        if (bonusApplies)
             yours = ItemEffectBridge.ApplyWinBonus(yours);
         CombatStats theirs = CombatStatsFactory.Compute(poker.EnemyBestHand);
         float[] you = { yours.attack, yours.health, yours.fireRate, yours.moveSpeed };
@@ -483,17 +485,18 @@ public class ShowdownPanelUI : MonoBehaviour
             statValue[i].text = FormatIncrement(i, you[i]);
             statValue[i].color = TEXT_STRONG;
 
-            float diff = you[i] - them[i];
-            bool ahead = diff > 0.05f;
-            bool behind = diff < -0.05f;
+            // 四项量纲不同（点数 / 点数 / 百分比 / 绝对速度），
+            // 比较时统一换算成"相对基线的倍数"，见 PokerStatUnits。
+            float gap = PokerStatUnits.RatioGap(i, you[i], them[i]);
+            bool ahead = gap > 0.005f;
+            bool behind = gap < -0.005f;
             if (ahead) favour++;
 
-            string fmt = i == 2 ? "0" : "0.#";
-            string unit = i == 2 ? "%" : "";
+            string pct = (Mathf.Abs(gap) * 100f).ToString("0") + "%";
             statBadge[i].text = ahead
-                ? "▲ +" + Mathf.Abs(diff).ToString(fmt) + unit
+                ? "▲ +" + pct
                 : behind
-                    ? "▼ −" + Mathf.Abs(diff).ToString(fmt) + unit
+                    ? "▼ −" + pct
                     : "=";
             statBadge[i].color = ahead ? WIN_GREEN : behind ? LOSE_RED : TEXT_SOFT;
             statBadgeBg[i].color = ahead ? new Color(0.10f, 0.16f, 0.10f, 1f)
