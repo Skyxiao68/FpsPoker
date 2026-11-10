@@ -18,8 +18,8 @@ MonoBehaviour:
   fieldOfView: 110
   memoryDuration: 4
   aimTurnSpeed: 220
-  aimError: 2
-  aimErrorFrequency: 1.1
+  aimError: 3
+  aimErrorFrequency: 1
   reactionTime: 0.28
   targetLeadAccuracy: 0.299
   preferredRange: 20
