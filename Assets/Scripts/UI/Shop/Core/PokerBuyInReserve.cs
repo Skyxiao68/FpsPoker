@@ -7,12 +7,13 @@ namespace PokerShop
     ///
     /// 历史 bug：只按 `GameFlowManager.CurrentBuyIn` 判，而它用的是**刚打完那一关**的
     /// 起始敌人筹码（L1 的 60 → 买入 9）。可下一关的买入会涨（L2 的 90 → 13），
-    /// 于是玩家 111 筹码买 110 金卡、剩 1 看似"不够 9"会拦；但如果剩 10~12，
-    /// 护栏放行，进下一关却付不起 13，直接 GG。
+    /// 于是玩家 120 筹码买 110 金卡、剩 10 看似"够 9"，护栏放行，进下一关却付不起
+    /// 13，直接 GG。
     ///
-    /// 所以这里取三者最大：当前买入、即将这一关的买入、再下一关的买入。
-    /// 只读取 GameFlowManager 的公开成员（`CurrentLevel`、`CurrentBuyIn`、静态
-    /// `EnemyChipsForLevel`），不修改他的脚本。
+    /// 所以这里按「即将要打的那一手」的买入来留钱：
+    /// - 已经过了本关、正在等下一关（`AwaitingNextLevel`）⇒ `CurrentLevel` 就是下一关；
+    /// - 还在本关里（商店中途开）⇒ 下一手仍是本关，但要为下一关留够。
+    /// 只读 GameFlowManager 的公开成员，不修改他的脚本。
     /// </summary>
     public static class PokerBuyInReserve
     {
@@ -22,10 +23,13 @@ namespace PokerShop
         /// <summary>买入下限，和 GameFlowManager.MinBuyIn 对齐。</summary>
         const int MinBuyIn = 5;
 
+        /// <summary>M3 一共五关；第 5 关之后没有下一关，就按第 5 关的买入留。</summary>
+        const int MaxLevel = 5;
+
         /// <summary>某一关的买入。</summary>
         public static int BuyInForLevel(int level)
         {
-            int enemy = GameFlowManager.EnemyChipsForLevel(Mathf.Max(1, level));
+            int enemy = GameFlowManager.EnemyChipsForLevel(Mathf.Clamp(level, 1, MaxLevel));
             return Mathf.Max(MinBuyIn, Mathf.RoundToInt(enemy / (float)BuyInDivisor));
         }
 
@@ -35,11 +39,10 @@ namespace PokerShop
             var flow = GameFlowManager.Instance;
             if (flow == null) return MinBuyIn;
 
-            int current = flow.CurrentBuyIn;
-            int thisLevel = BuyInForLevel(flow.CurrentLevel);
-            int nextLevel = BuyInForLevel(flow.CurrentLevel + 1);
+            // AwaitingNextLevel 为真时 CurrentLevel 已经被 +1 过，它就是下一关。
+            int upcoming = flow.AwaitingNextLevel ? flow.CurrentLevel : flow.CurrentLevel + 1;
 
-            return Mathf.Max(current, Mathf.Max(thisLevel, nextLevel));
+            return Mathf.Max(flow.CurrentBuyIn, BuyInForLevel(upcoming));
         }
     }
 }
