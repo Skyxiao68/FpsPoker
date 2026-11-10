@@ -34,13 +34,35 @@ public static class ItemEffectBridge
         }
 
         float spadesSum = 0f, heartsSum = 0f, clubsSum = 0f, diamondsSum = 0f;
+        int spadesCount = 0, heartsCount = 0, clubsCount = 0, diamondsCount = 0;
         foreach (var c in bestHand.bestFive)
         {
             float v = c.GetAttributeValue();
-            if (c.Suit == Suit.Spades) spadesSum += v;
-            else if (c.Suit == Suit.Hearts) heartsSum += v;
-            else if (c.Suit == Suit.Clubs) clubsSum += v;
-            else if (c.Suit == Suit.Diamonds) diamondsSum += v;
+            if (c.Suit == Suit.Spades) { spadesSum += v; spadesCount++; }
+            else if (c.Suit == Suit.Hearts) { heartsSum += v; heartsCount++; }
+            else if (c.Suit == Suit.Clubs) { clubsSum += v; clubsCount++; }
+            else if (c.Suit == Suit.Diamonds) { diamondsSum += v; diamondsCount++; }
+        }
+
+        // ---- 花色堆叠：同花色每多一张，该花色倍率 ×1.3（封顶 ×2）----
+        // 基础四项本身就是「花色点数和 × 倍率」，所以这里直接按花色缩放四项，
+        // 再把四个 sum 一起缩放，后面的兼给类道具（刺青/红移/红桃）用的是同一套数字。
+        if (PokerItemTraits.HasSuitStack())
+        {
+            float fS = PokerItemTraits.SuitStackFactor(spadesCount);
+            float fH = PokerItemTraits.SuitStackFactor(heartsCount);
+            float fC = PokerItemTraits.SuitStackFactor(clubsCount);
+            float fD = PokerItemTraits.SuitStackFactor(diamondsCount);
+
+            stats.attack *= fS;
+            stats.health *= fH;
+            stats.fireRate *= fC;
+            stats.moveSpeed *= fD;
+
+            spadesSum *= fS;
+            heartsSum *= fH;
+            clubsSum *= fC;
+            diamondsSum *= fD;
         }
 
         // ---- 四色归一：整手都按「点数总和最高的花色」结算 ----

@@ -22,6 +22,9 @@ public enum ItemId
     Monochrome,       // 四色归一（全手按点数总和最高的花色结算）
     PairUp,           // 单对升格（「一对」按「两对」结算）
     Momentum,         // 加注惯性（本手每加注一次，摊牌倍率 +0.05，上限 +0.15）
+    FourFlush,        // 四张同花（4 张同花色即按同花结算）
+    ChopBreaker,      // 断平（摊牌平局判你赢）
+    SuitStack,        // 花色堆叠（同花色每多一张，该属性 ×1.3，封顶 ×2）
     Deadeye,
     Quickstep,
     IronHeart,

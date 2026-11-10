@@ -1255,7 +1255,7 @@ public class PokerUI : MonoBehaviour
             all.AddRange(community);
         if (all.Count < 5)
             return null;
-        return HandEvaluator.Evaluate(all);
+        return HandEvaluator.EvaluateWithItems(all);
     }
 
     private string CardStrColored(List<Card> cards)

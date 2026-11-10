@@ -61,8 +61,10 @@ public class PokerItemsPanel : MonoBehaviour
     {
         ItemId.DoubleSwap, ItemId.CardSwapTicket, ItemId.ColdRead, ItemId.CheatGlove,
         ItemId.Precog, ItemId.Monochrome, ItemId.DrawSix,
+        ItemId.FourFlush, ItemId.ChopBreaker,
         ItemId.PairUp, ItemId.Momentum,
         ItemId.QueenOfHearts, ItemId.SpadeTattoo, ItemId.RedShift, ItemId.FlatBonus, ItemId.LuckyHigh,
+        ItemId.SuitStack,
         ItemId.Pressure, ItemId.Bait
     };
 
@@ -539,6 +541,30 @@ public class PokerItemsPanel : MonoBehaviour
                     Monogram = "V",
                     Short = "See the deck top every hand",
                     Long = "The next three cards from the deck are shown at the start of every hand.",
+                };
+            case ItemId.FourFlush:
+                return new ItemMeta
+                {
+                    Name = "Four Flush",
+                    Monogram = "4",
+                    Short = "Four of a suit counts as a flush",
+                    Long = "If four of your cards share a suit, the hand is settled as a flush. A real flush or better still beats it.",
+                };
+            case ItemId.ChopBreaker:
+                return new ItemMeta
+                {
+                    Name = "Chop Breaker",
+                    Monogram = "C",
+                    Short = "A split counts as your win",
+                    Long = "When the showdown would be a tie, you take the hand instead of splitting the pot. The duel still decides it.",
+                };
+            case ItemId.SuitStack:
+                return new ItemMeta
+                {
+                    Name = "Suit Stack",
+                    Monogram = "K",
+                    Short = "Each extra card of a suit ×1.3 (max ×2)",
+                    Long = "Every card past the first in a suit multiplies that suit's stat by 1.3, capped at 2.0. Spread suits stay weak.",
                 };
             case ItemId.Monochrome:
                 return new ItemMeta

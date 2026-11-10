@@ -19,6 +19,7 @@ namespace PokerShop
             { "cheat_glove",     new[] { 25,  40,  55,  85,  130 } },
             { "pressure",        new[] { 25,  40,  55,  85,  130 } },
             { "momentum",        new[] { 25,  40,  55,  85,  130 } },
+            { "chop_breaker",    new[] { 25,  40,  55,  85,  130 } },
             // 银档
             { "card_swap",       new[] { 65,  90, 135, 205,  310 } },
             { "pair_up",         new[] { 65,  90, 135, 205,  310 } },
@@ -27,6 +28,7 @@ namespace PokerShop
             { "red_shift",       new[] { 65,  90, 135, 205,  310 } },
             { "flat_bonus",      new[] { 65,  90, 135, 205,  310 } },
             { "bait",            new[] { 65,  90, 135, 205,  310 } },
+            { "suit_stack",      new[] { 65,  90, 135, 205,  310 } },
             // 金档
             { "double_swap",     new[] { 110, 155, 230, 350, 530 } },
             { "precog",          new[] { 110, 155, 230, 350, 530 } },
@@ -34,6 +36,7 @@ namespace PokerShop
             { "queen_of_hearts", new[] { 110, 155, 230, 350, 530 } },
             { "lucky_high",      new[] { 110, 155, 230, 350, 530 } },
             { "draw_six",        new[] { 110, 155, 230, 350, 530 } },
+            { "four_flush",      new[] { 110, 155, 230, 350, 530 } },
         };
 
         /// <summary>这件道具在当前关卡的价格。</summary>

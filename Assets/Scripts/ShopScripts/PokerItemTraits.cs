@@ -164,6 +164,49 @@ public static class PokerItemTraits
         return Has(ItemId.Precog) ? 3 : 0;
     }
 
+    // ------------------------------------------------------------------
+    // 第三批（Ben 2026-11-09 批准）：四张同花 / 断平 / 花色堆叠
+    // ------------------------------------------------------------------
+
+    /// <summary>四张同花：同花色凑到几张就按同花结算。</summary>
+    public const int FourFlushSuitCount = 4;
+
+    /// <summary>花色堆叠：每多一张同花色，该花色倍率乘这个系数。</summary>
+    public const float SuitStackStep = 1.3f;
+
+    /// <summary>花色堆叠：倍率上限。</summary>
+    public const float SuitStackCap = 2.0f;
+
+    /// <summary>四张同花在不在背包里。</summary>
+    public static bool HasFourFlush()
+    {
+        return Has(ItemId.FourFlush);
+    }
+
+    /// <summary>断平在不在背包里。</summary>
+    public static bool HasChopBreaker()
+    {
+        return Has(ItemId.ChopBreaker);
+    }
+
+    /// <summary>花色堆叠在不在背包里。</summary>
+    public static bool HasSuitStack()
+    {
+        return Has(ItemId.SuitStack);
+    }
+
+    /// <summary>
+    /// 花色堆叠：某个花色在手牌里出现 count 张时，该花色的倍率。
+    /// 1 张以内不涨，之后每多一张 ×1.3，封顶 SuitStackCap。
+    /// </summary>
+    public static float SuitStackFactor(int count)
+    {
+        if (!HasSuitStack() || count <= 1)
+            return 1f;
+
+        return Mathf.Min(SuitStackCap, Mathf.Pow(SuitStackStep, count - 1));
+    }
+
     private static readonly ItemId[] KnownIds =
     {
         ItemId.CardSwapTicket,

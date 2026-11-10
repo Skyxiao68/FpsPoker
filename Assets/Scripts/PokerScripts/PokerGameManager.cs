@@ -730,7 +730,7 @@ public class PokerGameManager : MonoBehaviour
         // Combine each player's hole cards with the community cards.
         List<Card> playerAll = new List<Card>(PlayerHand);
         playerAll.AddRange(CommunityCards);
-        PlayerBestHand = HandEvaluator.Evaluate(playerAll);
+        PlayerBestHand = HandEvaluator.EvaluateWithItems(playerAll);
 
         List<Card> enemyAll = new List<Card>(EnemyHand);
         enemyAll.AddRange(CommunityCards);
@@ -752,6 +752,14 @@ public class PokerGameManager : MonoBehaviour
         {
             cmp = 1;
             LogMessage("Pair Up: your pair counts as two pair — the hand is yours.", LogKind.Street);
+        }
+
+        // 断平：平局时判你赢（不split，直接进决斗）。
+        // 放在上面 Pair Up 之后、真正的平局分支之前，平局就变成你赢。
+        if (cmp == 0 && PokerItemTraits.HasChopBreaker())
+        {
+            cmp = 1;
+            LogMessage("Chop Breaker: a split counts as your win.", LogKind.Street);
         }
 
         if (cmp == 0)
