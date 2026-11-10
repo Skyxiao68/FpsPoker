@@ -177,6 +177,12 @@ public class PokerCombatBridge : MonoBehaviour
 
         // 计算 CombatStats
         CombatStats playerStats = ItemEffectBridge.GetCombatStats(poker.PlayerBestHand);
+        // 赢一手 ⇒ 最高属性的 10% 白给最低属性（只影响这一手的临时数值）
+        if (poker.Result == PokerResult.PlayerWinsShowdown)
+        {
+            playerStats = ItemEffectBridge.ApplyWinBonus(playerStats, out int bonusIndex, out float bonusAmount);
+            Debug.Log($"[Bridge] 赢手奖励：{bonusAmount:0.#} → 第 {bonusIndex} 项（{playerStats}）");
+        }
         FpsItemDefinition[] fpsItems = FpsItemCombatHandler.GetOwnedItems(
             fpsItemCatalog, PlayerInventory.Instance);
         CombatStats enemyStats = CombatStatsFactory.Compute(poker.EnemyBestHand); // 敌人不应用玩家物品

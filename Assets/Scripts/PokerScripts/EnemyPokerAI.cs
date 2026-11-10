@@ -182,6 +182,13 @@ public static class EnemyPokerAI
         if (isBluff)
             foldThreshold -= 0.15f;
 
+        // ---- 道具：施压（Ben 2026-11-08）----
+        // 玩家加注时对手更怕，阈值抬高一点。
+        // 注意：必须叠在下面的 Mathf.Clamp 之前，钳位之后再加会把阈值顶出 0.65，
+        // 对手会无脑弃牌，诈唬感当场就没了。
+        if (playerRaiseAmount > 0)
+            foldThreshold += PokerItemTraits.FoldThresholdBonus();
+
         // 钳制在合理范围，避免极端
         foldThreshold = Mathf.Clamp(foldThreshold, 0.02f, 0.65f);
 
@@ -241,6 +248,10 @@ public static class EnemyPokerAI
 
         if (isBluff)
             raiseThreshold -= 0.25f;
+
+        // ---- 道具：诱敌（Ben 2026-11-08）----
+        // 玩家过牌时对手更敢下注。同样在判定之前叠加。
+        raiseThreshold -= PokerItemTraits.RaiseThresholdBonus();
 
         if (Random.value > raiseThreshold)
         {

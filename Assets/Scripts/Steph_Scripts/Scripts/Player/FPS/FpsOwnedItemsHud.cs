@@ -113,7 +113,10 @@ public class FpsOwnedItemsHud : MonoBehaviour
     private void Configure(bool poker, bool combat)
     {
         inCombat = combat;
-        overlayCanvas.enabled = poker || combat;
+
+        // Poker has its own item panel (PokerItemsPanel) with a compact row per item.
+        // Keep this shared paragraph HUD for the FPS side only, so the two never stack.
+        overlayCanvas.enabled = combat;
         if (!overlayCanvas.enabled)
             return;
 
