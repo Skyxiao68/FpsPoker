@@ -372,7 +372,8 @@ public class CombatSceneController : MonoBehaviour
             ScriptableObject.Instantiate(weapon.Settings);
 
         runtimeSettings.damage +=
-            Mathf.RoundToInt(stats.attack);
+        Mathf.RoundToInt(runtimeSettings.damage * stats.attack / 100f);
+          //  Mathf.RoundToInt(stats.attack);
 
         runtimeSettings.headshotMultiplier = FpsItemCombatHandler.GetHeadshotMultiplier(
             runtimeSettings.headshotMultiplier, fpsItems);

@@ -260,12 +260,17 @@ public class FpsAiLocomotion : MonoBehaviour
         UpdateProgress();
 
         Vector3 pathDirection = ResolvePathDirection();
+        bool recoveringFromStuck = IsStuck;
+        if (recoveringFromStuck)
+            pathDirection = DirectionToNearestPathPoint(pathDirection);
+
         Vector3 moveDirection = pathDirection;
 
-        if (strafe && hasDestination && pathValid && positionOnMesh)
+        if (!recoveringFromStuck && strafe && hasDestination && pathValid && positionOnMesh)
             moveDirection = ApplyStrafe(pathDirection, threatPosition);
 
-        moveDirection = ResolveSafeDirection(moveDirection, pathDirection);
+        if (!recoveringFromStuck)
+            moveDirection = ResolveSafeDirection(moveDirection, pathDirection);
         CurrentPathDirection = moveDirection;
 
         if (moveDirection.sqrMagnitude < 0.0001f)
@@ -277,9 +282,11 @@ public class FpsAiLocomotion : MonoBehaviour
         }
 
         characterController.SetMoveDirection(moveDirection);
-        HandleSprint(moveDirection, allowSprint);
+        HandleSprint(moveDirection, allowSprint && !recoveringFromStuck);
 
-        if (strafe)
+        if (recoveringFromStuck)
+            HandleStuckJump();
+        else if (strafe)
             HandleJump();
     }
 
@@ -344,6 +351,59 @@ public class FpsAiLocomotion : MonoBehaviour
 
         direction.y = 0f;
         return direction.sqrMagnitude > 0.0001f ? direction.normalized : Vector3.zero;
+    }
+
+    private Vector3 DirectionToNearestPathPoint(Vector3 fallbackDirection)
+    {
+        if (!AgentReady || !agent.hasPath || agent.pathPending)
+            return fallbackDirection;
+
+        Vector3[] corners = agent.path.corners;
+        if (corners == null || corners.Length == 0)
+            return fallbackDirection;
+
+        Vector3 position = GroundPosition;
+        Vector3 nearestPoint = corners[0];
+        float nearestDistance = float.PositiveInfinity;
+
+        if (corners.Length == 1)
+            nearestDistance = (position - nearestPoint).sqrMagnitude;
+
+        for (int i = 0; i < corners.Length - 1; i++)
+        {
+            Vector3 segment = corners[i + 1] - corners[i];
+            float lengthSquared = segment.sqrMagnitude;
+            float t = lengthSquared > 0.0001f
+                ? Mathf.Clamp01(Vector3.Dot(position - corners[i], segment) / lengthSquared)
+                : 0f;
+            Vector3 point = corners[i] + segment * t;
+            float distance = (position - point).sqrMagnitude;
+
+            if (distance < nearestDistance)
+            {
+                nearestDistance = distance;
+                nearestPoint = point;
+            }
+        }
+
+        Vector3 direction = nearestPoint - position;
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 0.04f)
+            return fallbackDirection;
+
+        return direction.normalized;
+    }
+
+    private void HandleStuckJump()
+    {
+        if (!characterController.IsGrounded)
+            return;
+
+        FpsMovementSettings settings = characterController.MovementSettings;
+        float jumpHeight = settings != null ? Mathf.Max(0f, settings.jumpHeight) : 1f;
+
+        if (!HasBlockingObstacle(Vector3.up, jumpHeight))
+            characterController.RequestJump();
     }
 
     private Vector3 ApplyStrafe(Vector3 pathDirection, Vector3 threatPosition)

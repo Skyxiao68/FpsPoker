@@ -21082,6 +21082,10 @@ PrefabInstance:
       propertyPath: m_IsActive
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 5919578923420542043, guid: 6c238dff863e28c418a8c7fd18e3360e, type: 3}
+      propertyPath: controlCursor
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6228509501668808397, guid: 6c238dff863e28c418a8c7fd18e3360e, type: 3}
       propertyPath: m_AnchoredPosition.x
       value: 0

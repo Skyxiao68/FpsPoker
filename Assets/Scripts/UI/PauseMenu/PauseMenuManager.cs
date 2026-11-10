@@ -15,6 +15,8 @@ public class PauseMenuManager : MonoBehaviour
     [Tooltip("Key used to toggle pause on/off.")]
     [SerializeField] private KeyCode pauseKey = KeyCode.Escape;
 
+    [SerializeField] private bool controlCursor;
+
     [Header("Optional Audio")]
     [SerializeField] private AudioSource buttonClickSound;
 
@@ -25,6 +27,7 @@ public class PauseMenuManager : MonoBehaviour
         IsPaused = false;
         Time.timeScale = 1f;
         if (pausePanel != null) pausePanel.SetActive(false);
+        if (controlCursor) SetCursorCaptured(true);
     }
 
     private void Update()
@@ -42,6 +45,7 @@ public class PauseMenuManager : MonoBehaviour
     {
         IsPaused = true;
         Time.timeScale = 0f; // Freezes physics/animation; UI and this script still run (unscaled).
+        if (controlCursor) SetCursorCaptured(false);
         if (pausePanel != null) pausePanel.SetActive(true);
     }
 
@@ -50,6 +54,7 @@ public class PauseMenuManager : MonoBehaviour
         PlayClickSound();
         IsPaused = false;
         Time.timeScale = 1f;
+        if (controlCursor) SetCursorCaptured(true);
         if (pausePanel != null) pausePanel.SetActive(false);
     }
 
@@ -58,6 +63,7 @@ public class PauseMenuManager : MonoBehaviour
         PlayClickSound();
         Time.timeScale = 1f;
         IsPaused = false;
+        if (controlCursor) SetCursorCaptured(true);
         if (GameFlowManager.Instance != null && GameFlowManager.Instance.RestartCurrentCombat())
             return;
         Scene currentScene = SceneManager.GetActiveScene();
@@ -89,5 +95,11 @@ public class PauseMenuManager : MonoBehaviour
         {
             buttonClickSound.Play();
         }
+    }
+
+    private static void SetCursorCaptured(bool captured)
+    {
+        Cursor.lockState = captured ? CursorLockMode.Locked : CursorLockMode.None;
+        Cursor.visible = !captured;
     }
 }
