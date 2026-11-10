@@ -15,7 +15,7 @@ MonoBehaviour:
   id: momentum
   displayName: Momentum
   description: Each raise this hand adds 0.05 to your showdown multiplier, up to 0.15. Permanent tool - never used up.
-  icon: {fileID: 0}
+  icon: {fileID: 5395825728034878220, guid: c2fb314398e705345922ee68a7056729, type: 3}
   price: 25
   category: Cards
   tier: bronze

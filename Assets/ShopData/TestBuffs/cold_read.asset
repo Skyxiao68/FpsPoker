@@ -15,7 +15,7 @@ MonoBehaviour:
   id: cold_read
   displayName: Cold Read
   description: 'See both of the enemy''s cards. Permanent tool: never used up.'
-  icon: {fileID: 0}
+  icon: {fileID: 1196073144414623847, guid: 7ecc742fe350aa04c9c85f36602569fc, type: 3}
   price: 65
   category: Cards
   tier: silver

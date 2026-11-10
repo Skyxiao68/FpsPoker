@@ -15,7 +15,7 @@ MonoBehaviour:
   id: four_flush
   displayName: Four Flush
   description: Four cards of one suit settle as a flush. A real flush or better still beats it. Permanent tool - never used up.
-  icon: {fileID: 0}
+  icon: {fileID: 8399154433177168146, guid: 0b59ce2fccacf274b9dafde9c0ec84ef, type: 3}
   price: 110
   category: Suits
   tier: gold

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: double_swap
   displayName: Double Swap
   description: 'Swap up to two hand cards every hand. Permanent tool: never used up.'
-  icon: {fileID: 0}
+  icon: {fileID: -3596363039790523237, guid: 447c1d1c898f6d048b6ad9cf53919a5f, type: 3}
   price: 110
   category: Cards
   tier: 

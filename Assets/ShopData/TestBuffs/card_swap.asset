@@ -15,7 +15,7 @@ MonoBehaviour:
   id: card_swap
   displayName: Card Swap
   description: 'Swap one hand card, once every hand. Permanent tool: never used up.'
-  icon: {fileID: 0}
+  icon: {fileID: -2167327649609842480, guid: c5dd588f27581ac48924215772e2f930, type: 3}
   price: 65
   category: Cards
   tier: 

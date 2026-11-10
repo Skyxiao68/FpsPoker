@@ -15,7 +15,7 @@ MonoBehaviour:
   id: queen_of_hearts
   displayName: Queen of Hearts
   description: Hearts now grant Attack instead of HP.
-  icon: {fileID: 0}
+  icon: {fileID: 7704857750013115146, guid: 0b5bb0655f7f9704c8177a3b02c1e5ba, type: 3}
   price: 110
   category: Suits
   tier: gold

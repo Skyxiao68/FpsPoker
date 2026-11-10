@@ -15,7 +15,7 @@ MonoBehaviour:
   id: pressure
   displayName: Pressure
   description: Your raises scare them more. Permanent tool - never used up.
-  icon: {fileID: 0}
+  icon: {fileID: -1549733131265812753, guid: d67fa67ffe7d18547b61bc70a378a571, type: 3}
   price: 25
   category: Table
   tier: bronze

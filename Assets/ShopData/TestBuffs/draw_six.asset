@@ -15,7 +15,7 @@ MonoBehaviour:
   id: draw_six
   displayName: Draw Six
   description: A third hole card - best five of eight counts. Permanent tool - never used up.
-  icon: {fileID: 0}
+  icon: {fileID: -1019149414722831643, guid: 34e145f9f500a2143a987bf11ccd01b2, type: 3}
   price: 110
   category: Cards
   tier: gold

@@ -1,10 +1,10 @@
 fileFormatVersion: 2
-guid: c5d4f476546d1d84cb452d87e02df5cb
+guid: 66afa87331de7b946800749b6457defe
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -2034265696745230030
-    second: scout_0
+      213: -2825317784459440006
+    second: chop_breaker_0
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -115,7 +115,7 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: scout_0
+      name: chop_breaker_0
       rect:
         serializedVersion: 2
         x: 0
@@ -130,8 +130,8 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 231fcb67026d4c3e0800000000000000
-      internalID: -2034265696745230030
+      spriteID: a7093b7b1747ac8d0800000000000000
+      internalID: -2825317784459440006
       vertices: []
       indices: 
       edges: []
@@ -150,7 +150,7 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      scout_0: -2034265696745230030
+      chop_breaker_0: -2825317784459440006
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

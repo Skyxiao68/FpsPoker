@@ -15,7 +15,7 @@ MonoBehaviour:
   id: flat_bonus
   displayName: Flat Bonus
   description: Every hand type gains +0.10 multiplier.
-  icon: {fileID: 0}
+  icon: {fileID: 7670300812499704127, guid: d6050996423907a4ca65441f63eb245b, type: 3}
   price: 65
   category: Cards
   tier: silver

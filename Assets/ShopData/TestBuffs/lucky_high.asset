@@ -15,7 +15,7 @@ MonoBehaviour:
   id: lucky_high
   displayName: Lucky High
   description: High card pays 1.30; stronger hands lose 0.05.
-  icon: {fileID: 0}
+  icon: {fileID: 329626999110612010, guid: ec67e688aed2ce84c99bc2c462b589b0, type: 3}
   price: 110
   category: Cards
   tier: gold
