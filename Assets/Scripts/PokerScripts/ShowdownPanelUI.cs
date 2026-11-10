@@ -465,10 +465,8 @@ public class ShowdownPanelUI : MonoBehaviour
 
         // ---- 增量 ----
         CombatStats yours = ItemEffectBridge.GetCombatStats(poker.PlayerBestHand);
-        // 与实战一致：赢了这一手，面板显示的数字也要含"最弱项总量 +15%"的加成。
-        // 对手已经付不起买入时本关已结束、实战不发，这里也不发。
-        bool bonusApplies = playerWon && poker.EnemyChips >= poker.BuyIn;
-        if (bonusApplies)
+        // 与实战一致：赢了这一手，面板显示的数字也要含"其余三项各 +15%"的奖励。
+        if (playerWon)
             yours = ItemEffectBridge.ApplyWinBonus(yours);
         CombatStats theirs = CombatStatsFactory.Compute(poker.EnemyBestHand);
         float[] you = { yours.attack, yours.health, yours.fireRate, yours.moveSpeed };
@@ -507,11 +505,7 @@ public class ShowdownPanelUI : MonoBehaviour
         netText.text = $"This hand: {favour} of 4 in your favour";
 
         // ---- 倍率标尺 ----
-        float mult = poker.PlayerBestHand != null
-            ? poker.PlayerBestHand.GetMultiplier()
-                + PokerItemTraits.MultiplierBonus(poker.PlayerBestHand.handType)
-                + PokerItemTraits.MomentumBonus(PokerGameManager.LastHandRaiseCount)
-            : 1f;
+        float mult = ItemEffectBridge.EffectiveMultiplier(poker.PlayerBestHand);
         string multName = poker.PlayerBestHand != null ? poker.PlayerBestHand.GetDisplayName() : "—";
         multNameText.text = multName;
         multValueText.text = "×" + mult.ToString("0.00");

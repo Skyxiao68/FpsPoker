@@ -22,13 +22,16 @@ public static class CombatStatsFactory
 
         float mult = bestHand.GetMultiplier();
 
-        return new CombatStats
+        var stats = new CombatStats
         {
             attack    = spades   * mult,
             health    = hearts   * mult,
             fireRate  = clubs    * mult,
             moveSpeed = diamonds * mult
         };
+
+        // Ben 2026-11-10：去掉空项保底（buff 太强），空项就是 0。
+        return stats;
     }
 
     private static void Accumulate(

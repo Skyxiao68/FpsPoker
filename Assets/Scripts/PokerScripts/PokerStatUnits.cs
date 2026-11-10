@@ -56,6 +56,8 @@ public static class PokerStatUnits
         return Mathf.Clamp01(1f - 1f / ratio);
     }
 
+    // 空项保底已在 2026-11-10 按 Ben 的要求撤销（buff 太强）：空项就是 0，不再兜底。
+
     /// <summary>某一项在"不增不减"时的基线值（ROF 是百分比，基线即 100）。</summary>
     public static float Baseline(int stat)
     {

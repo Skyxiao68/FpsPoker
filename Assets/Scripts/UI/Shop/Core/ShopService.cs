@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 namespace PokerShop
 {
-    public enum PurchaseResult { Success, UnknownItem, NotOffered, AtLimit, NotEnoughFunds, GrantFailed, Closed, NotOwned }
+    public enum PurchaseResult { Success, UnknownItem, NotOffered, AtLimit, NotEnoughFunds, BelowBuyIn, GrantFailed, Closed, NotOwned }
 
     sealed class AllVisibleOffers : IOfferProvider
     {
@@ -65,6 +65,14 @@ namespace PokerShop
             if (AtLimit(item)) return Fail(item, PurchaseResult.AtLimit);
             // 价格走逐关表（PokerItemPricing），不是 asset 上的单一 price。
             int price = PokerItemPricing.Price(item);
+
+            // 护栏（Ben 2026-11-10）：买完必须还留得下「下一手的买入」，
+            // 否则一买完筹码就低于买入，run 直接结束 —— 玩家会以为道具把人害死了。
+            // 注意要看「即将这一关 / 再下一关」的买入（PokerBuyInReserve），
+            // 只用 CurrentBuyIn 会按刚打完那一关的旧值放行，进下一关照样死。
+            int buyIn = PokerBuyInReserve.Required();
+            if (Balance - price < buyIn) return Fail(item, PurchaseResult.BelowBuyIn);
+
             if (!_currency.TrySpend(price)) return Fail(item, PurchaseResult.NotEnoughFunds);
             if (!_inventory.Grant(item)) { _currency.Refund(price); return Fail(item, PurchaseResult.GrantFailed); }
             ItemPurchased?.Invoke(item); Changed?.Invoke();

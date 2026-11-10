@@ -11,6 +11,17 @@ public static class ItemEffectBridge
     /// <summary>
     /// 计算玩家的最终战斗属性，包含所有物品修饰。
     /// </summary>
+    /// <summary>
+    /// 这一手的"最终倍率"（牌型倍率 + 倍率类道具 + 加注惯性），面板和实战都用它。
+    /// </summary>
+    public static float EffectiveMultiplier(HandResult bestHand)
+    {
+        if (bestHand == null) return 1f;
+        return bestHand.GetMultiplier()
+            + PokerItemTraits.MultiplierBonus(bestHand.handType)
+            + PokerItemTraits.MomentumBonus(PokerGameManager.LastHandRaiseCount);
+    }
+
     public static CombatStats GetCombatStats(HandResult bestHand)
     {
         var stats = CombatStatsFactory.Compute(bestHand);
@@ -19,9 +30,7 @@ public static class ItemEffectBridge
             return stats;
 
         float baseMult = bestHand.GetMultiplier();
-        float mult = baseMult
-            + PokerItemTraits.MultiplierBonus(bestHand.handType)
-            + PokerItemTraits.MomentumBonus(PokerGameManager.LastHandRaiseCount);
+        float mult = EffectiveMultiplier(bestHand);
 
         // 倍率类道具（平A加成 / 赌高牌）：整体等比缩放，保持四项之间的比例不变。
         if (!Mathf.Approximately(mult, baseMult) && baseMult > 0f)
@@ -110,46 +119,54 @@ public static class ItemEffectBridge
     }
 
     /// <summary>
-    /// 赢摊牌奖励（Ben 2026-11-10 定 P2）：选中"相对自己基线最弱"的那一项，
-    /// 让它的**总量**涨 15%，即 增量 += 0.15 × (基线 + 增量)。
-    /// 只作用于这一手的临时战斗数值，不跨手累加，也不写回任何持久数据。
-    /// 受益项必须是"吃到过花色"的（增量为 0 的项不参与），四项全空则不发。
+    /// 赢摊牌奖励（Ben 2026-11-10 定）：其余三项各按自身总量 +15%，最高项不动。
+    /// 只作用于这一手的临时战斗数值，不跨手累加。
     /// </summary>
     public static CombatStats ApplyWinBonus(CombatStats stats)
     {
-        return ApplyWinBonus(stats, out _, out _);
+        return ApplyWinBonus(stats, out _, out _, out _);
     }
 
     /// <summary>
-    /// 同上，另外回报加到哪一项、加了多少，供结算面板显示。
+    /// 同上，另外回报最高项下标与"三项一共加了多少"，供日志与面板使用。
     /// </summary>
-    public static CombatStats ApplyWinBonus(CombatStats stats, out int lowestIndex, out float amount)
+    public static CombatStats ApplyWinBonus(
+        CombatStats stats,
+        out int highestIndex,
+        out float totalAdded
+    )
     {
-        return ApplyWinBonus(stats, out lowestIndex, out amount, out _);
+        return ApplyWinBonus(stats, out highestIndex, out totalAdded, out _);
     }
 
-    /// <summary>总战力提升比例：选中项的总量涨 WinBonusFactor。</summary>
+    /// <summary>每一项（除最高项外）的总量提升比例。</summary>
     public const float WinBonusFactor = 0.15f;
 
     /// <summary>
-    /// 完整版本：额外回报选中项的倍数，供日志与面板说明"这份奖励是从哪一项的强度换来的"。
-    /// 选弱项按"相对基线的倍数"比，且只在吃过花色的项里选；
+    /// ATK 单独走"固定点数"（Ben 2026-11-10 定）：FPS 侧 1 点 ATK = 1 点伤害，
+    /// 而左轮基础伤害只有 5，所以按比例给会把伤害翻倍，改成固定 +2 点（约 +40% 伤害）。
+    /// </summary>
+    public const float AttackBonusPoints = 2f;
+
+    /// <summary>
+    /// 完整版本：额外回报"最高项"是哪一项、总共加了多少、它的倍数。
+    /// 取四项里相对基线倍数最高的一项，其余三项各按自身总量 +15%，
+    /// 即 增量 += 0.15 × (基线 + 增量)；最高项自己不加。
     /// 倍数并列时按 ATK → SPD → HP → ROF 取（缺输出比缺耐久更快被感知）。
     /// </summary>
     public static CombatStats ApplyWinBonus(
         CombatStats stats,
-        out int lowestIndex,
-        out float amount,
-        out float ratio
+        out int highestIndex,
+        out float totalAdded,
+        out float highestRatio
     )
     {
-        lowestIndex = -1;
-        amount = 0f;
-        ratio = 1f;
+        highestIndex = -1;
+        totalAdded = 0f;
+        highestRatio = 1f;
 
         float[] v = { stats.attack, stats.health, stats.fireRate, stats.moveSpeed };
 
-        // 并列时按这个顺序取靠前的一项，保证结果可复现。
         int[] priority =
         {
             PokerStatUnits.Attack,
@@ -159,34 +176,37 @@ public static class ItemEffectBridge
         };
 
         int pick = -1;
-        float weakest = float.MaxValue;
+        float strongest = float.MinValue;
         for (int k = 0; k < priority.Length; k++)
         {
             int i = priority[k];
-            if (v[i] <= 0.0001f) continue; // 没吃到花色的项不能当受益项，否则永远是 0
             float r = PokerStatUnits.Ratio(i, v[i]);
-            if (pick < 0 || r < weakest - 0.0001f)
+            if (pick < 0 || r > strongest + 0.0001f)
             {
                 pick = i;
-                weakest = r;
+                strongest = r;
             }
         }
 
-        // 四项全是 0（这一手什么都没吃）⇒ 不发，也不编一个假奖励出来。
-        if (pick < 0) return stats;
-
-        // 让这一项的"总量"涨 15%：增量 += 0.15 × (基线 + 增量)。
-        amount = WinBonusFactor * (PokerStatUnits.Baseline(pick) + v[pick]);
-        switch (pick)
+        // 其余三项：ATK 走固定点数，HP / ROF / SPD 按各自总量 +15%（避免跨单位搬运）。
+        for (int i = 0; i < 4; i++)
         {
-            case 0: stats.attack += amount; break;
-            case 1: stats.health += amount; break;
-            case 2: stats.fireRate += amount; break;
-            case 3: stats.moveSpeed += amount; break;
+            if (i == pick) continue;
+            float add = i == PokerStatUnits.Attack
+                ? AttackBonusPoints
+                : WinBonusFactor * (PokerStatUnits.Baseline(i) + v[i]);
+            switch (i)
+            {
+                case 0: stats.attack += add; break;
+                case 1: stats.health += add; break;
+                case 2: stats.fireRate += add; break;
+                case 3: stats.moveSpeed += add; break;
+            }
+            totalAdded += add;
         }
 
-        lowestIndex = pick;
-        ratio = weakest;
+        highestIndex = pick;
+        highestRatio = strongest;
         return stats;
     }
 }

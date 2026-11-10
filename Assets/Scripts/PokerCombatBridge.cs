@@ -177,25 +177,17 @@ public class PokerCombatBridge : MonoBehaviour
 
         // 计算 CombatStats
         CombatStats playerStats = ItemEffectBridge.GetCombatStats(poker.PlayerBestHand);
-        // 赢一手 ⇒ 最弱那一项的总量 +15%（只影响这一手的临时数值）。
-        // 对手永远没有这份奖励（Ben 2026-11-10）；对手已经付不起买入时本关已结束，也不再发。
-        bool levelAlreadyOver = poker.EnemyChips < poker.BuyIn;
-        if (poker.Result == PokerResult.PlayerWinsShowdown && !levelAlreadyOver)
+        // 赢一手 ⇒ 最高项不动，其余三项各按自身总量 +15%（Ben 2026-11-10）。
+        // 对手永远没有这份奖励；即使对手已经付不起买入、本关即将结束，这一场决斗照打、奖励照发。
+        if (poker.Result == PokerResult.PlayerWinsShowdown)
         {
             playerStats = ItemEffectBridge.ApplyWinBonus(
                 playerStats, out int bonusIndex, out float bonusAmount, out float bonusRatio);
-            if (bonusIndex >= 0)
-            {
-                string[] names = { "ATK", "HP", "ROF", "SPD" };
-                Debug.Log(
-                    $"[Bridge] 赢手奖励：补最弱项 {names[bonusIndex]}（原 ×{bonusRatio:0.00}）"
-                        + $" +{bonusAmount:0.#} → 总量 +{ItemEffectBridge.WinBonusFactor * 100f:0}%"
-                );
-            }
-            else
-            {
-                Debug.Log("[Bridge] 赢手奖励：这一手没吃到花色，本次不发");
-            }
+            string[] names = { "ATK", "HP", "ROF", "SPD" };
+            Debug.Log(
+                $"[Bridge] 赢手奖励：最高项 {names[bonusIndex]}（×{bonusRatio:0.00}）不变，"
+                    + $"其余三项各 +{ItemEffectBridge.WinBonusFactor * 100f:0}%（共 +{bonusAmount:0.#}）"
+            );
         }
         FpsItemDefinition[] fpsItems = FpsItemCombatHandler.GetOwnedItems(
             fpsItemCatalog, PlayerInventory.Instance);

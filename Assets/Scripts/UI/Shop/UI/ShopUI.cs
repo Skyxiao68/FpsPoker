@@ -97,10 +97,12 @@ namespace PokerShop
         void OnFail(ShopItem i, PurchaseResult r) => Msg(r switch
         {
             PurchaseResult.NotEnoughFunds => "Not enough chips.",
+            PurchaseResult.BelowBuyIn => $"Too few chips left to cover the {BuyInHint()} buy-in.",
             PurchaseResult.AtLimit => "You can't carry any more of these.",
             PurchaseResult.Closed => "Shop is closed.",
             _ => "Purchase failed."
         });
+        string BuyInHint() => PokerBuyInReserve.Required().ToString();
         void Msg(string s) { if (messageText) messageText.text = s; }
     }
 }
