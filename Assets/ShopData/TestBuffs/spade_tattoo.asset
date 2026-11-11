@@ -15,7 +15,7 @@ MonoBehaviour:
   id: spade_tattoo
   displayName: Spade Tattoo
   description: Spades also feed HP (70%).
-  icon: {fileID: 0}
+  icon: {fileID: 8114094021054071430, guid: b93975b7265724f4eb7b5daefd9d9da8, type: 3}
   price: 65
   category: Cards
   tier: silver

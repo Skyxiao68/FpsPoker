@@ -15,7 +15,7 @@ MonoBehaviour:
   id: bait
   displayName: Bait
   description: Your checks invite a bet. Permanent tool - never used up.
-  icon: {fileID: 0}
+  icon: {fileID: -2741604302042374173, guid: 5abe9bc47b16fbd49a606185902c66ad, type: 3}
   price: 65
   category: Table
   tier: silver

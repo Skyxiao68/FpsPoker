@@ -50,6 +50,14 @@ public class StartScreenManager : MonoBehaviour
 
         PlayClickSound();
 
+        // Game over: "Play Again" resets chips/level and starts a fresh run.
+        if (GameFlowManager.Instance != null && GameFlowManager.Instance.IsGameOver)
+        {
+            GameFlowManager.Instance.StartNewRun();
+            StartCoroutine(LoadLevel(1, false));
+            return;
+        }
+
         // 第一次玩：先走独立教程场景。通过或跳过都会写 TutorialProgress，
         // 之后再点 Play 就直接进牌桌（教程入口以后再单独做）。
         if (!TutorialProgress.IsDone)
@@ -128,8 +136,9 @@ public class StartScreenManager : MonoBehaviour
             TMP_Text label = button.GetComponentInChildren<TMP_Text>(true);
             if (label != null && label.text.Trim() == "Start")
             {
-                label.text = "Game Over";
-                button.interactable = false;
+                // Start button becomes a replay button; PlayGame() handles the reset.
+                label.text = "Play Again";
+                button.interactable = true;
             }
         }
     }

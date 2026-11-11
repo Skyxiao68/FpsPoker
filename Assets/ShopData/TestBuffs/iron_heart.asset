@@ -15,7 +15,7 @@ MonoBehaviour:
   id: iron_heart
   displayName: Iron Heart
   description: Adds 35 maximum health in the FPS duel.
-  icon: {fileID: 0}
+  icon: {fileID: 5262187977004205477, guid: 92a5c4be47209134a9eb8325a050ff6f, type: 3}
   price: 100
   category: FpsItem
   tier: bronze

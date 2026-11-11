@@ -15,7 +15,7 @@ MonoBehaviour:
   id: quickstep
   displayName: Quickstep
   description: Adds 2 move speed and 20 attack speed in the FPS duel.
-  icon: {fileID: 0}
+  icon: {fileID: -3194209950065762882, guid: 3e9462e92553ef74e9ecf523430bc15e, type: 3}
   price: 120
   category: FpsItem
   tier: silver

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: cheat_glove
   displayName: Cheat Glove
   description: See one of the enemy's cards.
-  icon: {fileID: 0}
+  icon: {fileID: 7054138466926945043, guid: f148a37a5f0379b4da62447feecd3943, type: 3}
   price: 25
   category: Cards
   tier: bronze

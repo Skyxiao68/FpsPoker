@@ -15,7 +15,7 @@ MonoBehaviour:
   id: deadeye
   displayName: Deadeye
   description: Adds 8 damage to each FPS weapon hit.
-  icon: {fileID: 0}
+  icon: {fileID: -380896658832071495, guid: a3d4aea7d7cf757409d2f03de43b86cd, type: 3}
   price: 120
   category: FpsItem
   tier: silver

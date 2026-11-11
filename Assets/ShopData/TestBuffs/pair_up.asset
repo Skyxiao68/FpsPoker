@@ -15,7 +15,7 @@ MonoBehaviour:
   id: pair_up
   displayName: Pair Up
   description: A single pair is settled as two pair - it beats any other pair. Permanent tool - never used up.
-  icon: {fileID: 0}
+  icon: {fileID: 1073325501987394092, guid: b6fab2b889617cf4182335d7d74606ef, type: 3}
   price: 65
   category: Cards
   tier: silver
