@@ -15,7 +15,7 @@ MonoBehaviour:
   id: red_shift
   displayName: Red Shift
   description: Diamonds also feed ATK (50%).
-  icon: {fileID: 0}
+  icon: {fileID: -4672053908613387508, guid: acb187dde9efdf44d9b6c78c944b583a, type: 3}
   price: 65
   category: Cards
   tier: silver

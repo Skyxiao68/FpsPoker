@@ -15,7 +15,7 @@ MonoBehaviour:
   id: headhunter
   displayName: Headhunter
   description: Raises FPS headshot damage from 1.5x to 2x.
-  icon: {fileID: 0}
+  icon: {fileID: -622616978374682784, guid: c1eb261e9c276444a89fe83516df8901, type: 3}
   price: 120
   category: FpsItem
   tier: silver

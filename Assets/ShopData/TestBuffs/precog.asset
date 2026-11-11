@@ -15,7 +15,7 @@ MonoBehaviour:
   id: precog
   displayName: Precog
   description: See the deck top every hand. Permanent tool - never used up.
-  icon: {fileID: 0}
+  icon: {fileID: 8095738451986832228, guid: 886e617b8e0fa2e4785de6243044bd00, type: 3}
   price: 110
   category: Cards
   tier: gold

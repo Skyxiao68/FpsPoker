@@ -15,7 +15,7 @@ MonoBehaviour:
   id: chop_breaker
   displayName: Chop Breaker
   description: A split showdown counts as your win. The duel still decides the pot. Permanent tool - never used up.
-  icon: {fileID: 0}
+  icon: {fileID: -2825317784459440006, guid: 67bc74e71f9e8bc4586d99e403064440, type: 3}
   price: 25
   category: Table
   tier: bronze

@@ -15,7 +15,7 @@ MonoBehaviour:
   id: monochrome
   displayName: Monochrome
   description: Whole hand counts as one suit - the one with the most points.
-  icon: {fileID: 0}
+  icon: {fileID: -1712091410509502996, guid: a214cbef64385334f86fad6ae1621649, type: 3}
   price: 110
   category: Suits
   tier: gold
