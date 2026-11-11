@@ -65,6 +65,11 @@ namespace PokerShopBridge
             { "deadeye",         ItemId.Deadeye },
             { "quickstep",       ItemId.Quickstep },
             { "iron_heart",      ItemId.IronHeart },
+            { "headhunter",      ItemId.Headhunter },
+            { "lifesteal",       ItemId.LifeSteal },
+            { "marked",          ItemId.Marked },
+            { "last_stand",      ItemId.LastStand },
+            { "golden_bullet",   ItemId.GoldenBullet },
         };
 
         // 跨场景保留的购买计数

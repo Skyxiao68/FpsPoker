@@ -36,6 +36,8 @@ public class Health : MonoBehaviour, IDamagable
 
     public event Action<Health> OnDeath;
 
+    public event Func<int, bool> OnLethalDamage;
+
     private void Awake()
     {
         controller = GetComponent<FpsCharacterController>();
@@ -61,10 +63,16 @@ public class Health : MonoBehaviour, IDamagable
         LastAttacker = hasSource ? attacker : null;
         LastShotOrigin = hasSource ? shotOrigin : Vector3.zero;
 
-        CurrentHealth =
-            Mathf.Max(CurrentHealth - amount, 0);
+        int appliedDamage = amount;
+        if (amount >= CurrentHealth && OnLethalDamage != null &&
+            OnLethalDamage.Invoke(amount))
+        {
+            appliedDamage = Mathf.Max(0, CurrentHealth - 1);
+        }
 
-        OnDamaged?.Invoke(amount, CurrentHealth);
+        CurrentHealth = Mathf.Max(CurrentHealth - appliedDamage, 0);
+
+        OnDamaged?.Invoke(appliedDamage, CurrentHealth);
 
         if (CurrentHealth <= 0)
             Die();

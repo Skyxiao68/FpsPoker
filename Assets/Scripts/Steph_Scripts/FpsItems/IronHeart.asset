@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: IronHeart
   m_EditorClassIdentifier: Assembly-CSharp::FpsItemDefinition
   fpsItemId: iron_heart
-  itemId: 6
+  itemId: 22
   displayName: Iron Heart
   description: Adds 35 maximum health in the FPS duel.
   bonusStats:

@@ -29,4 +29,8 @@ public enum ItemId
     Quickstep,
     IronHeart,
     Headhunter,       // Steph 的战斗侧道具（真工程/他的分支里用到，这里保留以免合并时冲突）
+    LifeSteal,
+    Marked,
+    LastStand,
+    GoldenBullet,
 }

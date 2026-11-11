@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Quickstep
   m_EditorClassIdentifier: Assembly-CSharp::FpsItemDefinition
   fpsItemId: quickstep
-  itemId: 5
+  itemId: 21
   displayName: Quickstep
   description: Adds 2 move speed and 20 attack speed in the FPS duel.
   bonusStats:

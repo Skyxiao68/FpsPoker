@@ -34616,8 +34616,8 @@ MonoBehaviour:
   debugPlayerStats:
     attack: 0
     health: 0
-    fireRate: 5
-    moveSpeed: 2
+    fireRate: 0
+    moveSpeed: 0
   debugEnemyStats:
     attack: 0
     health: 0
@@ -34627,7 +34627,10 @@ MonoBehaviour:
   debugLevel: 1
   debugEnemyCombatStyle: Ranged
   debugFpsItems:
-  - {fileID: 11400000, guid: 74de2bc19e8b45e0b872d3ce8a796e8a, type: 2}
+  - {fileID: 11400000, guid: db209c1b6059442cb97f7c68eab51eb5, type: 2}
+  - {fileID: 11400000, guid: c76da4194c6748dbb156168ef90dd017, type: 2}
+  - {fileID: 11400000, guid: b58d02f060924e21a30e8e86a1784af1, type: 2}
+  - {fileID: 11400000, guid: d2a0edcd77ed47c69fbd6b2dabf2a8a3, type: 2}
 --- !u!4 &1058858655
 Transform:
   m_ObjectHideFlags: 0

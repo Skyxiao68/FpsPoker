@@ -13,11 +13,12 @@ MonoBehaviour:
   m_Name: Deadeye
   m_EditorClassIdentifier: Assembly-CSharp::FpsItemDefinition
   fpsItemId: deadeye
-  itemId: 4
+  itemId: 20
   displayName: Deadeye
-  description: Adds 8 damage to each FPS weapon hit.
+  description: Adds 3 base damage to each FPS weapon hit.
   bonusStats:
-    attack: 8
+    attack: 3
     health: 0
     fireRate: 0
     moveSpeed: 0
+  headshotMultiplier: 1

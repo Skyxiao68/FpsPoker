@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -59,6 +60,24 @@ public class CombatSceneController : MonoBehaviour
     private RectTransform enemyHealthFill;
     private CombatStats enemyPokerStats;
     private FPSPersonality runtimeEnemyPersonality;
+    private Weapon itemWeapon;
+    private Health markedTarget;
+    private float markedEndTime;
+    private Canvas markedCanvas;
+    private RectTransform markedLabelRect;
+    private TextMeshProUGUI markedLabel;
+    private Canvas damageNumberCanvas;
+    private RectTransform damageNumberCanvasRect;
+    private Renderer[] markedTargetRenderers;
+    private Material[][] markedOriginalMaterials;
+    private Material markedRevealMaterial;
+    private Coroutine lastStandSlowRoutine;
+    private float lastStandPreviousTimeScale;
+    private float lastStandAppliedTimeScale;
+    private int lifeStealDamageRemainder;
+    private bool hasLifeSteal;
+    private bool hasMarked;
+    private bool hasLastStand;
     private bool resolved;
 
     private void Start()
@@ -92,6 +111,7 @@ public class CombatSceneController : MonoBehaviour
         if (playerHud != null)
             playerHud.SetPokerBuffs(handoff.playerStats);
         FpsOwnedItemsHud.SetCombatItems(handoff.playerFpsItems);
+        ConfigurePlayerItemEffects(handoff.playerFpsItems);
 
         SpawnEnemy(handoff);
     }
@@ -294,9 +314,316 @@ public class CombatSceneController : MonoBehaviour
         RefreshEnemyHealthBar();
     }
 
+    private void ConfigurePlayerItemEffects(FpsItemDefinition[] items)
+    {
+        hasLifeSteal = FpsItemCombatHandler.HasItem(items, ItemId.LifeSteal);
+        hasMarked = FpsItemCombatHandler.HasItem(items, ItemId.Marked);
+        hasLastStand = FpsItemCombatHandler.HasItem(items, ItemId.LastStand);
+        itemWeapon = playerController != null ? playerController.EquippedWeapon : null;
+
+        if (itemWeapon != null)
+        {
+            itemWeapon.SetGoldenBullet(
+                FpsItemCombatHandler.HasItem(items, ItemId.GoldenBullet));
+            itemWeapon.OnDamageNumber += HandleDamageNumber;
+            if (hasLifeSteal)
+                itemWeapon.OnDamageDealt += HandleDamageDealt;
+            if (hasMarked)
+                itemWeapon.OnHeadshotDealt += HandleHeadshotDealt;
+        }
+
+        if (hasLastStand && playerHealth != null)
+            playerHealth.OnLethalDamage += HandleLethalDamage;
+    }
+
+    private void HandleDamageDealt(int amount)
+    {
+        if (!hasLifeSteal || playerHealth == null || amount <= 0)
+            return;
+
+        long accumulatedDamage = (long)lifeStealDamageRemainder + amount;
+        long healing = accumulatedDamage / 10L * 2L;
+        lifeStealDamageRemainder = (int)(accumulatedDamage % 10L);
+        if (healing > 0L)
+            playerHealth.Heal((int)System.Math.Min(int.MaxValue, healing));
+    }
+
+    private void HandleDamageNumber(Health target, int amount, bool headshot)
+    {
+        if (target == null || amount <= 0)
+            return;
+
+        EnsureDamageNumberCanvas();
+        if (damageNumberCanvas == null)
+            return;
+
+        GameObject labelObject = new GameObject("Damage Number",
+            typeof(RectTransform), typeof(CanvasRenderer),
+            typeof(TextMeshProUGUI), typeof(CanvasGroup));
+        RectTransform labelRect = labelObject.GetComponent<RectTransform>();
+        labelRect.SetParent(damageNumberCanvas.transform, false);
+        labelRect.anchorMin = labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        labelRect.pivot = new Vector2(0.5f, 0.5f);
+        labelRect.sizeDelta = new Vector2(180f, 64f);
+
+        TextMeshProUGUI label = labelObject.GetComponent<TextMeshProUGUI>();
+        label.text = "-" + amount;
+        label.fontSize = headshot ? 52f : 44f;
+        label.fontStyle = FontStyles.Bold;
+        label.alignment = TextAlignmentOptions.Center;
+        label.color = headshot
+            ? new Color(1f, 0.66f, 0.12f, 1f)
+            : new Color(0.9f, 0.98f, 0.97f, 1f);
+        label.outlineWidth = 0.28f;
+        label.outlineColor = new Color(0f, 0.025f, 0.035f, 1f);
+        label.raycastTarget = false;
+
+        Vector3 origin = target.transform.position;
+        float horizontalOffset = Random.Range(-24f, 24f);
+        StartCoroutine(AnimateDamageNumber(labelRect,
+            labelObject.GetComponent<CanvasGroup>(), target, origin, horizontalOffset));
+    }
+
+    private void EnsureDamageNumberCanvas()
+    {
+        if (damageNumberCanvas != null)
+            return;
+
+        GameObject canvasObject = new GameObject("FPS Damage Numbers",
+            typeof(Canvas), typeof(CanvasScaler));
+        canvasObject.transform.SetParent(transform, false);
+        damageNumberCanvas = canvasObject.GetComponent<Canvas>();
+        damageNumberCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        damageNumberCanvas.overrideSorting = true;
+        damageNumberCanvas.sortingOrder = 210;
+
+        CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+        damageNumberCanvasRect = canvasObject.transform as RectTransform;
+    }
+
+    private IEnumerator AnimateDamageNumber(RectTransform labelRect,
+        CanvasGroup group, Health target, Vector3 origin, float horizontalOffset)
+    {
+        const float duration = 0.9f;
+        float elapsed = 0f;
+        while (elapsed < duration && labelRect != null)
+        {
+            float progress = Mathf.Clamp01(elapsed / duration);
+            Vector3 targetPosition = target != null
+                ? target.transform.position : origin;
+            Vector3 worldPosition = targetPosition +
+                Vector3.up * (2.15f + progress * 0.65f);
+            Camera viewer = GetPlayerCamera();
+            if (viewer != null)
+            {
+                Vector3 screenPoint = viewer.WorldToScreenPoint(worldPosition);
+                if (screenPoint.z > 0f &&
+                    RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                        damageNumberCanvasRect, screenPoint, null, out Vector2 localPoint))
+                {
+                    labelRect.anchoredPosition = localPoint +
+                        Vector2.right * horizontalOffset;
+                    group.alpha = 1f - progress;
+                    labelRect.gameObject.SetActive(true);
+                }
+                else
+                {
+                    group.alpha = 0f;
+                }
+            }
+
+            elapsed += Time.unscaledDeltaTime;
+            yield return null;
+        }
+
+        if (labelRect != null)
+            Destroy(labelRect.gameObject);
+    }
+
+    private Camera GetPlayerCamera()
+    {
+        Transform cameraTransform = playerController != null
+            ? playerController.CameraTransform : null;
+        Camera viewer = cameraTransform != null
+            ? cameraTransform.GetComponentInChildren<Camera>() : null;
+        return viewer != null ? viewer : Camera.main;
+    }
+
+    private void HandleHeadshotDealt(Health target)
+    {
+        if (!hasMarked || target == null || target.IsDead)
+            return;
+
+        if (markedTarget != target)
+        {
+            RestoreMarkedTargetMaterials();
+            markedTarget = target;
+            ApplyMarkedTargetMaterials(target);
+        }
+
+        markedEndTime = Time.unscaledTime + 10f;
+        EnsureMarkedTargetIndicator();
+        RefreshMarkedTargetIndicator();
+    }
+
+    private bool HandleLethalDamage(int incomingDamage)
+    {
+        if (!hasLastStand)
+            return false;
+
+        hasLastStand = false;
+        lastStandSlowRoutine = StartCoroutine(SlowTimeForLastStand());
+        return true;
+    }
+
+    private IEnumerator SlowTimeForLastStand()
+    {
+        lastStandPreviousTimeScale = Time.timeScale;
+        lastStandAppliedTimeScale = Mathf.Min(lastStandPreviousTimeScale, 0.2f);
+        Time.timeScale = lastStandAppliedTimeScale;
+        yield return new WaitForSecondsRealtime(10f);
+
+        if (Mathf.Approximately(Time.timeScale, lastStandAppliedTimeScale))
+            Time.timeScale = lastStandPreviousTimeScale;
+
+        lastStandSlowRoutine = null;
+    }
+
+    private void EnsureMarkedTargetIndicator()
+    {
+        if (markedCanvas != null)
+            return;
+
+        GameObject canvasObject = new GameObject("Marked Target Overlay",
+            typeof(Canvas), typeof(CanvasScaler));
+        canvasObject.transform.SetParent(transform, false);
+        markedCanvas = canvasObject.GetComponent<Canvas>();
+        markedCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+        markedCanvas.overrideSorting = true;
+        markedCanvas.sortingOrder = 200;
+
+        CanvasScaler scaler = canvasObject.GetComponent<CanvasScaler>();
+        scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
+        scaler.referenceResolution = new Vector2(1920f, 1080f);
+
+        GameObject labelObject = new GameObject("Marked Target Label",
+            typeof(RectTransform), typeof(CanvasRenderer), typeof(TextMeshProUGUI));
+        markedLabelRect = labelObject.GetComponent<RectTransform>();
+        markedLabelRect.SetParent(markedCanvas.transform, false);
+        markedLabelRect.anchorMin = markedLabelRect.anchorMax = new Vector2(0.5f, 0.5f);
+        markedLabelRect.pivot = new Vector2(0.5f, 0.5f);
+        markedLabelRect.sizeDelta = new Vector2(260f, 48f);
+
+        markedLabel = labelObject.GetComponent<TextMeshProUGUI>();
+        markedLabel.fontSize = 22f;
+        markedLabel.fontStyle = FontStyles.Bold;
+        markedLabel.alignment = TextAlignmentOptions.Center;
+        markedLabel.color = new Color(1f, 0.25f, 0.12f, 1f);
+        markedLabel.outlineWidth = 0.25f;
+        markedLabel.outlineColor = Color.black;
+        markedLabel.raycastTarget = false;
+        markedLabel.text = "MARKED";
+        markedLabelRect.gameObject.SetActive(false);
+    }
+
+    private void ApplyMarkedTargetMaterials(Health target)
+    {
+        if (markedRevealMaterial == null)
+        {
+            Shader revealShader = Resources.Load<Shader>("MarkedReveal");
+            if (revealShader == null)
+                return;
+
+            markedRevealMaterial = new Material(revealShader);
+            markedRevealMaterial.SetColor("_BaseColor",
+                new Color(1f, 0.12f, 0.04f, 0.82f));
+        }
+
+        markedTargetRenderers = target.GetComponentsInChildren<Renderer>(true);
+        markedOriginalMaterials = new Material[markedTargetRenderers.Length][];
+        for (int i = 0; i < markedTargetRenderers.Length; i++)
+        {
+            Renderer targetRenderer = markedTargetRenderers[i];
+            if (targetRenderer == null)
+                continue;
+
+            Material[] originalMaterials = targetRenderer.sharedMaterials;
+            markedOriginalMaterials[i] = originalMaterials;
+            Material[] revealMaterials = new Material[originalMaterials.Length];
+            for (int j = 0; j < revealMaterials.Length; j++)
+                revealMaterials[j] = markedRevealMaterial;
+            targetRenderer.sharedMaterials = revealMaterials;
+        }
+    }
+
+    private void RestoreMarkedTargetMaterials()
+    {
+        if (markedTargetRenderers != null && markedOriginalMaterials != null)
+        {
+            int rendererCount = Mathf.Min(
+                markedTargetRenderers.Length, markedOriginalMaterials.Length);
+            for (int i = 0; i < rendererCount; i++)
+            {
+                if (markedTargetRenderers[i] != null && markedOriginalMaterials[i] != null)
+                    markedTargetRenderers[i].sharedMaterials = markedOriginalMaterials[i];
+            }
+        }
+
+        markedTargetRenderers = null;
+        markedOriginalMaterials = null;
+    }
+
+    private void RefreshMarkedTargetIndicator()
+    {
+        if (markedLabelRect == null)
+            return;
+
+        if (markedTarget == null || markedTarget.IsDead ||
+            Time.unscaledTime >= markedEndTime)
+        {
+            markedLabelRect.gameObject.SetActive(false);
+            RestoreMarkedTargetMaterials();
+            markedTarget = null;
+            return;
+        }
+
+        Camera viewer = GetPlayerCamera();
+        if (viewer == null)
+        {
+            markedLabelRect.gameObject.SetActive(false);
+            return;
+        }
+
+        Vector3 worldPosition = markedTarget.transform.position + Vector3.up * 2f;
+        Vector3 viewport = viewer.WorldToViewportPoint(worldPosition);
+        if (viewport.z < 0f)
+        {
+            viewport.x = 1f - viewport.x;
+            viewport.y = 1f - viewport.y;
+        }
+
+        viewport.x = Mathf.Clamp(viewport.x, 0.04f, 0.96f);
+        viewport.y = Mathf.Clamp(viewport.y, 0.06f, 0.94f);
+        Vector2 screenPoint = new Vector2(
+            viewport.x * Screen.width,
+            viewport.y * Screen.height);
+        RectTransform canvasRect = markedCanvas.transform as RectTransform;
+        if (RectTransformUtility.ScreenPointToLocalPointInRectangle(
+                canvasRect, screenPoint, null, out Vector2 localPoint))
+        {
+            markedLabelRect.anchoredPosition = localPoint;
+            float remaining = Mathf.Max(0f, markedEndTime - Time.unscaledTime);
+            markedLabel.text = $"MARKED  {remaining:0.0}s";
+            markedLabelRect.gameObject.SetActive(true);
+        }
+    }
+
     private void LateUpdate()
     {
         RefreshEnemyHealthBar();
+        RefreshMarkedTargetIndicator();
     }
 
     private void RefreshEnemyHealthBar()
@@ -470,9 +797,31 @@ public class CombatSceneController : MonoBehaviour
             enemyHealth.OnDeath -= HandleDeath;
     }
 
+    private void EndItemEffectSubscriptions()
+    {
+        if (playerHealth != null)
+            playerHealth.OnLethalDamage -= HandleLethalDamage;
+        if (itemWeapon != null)
+        {
+            itemWeapon.OnDamageNumber -= HandleDamageNumber;
+            itemWeapon.OnDamageDealt -= HandleDamageDealt;
+            itemWeapon.OnHeadshotDealt -= HandleHeadshotDealt;
+        }
+    }
+
     private void OnDestroy()
     {
         EndSubscriptions();
+        EndItemEffectSubscriptions();
+        RestoreMarkedTargetMaterials();
+        if (lastStandSlowRoutine != null)
+        {
+            StopCoroutine(lastStandSlowRoutine);
+            if (Mathf.Approximately(Time.timeScale, lastStandAppliedTimeScale))
+                Time.timeScale = lastStandPreviousTimeScale;
+        }
+        if (markedRevealMaterial != null)
+            Destroy(markedRevealMaterial);
         if (runtimeEnemyPersonality != null)
             Destroy(runtimeEnemyPersonality);
     }

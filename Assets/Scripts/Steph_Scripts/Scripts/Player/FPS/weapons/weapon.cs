@@ -22,6 +22,8 @@ public class Weapon : MonoBehaviour
     private bool isReloading;
     private bool combatLocked;
     private bool waitForTriggerRelease;
+    private bool goldenBulletEnabled;
+    private bool goldenBulletReady;
 
     // Spray pattern
     private int shotIndex;
@@ -39,7 +41,11 @@ public class Weapon : MonoBehaviour
 
     // The owning player's HUD can confirm a real health hit without
     // treating a wall impact or an already-dead target as damage.
-    public event System.Action OnDamageDealt;
+    public event System.Action<int> OnDamageDealt;
+
+    public event System.Action<Health, int, bool> OnDamageNumber;
+
+    public event System.Action<Health> OnHeadshotDealt;
 
     // Visuals observe real shots, including the final round before auto-reload.
     public event System.Action OnShotFired;
@@ -52,6 +58,12 @@ public class Weapon : MonoBehaviour
         isReloading = false;
         waitForTriggerRelease = false;
         ammoInMagazine = MagazineCapacity;
+    }
+
+    public void SetGoldenBullet(bool enabled)
+    {
+        goldenBulletEnabled = enabled;
+        goldenBulletReady = enabled;
     }
 
     public Transform FirePoint => firePoint;
@@ -95,6 +107,7 @@ public class Weapon : MonoBehaviour
     {
         isReloading = false;
         ammoInMagazine = MagazineCapacity;
+        goldenBulletReady = goldenBulletEnabled;
     }
 
     private void Awake()
@@ -207,13 +220,16 @@ public class Weapon : MonoBehaviour
             weaponSettings.fireRate;
 
         ammoInMagazine--;
-        PerformFire();
+        bool goldenBulletShot = goldenBulletEnabled && goldenBulletReady;
+        if (goldenBulletShot)
+            goldenBulletReady = false;
+        PerformFire(goldenBulletShot);
         OnShotFired?.Invoke();
         if (ammoInMagazine == 0)
             TryReload();
     }
 
-    private void PerformFire()
+    private void PerformFire(bool goldenBulletShot)
     {
 
         Transform aimTransform =
@@ -238,7 +254,7 @@ public class Weapon : MonoBehaviour
         {
             hitPoint = hit.point;
 
-            HandleHit(hit, origin);
+            HandleHit(hit, origin, goldenBulletShot);
         }
 
 
@@ -321,7 +337,7 @@ public class Weapon : MonoBehaviour
     // HIT
     // =========================================================
 
-    private void HandleHit(RaycastHit hit, Vector3 shotOrigin)
+    private void HandleHit(RaycastHit hit, Vector3 shotOrigin, bool goldenBulletShot)
     {
         CombatHitbox hitbox = hit.collider.GetComponent<CombatHitbox>();
         IDamagable damagable =
@@ -337,11 +353,17 @@ public class Weapon : MonoBehaviour
             int damage = headshot
                 ? Mathf.RoundToInt(weaponSettings.damage * Mathf.Max(1f, weaponSettings.headshotMultiplier))
                 : weaponSettings.damage;
+            if (goldenBulletShot)
+                damage = (int)System.Math.Min(int.MaxValue, (long)damage * 3L);
             hitHealth.TakeDamage(damage, attacker, shotOrigin);
-            if (hitOpponent && hitHealth.CurrentHealth < healthBefore)
+            int actualDamage = healthBefore - hitHealth.CurrentHealth;
+            if (hitOpponent && actualDamage > 0)
             {
-                OnDamageDealt?.Invoke();
+                OnDamageDealt?.Invoke(actualDamage);
                 OnHitConfirmed?.Invoke(headshot);
+                OnDamageNumber?.Invoke(hitHealth, actualDamage, headshot);
+                if (headshot)
+                    OnHeadshotDealt?.Invoke(hitHealth);
             }
         }
         else if (damagable != null)

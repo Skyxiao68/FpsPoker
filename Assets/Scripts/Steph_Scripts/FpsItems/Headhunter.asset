@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Headhunter
   m_EditorClassIdentifier: Assembly-CSharp::FpsItemDefinition
   fpsItemId: headhunter
-  itemId: 7
+  itemId: 23
   displayName: Headhunter
   description: Raises FPS headshot damage from 1.5x to 2x.
   bonusStats:

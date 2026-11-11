@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 772491752b440df43ba4ab6847460aad, type: 3}
+  m_Name: golden_bullet
+  m_EditorClassIdentifier: Assembly-CSharp::PokerShop.ShopItem
+  id: golden_bullet
+  displayName: Golden Bullet
+  description: The first shot after each reload deals triple damage.
+  icon: {fileID: 5682832131028149007, guid: c9d081b7e19256c468e3b77293bbb895, type: 3}
+  price: 65
+  category: FpsItem
+  tier: silver
+  maxOwned: 1
+  hidden: 0
+  payload: {fileID: 11400000, guid: d2a0edcd77ed47c69fbd6b2dabf2a8a3, type: 2}

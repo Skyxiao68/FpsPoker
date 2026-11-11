@@ -5,6 +5,22 @@ using UnityEngine;
 
 public static class FpsItemCombatHandler
 {
+    public static bool HasItem(
+        IReadOnlyList<FpsItemDefinition> items,
+        ItemId itemId)
+    {
+        if (items == null || itemId == ItemId.None)
+            return false;
+
+        for (int i = 0; i < items.Count; i++)
+        {
+            if (items[i] != null && items[i].ItemId == itemId)
+                return true;
+        }
+
+        return false;
+    }
+
     public static FpsItemDefinition[] GetOwnedItems(
         ShopCatalog catalog,
         PlayerInventory inventory)
