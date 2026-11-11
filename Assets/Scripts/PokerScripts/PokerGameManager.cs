@@ -56,17 +56,21 @@ public class PokerGameManager : MonoBehaviour
     /// </summary>
     public bool AwaitingPlayerMatch { get; private set; } = false;
 
-    private int swapsRemainingThisHand = 0;
+    private int swapsUsedThisHand = 0;
 
-    /// <summary>本手牌剩余的换牌次数</summary>
-    public int SwapsRemaining => swapsRemainingThisHand;
+    /// <summary>
+    /// 本手牌还剩几次换牌。这个是**实时算**的：换牌工具是永久的（Ben 2026-11-08 定），
+    /// 道具可能在一手牌中途才买到，用库存快照会让玩家等下一手才生效。
+    /// </summary>
+    public int SwapsRemaining =>
+        Mathf.Max(0, PokerItemTraits.OwnedSwapsPerHand() - swapsUsedThisHand);
 
     /// <summary>当前是否可以换牌</summary>
     public bool CanSwapCard =>
         State == PokerState.PlayerTurn
         && !IsDealing
         && !AwaitingPlayerMatch
-        && swapsRemainingThisHand > 0;
+        && SwapsRemaining > 0;
 
     // ========== Chip and Betting State ==========
 
@@ -89,6 +93,12 @@ public class PokerGameManager : MonoBehaviour
 
     public HandResult PlayerBestHand { get; private set; } // Player's best 5-card hand at showdown.
     public HandResult EnemyBestHand { get; private set; } // Enemy's best 5-card hand at showdown.
+
+    /// <summary>
+    /// 本手玩家加注次数。加注惯性（Momentum）在 ItemEffectBridge 里读它算倍率加成，
+    /// 所以放在静态属性上，免得为了一个计数再传一遍参数。
+    /// </summary>
+    public static int LastHandRaiseCount { get; private set; }
 
     // ========== Private Fields ==========
 
@@ -174,6 +184,7 @@ public class PokerGameManager : MonoBehaviour
         playerHasRaised = false;
         AwaitingPlayerMatch = false;
         playerRaiseCount = 0;
+        LastHandRaiseCount = 0;
         playerTotalActions = 0;
         IsDealing = false;
         Result = PokerResult.None;
@@ -224,12 +235,22 @@ public class PokerGameManager : MonoBehaviour
         PlayerHand.Add(deck.Draw());
         EnemyHand.Add(deck.Draw());
 
+        // 六张取五：多发的 hole card 只给玩家。摊牌时 HandEvaluator 会从所有牌里挑最好的五张。
+        for (int i = 0; i < PokerItemTraits.ExtraHoleCards(); i++)
+            PlayerHand.Add(deck.Draw());
+
         LogMessage($"Your hand: {CardsText(PlayerHand)}");
 
-        swapsRemainingThisHand =
-            PlayerInventory.Instance != null
-                ? PlayerInventory.Instance.GetCount(ItemId.CardSwapTicket)
-                : 0;
+        // 预知（金）：每手开头就把牌堆顶 3 张亮出来，不用先点换牌。
+        if (PokerItemTraits.PrecogPeekCount() > 0)
+        {
+            string top = PeekDeckTop(PokerItemTraits.PrecogPeekCount());
+            if (!string.IsNullOrEmpty(top))
+                LogMessage($"Deck top: {top}", LogKind.System);
+        }
+
+        // 换牌次数不再按库存快照，改成每手清零「已用次数」（见 SwapsRemaining）。
+        swapsUsedThisHand = 0;
         // Begin the Pre-Flop betting round with the player acting first.
         CurrentStreet = Street.PreFlop;
         StartPlayerTurn();
@@ -254,16 +275,12 @@ public class PokerGameManager : MonoBehaviour
         Card oldCard = PlayerHand[handIndex];
         Card newCard = deck.Draw();
         PlayerHand[handIndex] = newCard;
-        swapsRemainingThisHand--;
+        swapsUsedThisHand++;
 
-        // 换牌成功才算真正花掉一张券。本手次数只是开局时的库存快照（:229），
-        // 这里同步扣一次库存，否则券永远不减，一张券能无限换牌。
-        if (PlayerInventory.Instance != null && PlayerInventory.Instance.Has(ItemId.CardSwapTicket))
-        {
-            PlayerInventory.Instance.Remove(ItemId.CardSwapTicket);
-        }
+        // 换牌工具是永久的（Ben 2026-11-08 定），这里不扣库存——
+        // 每手用掉几次记在 swapsUsedThisHand，开局清零（见 PrepareHand）。
 
-        LogMessage($"Swapped {CardText(oldCard)} for {CardText(newCard)}. Swaps left: {swapsRemainingThisHand}.", LogKind.Player);
+        LogMessage($"Swapped {CardText(oldCard)} for {CardText(newCard)}. Swaps left: {SwapsRemaining}.", LogKind.Player);
         OnStateChanged?.Invoke();
     }
 
@@ -354,6 +371,7 @@ public class PokerGameManager : MonoBehaviour
         playerHasRaised = true;
 
         playerRaiseCount++;
+        LastHandRaiseCount = playerRaiseCount;
         playerTotalActions++;
 
         LogMessage($"You raise {amount}. Pot: {Pot}.", LogKind.Player);
@@ -712,7 +730,7 @@ public class PokerGameManager : MonoBehaviour
         // Combine each player's hole cards with the community cards.
         List<Card> playerAll = new List<Card>(PlayerHand);
         playerAll.AddRange(CommunityCards);
-        PlayerBestHand = HandEvaluator.Evaluate(playerAll);
+        PlayerBestHand = HandEvaluator.EvaluateWithItems(playerAll);
 
         List<Card> enemyAll = new List<Card>(EnemyHand);
         enemyAll.AddRange(CommunityCards);
@@ -724,6 +742,25 @@ public class PokerGameManager : MonoBehaviour
 
         // Compare hands: >0 player wins, <0 enemy wins, 0 tie.
         int cmp = CompareHands(PlayerBestHand, EnemyBestHand);
+
+        // 单对升格：只要这手是「一对」，对手也是一对，就判你赢（点数大小不再比较）。
+        // 对手是两对或更强时照常输 —— 这条道具抬的是单对之间的胜负，不是牌型等级。
+        if (cmp != 0
+            && PokerItemTraits.HasPairUp()
+            && PlayerBestHand.handType == HandType.OnePair
+            && EnemyBestHand.handType == HandType.OnePair)
+        {
+            cmp = 1;
+            LogMessage("Pair Up: your pair counts as two pair — the hand is yours.", LogKind.Street);
+        }
+
+        // 断平：平局时判你赢（不split，直接进决斗）。
+        // 放在上面 Pair Up 之后、真正的平局分支之前，平局就变成你赢。
+        if (cmp == 0 && PokerItemTraits.HasChopBreaker())
+        {
+            cmp = 1;
+            LogMessage("Chop Breaker: a split counts as your win.", LogKind.Street);
+        }
 
         if (cmp == 0)
         {
@@ -819,6 +856,37 @@ public class PokerGameManager : MonoBehaviour
         State = PokerState.HandEnded;
         OnStateChanged?.Invoke();
         OnHandEnded?.Invoke();
+    }
+
+    /// <summary>保险用：把一笔钱退回给玩家（不动底池）。</summary>
+    public void RefundToPlayer(int amount)
+    {
+        if (amount <= 0)
+            return;
+
+        PlayerChips += amount;
+        LogMessage($"Insurance refunds {amount} chips.", LogKind.Player);
+        OnStateChanged?.Invoke();
+    }
+
+    /// <summary>预知用：牌堆顶接下来 n 张牌的文字形式，例如 "A♠ K♥ 7♦"。</summary>
+    public string PeekDeckTop(int count)
+    {
+        if (deck == null || count <= 0)
+            return string.Empty;
+
+        var top = deck.PeekTop(count);
+        if (top.Count == 0)
+            return string.Empty;
+
+        var sb = new System.Text.StringBuilder();
+        for (int i = 0; i < top.Count; i++)
+        {
+            if (i > 0)
+                sb.Append(' ');
+            sb.Append(top[i].ToString());
+        }
+        return sb.ToString();
     }
 
     // ========== Utility ==========

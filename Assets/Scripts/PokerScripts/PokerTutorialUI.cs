@@ -259,10 +259,6 @@ public partial class PokerTutorialUI : MonoBehaviour
                     : "base move speed",
             };
 
-        float max = 1f;
-        for (int i = 0; i < 4; i++)
-            max = Mathf.Max(max, values[i]);
-
         for (int i = 0; i < 4; i++)
         {
             bool on = hasMine;
@@ -276,7 +272,7 @@ public partial class PokerTutorialUI : MonoBehaviour
             helpRowBar[i].fillAmount = 1f;
             RectTransform fill = helpRowBar[i].rectTransform;
             fill.anchorMin = Vector2.zero;
-            fill.anchorMax = new Vector2(on ? Mathf.Clamp01(values[i] / max) : 0f, 1f);
+            fill.anchorMax = new Vector2(on ? PokerStatUnits.BarFill(i, values[i]) : 0f, 1f);
             fill.offsetMin = Vector2.zero;
             fill.offsetMax = Vector2.zero;
 

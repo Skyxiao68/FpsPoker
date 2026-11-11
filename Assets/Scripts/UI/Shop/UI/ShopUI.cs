@@ -78,19 +78,31 @@ namespace PokerShop
                 rt.anchoredPosition = Vector2.zero;
                 rt.localScale = Vector3.one;
 
-                v.Setup(item, _shop.AtLimit(item), _shop.CanAfford(item), () => _shop.TryPurchase(item.id));
+                v.Setup(item, _shop.AtLimit(item), _shop.CanAfford(item), () => _shop.TryPurchase(item.id),
+                        () => SellItem(item), _shop.RefundValue(item), _shop.OwnedCount(item) > 0);
                 _spawned.Add(v.gameObject);
             }
         }
 
         void OnBought(ShopItem i) => Msg($"Purchased {i.displayName}!");
+
+        /// <summary>卖掉 1 个：退原价一半（ShopService.RefundValue）。</summary>
+        void SellItem(ShopItem i)
+        {
+            var r = _shop.TrySell(i.id);
+            Msg(r == PurchaseResult.Success
+                ? $"Sold {i.displayName} (+{_shop.RefundValue(i)})."
+                : "You don't own that.");
+        }
         void OnFail(ShopItem i, PurchaseResult r) => Msg(r switch
         {
             PurchaseResult.NotEnoughFunds => "Not enough chips.",
+            PurchaseResult.BelowBuyIn => $"Too few chips left to cover the {BuyInHint()} buy-in.",
             PurchaseResult.AtLimit => "You can't carry any more of these.",
             PurchaseResult.Closed => "Shop is closed.",
             _ => "Purchase failed."
         });
+        string BuyInHint() => PokerBuyInReserve.Required().ToString();
         void Msg(string s) { if (messageText) messageText.text = s; }
     }
 }

@@ -14,9 +14,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PokerShop.ShopItem
   id: double_swap
   displayName: Double Swap
-  description: Swap up to two cards from your hand.
+  description: 'Swap up to two hand cards every hand. Permanent tool: never used up.'
   icon: {fileID: 0}
-  price: 65
+  price: 110
   category: Cards
   tier: 
   maxOwned: 1

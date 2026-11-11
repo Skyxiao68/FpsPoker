@@ -14,11 +14,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PokerShop.ShopItem
   id: card_swap
   displayName: Card Swap
-  description: Swap one card from your hand.
+  description: 'Swap one hand card, once every hand. Permanent tool: never used up.'
   icon: {fileID: 0}
-  price: 25
+  price: 65
   category: Cards
   tier: 
-  maxOwned: 2
+  maxOwned: 1
   hidden: 0
   payload: {fileID: 11400000, guid: 4aa6a8002eb5e4a40803c39f13d178ad, type: 2}

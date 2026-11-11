@@ -177,6 +177,18 @@ public class PokerCombatBridge : MonoBehaviour
 
         // 计算 CombatStats
         CombatStats playerStats = ItemEffectBridge.GetCombatStats(poker.PlayerBestHand);
+        // 赢一手 ⇒ 最高项不动，其余三项各按自身总量 +15%（Ben 2026-11-10）。
+        // 对手永远没有这份奖励；即使对手已经付不起买入、本关即将结束，这一场决斗照打、奖励照发。
+        if (poker.Result == PokerResult.PlayerWinsShowdown)
+        {
+            playerStats = ItemEffectBridge.ApplyWinBonus(
+                playerStats, out int bonusIndex, out float bonusAmount, out float bonusRatio);
+            string[] names = { "ATK", "HP", "ROF", "SPD" };
+            Debug.Log(
+                $"[Bridge] 赢手奖励：最高项 {names[bonusIndex]}（×{bonusRatio:0.00}）不变，"
+                    + $"其余三项各 +{ItemEffectBridge.WinBonusFactor * 100f:0}%（共 +{bonusAmount:0.#}）"
+            );
+        }
         FpsItemDefinition[] fpsItems = FpsItemCombatHandler.GetOwnedItems(
             fpsItemCatalog, PlayerInventory.Instance);
         CombatStats enemyStats = CombatStatsFactory.Compute(poker.EnemyBestHand); // 敌人不应用玩家物品

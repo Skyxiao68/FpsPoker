@@ -236,6 +236,91 @@ public static class HandEvaluator
     }
 
     /// <summary>
+    /// 玩家侧的评估入口：在普通评估之上叠加持有道具的效果。
+    /// 目前只有「四张同花」（4 张同花色即按同花结算）。
+    /// 敌人仍走 <see cref="Evaluate"/>，不受玩家道具影响。
+    /// </summary>
+    public static HandResult EvaluateWithItems(List<Card> cards)
+    {
+        HandResult best = Evaluate(cards);
+        if (best == null || !PokerItemTraits.HasFourFlush())
+            return best;
+
+        HandResult fourFlush = EvaluateFourFlush(cards);
+        if (fourFlush == null)
+            return best;
+
+        return CompareTiebreakers(fourFlush.tiebreakers, best.tiebreakers) > 0 ? fourFlush : best;
+    }
+
+    /// <summary>
+    /// 四张同花：找出张数够 FourFlushSuitCount 的花色，按「同花」给出结果。
+    /// 同花张数不够五张时用点数最高的其它牌补齐，比较按同花规则（只看同花色的点数）。
+    /// 没有任何花色凑够张数时返回 null。
+    /// </summary>
+    public static HandResult EvaluateFourFlush(List<Card> cards)
+    {
+        if (cards == null || cards.Count < PokerItemTraits.FourFlushSuitCount)
+            return null;
+
+        Suit bestSuit = Suit.Spades;
+        List<Card> bestSuitCards = null;
+        int bestCount = 0;
+
+        Suit[] suits = { Suit.Spades, Suit.Hearts, Suit.Clubs, Suit.Diamonds };
+        foreach (Suit s in suits)
+        {
+            List<Card> ofSuit = new List<Card>();
+            foreach (Card c in cards)
+                if (c.Suit == s)
+                    ofSuit.Add(c);
+
+            if (ofSuit.Count > bestCount)
+            {
+                bestCount = ofSuit.Count;
+                bestSuit = s;
+                bestSuitCards = ofSuit;
+            }
+        }
+
+        if (bestCount < PokerItemTraits.FourFlushSuitCount)
+            return null;
+
+        bestSuitCards.Sort((x, y) => y.GetPokerValue().CompareTo(x.GetPokerValue()));
+
+        List<Card> five = new List<Card>(bestSuitCards);
+        if (five.Count < 5)
+        {
+            List<Card> others = new List<Card>();
+            foreach (Card c in cards)
+                if (c.Suit != bestSuit)
+                    others.Add(c);
+            others.Sort((x, y) => y.GetPokerValue().CompareTo(x.GetPokerValue()));
+            for (int i = 0; i < others.Count && five.Count < 5; i++)
+                five.Add(others[i]);
+        }
+        if (five.Count > 5)
+            five.RemoveRange(5, five.Count - 5);
+
+        // 比较时按点数降序，保证 tiebreakers 与真实同花的排法一致。
+        five.Sort((x, y) => y.GetPokerValue().CompareTo(x.GetPokerValue()));
+
+        HandResult result = new HandResult();
+        result.handType = HandType.Flush;
+        result.bestFive = five;
+
+        int[] tb = new int[6];
+        tb[0] = (int)HandType.Flush;
+        // 只把「同花色的那几张」写进比较键，第 5 位留 0：
+        // 这样任何真同花（5 张同花色）都稳压四张同花，而四张同花之间仍按点数比。
+        int suitedCount = Mathf.Min(bestCount, 5);
+        for (int i = 0; i < 5; i++)
+            tb[i + 1] = i < suitedCount ? bestSuitCards[i].GetPokerValue() : 0;
+        result.tiebreakers = tb;
+        return result;
+    }
+
+    /// <summary>
     /// Evaluates exactly 5 cards and determines the hand type.
     /// Checks for flush, straight, and rank counts to classify the hand.
     /// </summary>
@@ -399,8 +484,7 @@ public static class HandEvaluator
     /// <summary>
     /// Checks if all cards in the list share the same suit.
     /// </summary>
-    private static bool IsFlush(List<Card> five)
-    {
+    private static bool IsFlush(List<Card> five)    {
         Suit s = five[0].Suit;
         for (int i = 1; i < five.Count; i++)
         {

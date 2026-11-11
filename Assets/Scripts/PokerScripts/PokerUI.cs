@@ -16,8 +16,14 @@ public class PokerUI : MonoBehaviour
     private Text enemyHandText;
     private Text communityText; // 改成显示公共牌牌型文字
     private Text[] communitySlots = new Text[5];
-    private Text[] playerSlots = new Text[2];
+    private Text[] playerSlots = new Text[3];
     private Text[] enemySlots = new Text[2];
+
+    /// <summary>How many enemy cards are shown face up while the hand is still running (Cheat Glove).</summary>
+    private int enemyRevealCount;
+
+    /// <summary>Warm tint for a card that is only visible because of an item.</summary>
+    private static readonly Color REVEAL_TINT = new Color(1f, 0.93f, 0.72f, 1f);
     private Text sliderMinLabel;
     private Text sliderMaxLabel;
     private Text playerHandTypeText;
@@ -97,12 +103,17 @@ public class PokerUI : MonoBehaviour
 
     private Button swapButton;
     private GameObject swapChoiceRow;
+    private Text swapPeekText;
     private Transform canvasRoot;
     private Button swapCard1Button;
     private Button swapCard2Button;
+    private Button swapCard3Button;
 
     // M3 引导层（? 参照面板 + 本手结果行），自建 Canvas order 300。
     private PokerTutorialUI tutorial;
+
+    // 牌桌自己的道具面板（共享 HUD 在 poker 场景已关）。
+    private PokerItemsPanel itemsPanel;
 
     // 教程场景按名字定位牌桌上的控件（只读，不改行为）。
     public Button CheckButton { get { return checkButton; } }
@@ -437,6 +448,14 @@ public class PokerUI : MonoBehaviour
             new Vector2(0.8813f, 0.216f),
             new Vector2(0.966f, 0.4327f)
         );
+        // 第三张手牌：只有「六张取五」时才会显示（LayoutPlayerSlots 负责排布与显隐）。
+        playerSlots[2] = CreateCardSlot(
+            canvasGO.transform,
+            "PlayerSlot3",
+            new Vector2(0.8813f, 0.216f),
+            new Vector2(0.966f, 0.4327f)
+        );
+        playerSlots[2].transform.parent.gameObject.SetActive(false);
 
         // 牌型说明放在玩家面板内部（面板下沿之上），不要吊在面板外面
         playerHandTypeText = CreateText(
@@ -717,6 +736,11 @@ public class PokerUI : MonoBehaviour
         // 放在 BuildUI 末尾：此时 poker 已注入（Initialize 里先 poker = manager 再 BuildUI）。
         tutorial = gameObject.AddComponent<PokerTutorialUI>();
         tutorial.Initialize(poker);
+
+        // ---------- 道具面板（poker 专用）----------
+        // 共享的 FpsOwnedItemsHud 在 poker 场景里已关掉，这里给牌桌一份紧凑版本。
+        itemsPanel = gameObject.AddComponent<PokerItemsPanel>();
+        itemsPanel.Initialize(canvasGO.transform);
     }
 
     // =========================================================
@@ -783,6 +807,41 @@ public class PokerUI : MonoBehaviour
         return loaded;
     }
 
+    /// <summary>
+    /// 玩家手牌区的排布：手里有几张牌就摊几格（2 张或 3 张），
+    /// 「六张取五」多出来的那张不会挤成一条缝。没用的格子直接关掉。
+    /// </summary>
+    private void LayoutPlayerSlots(int count)
+    {
+        const float left = 0.7915f;
+        const float right = 0.966f;
+        const float gap = 0.0051f;
+
+        int shown = Mathf.Clamp(count, 1, playerSlots.Length);
+        float width = (right - left - gap * (shown - 1)) / shown;
+
+        for (int i = 0; i < playerSlots.Length; i++)
+        {
+            if (playerSlots[i] == null)
+                continue;
+
+            RectTransform rt = playerSlots[i].transform.parent as RectTransform;
+            if (rt == null)
+                continue;
+
+            bool visible = i < shown;
+            rt.gameObject.SetActive(visible);
+            if (!visible)
+                continue;
+
+            float x0 = left + i * (width + gap);
+            rt.anchorMin = new Vector2(x0, 0.216f);
+            rt.anchorMax = new Vector2(x0 + width, 0.4327f);
+            rt.offsetMin = Vector2.zero;
+            rt.offsetMax = Vector2.zero;
+        }
+    }
+
     private Text CreateCardSlot(Transform parent, string name, Vector2 aMin, Vector2 aMax)
     {
         GameObject go = new GameObject(name, typeof(RectTransform), typeof(Image));
@@ -837,7 +896,7 @@ public class PokerUI : MonoBehaviour
     /// Renders cards into slots. Cards present in <paramref name="bestFive"/> get an amber
     /// border so the player can see which cards their best hand is actually made of.
     /// </summary>
-    private void RenderSlots(Text[] slots, List<Card> cards, bool hidden, List<Card> bestFive)
+    private void RenderSlots(Text[] slots, List<Card> cards, bool hidden, List<Card> bestFive, int revealFirst = 0)
     {
         if (slots == null)
             return;
@@ -847,8 +906,12 @@ public class PokerUI : MonoBehaviour
             if (slots[i] == null)
                 continue;
 
+            // revealFirst is how many cards stay face up even though the whole hand is hidden.
+            bool hideThis = hidden && i >= revealFirst;
+            bool revealed = hidden && i < revealFirst;
+
             bool inBest = false;
-            if (!hidden && bestFive != null && i < count && cards[i] != null)
+            if (!hideThis && bestFive != null && i < count && cards[i] != null)
             {
                 foreach (Card c in bestFive)
                 {
@@ -864,7 +927,7 @@ public class PokerUI : MonoBehaviour
             Sprite sprite = null;
             string fallback = "";
 
-            if (hidden)
+            if (hideThis)
             {
                 sprite = LoadCardSprite(CardBackSprite);
                 fallback = "?";
@@ -889,8 +952,12 @@ public class PokerUI : MonoBehaviour
                 slots[i].text = fallback;
             }
 
-            slots[i].color = hidden ? TEXT_MUTED : Color.white;
-            StyleSlot(slots[i], art, inBest, hidden);
+            // A revealed card keeps the normal face, tinted so it reads as "seen through an item".
+            if (art != null)
+                art.color = revealed ? REVEAL_TINT : Color.white;
+
+            slots[i].color = hideThis ? TEXT_MUTED : Color.white;
+            StyleSlot(slots[i], art, inBest, hideThis);
         }
     }
 
@@ -1007,6 +1074,19 @@ public class PokerUI : MonoBehaviour
     // =========================================================
     // REFRESH
     // =========================================================
+    /// <summary>
+    /// Shows the first <paramref name="count"/> enemy cards face up while the hand is running.
+    /// Used by Cheat Glove; showdown and the end of the hand reveal everything anyway.
+    /// </summary>
+    public void SetEnemyReveal(int count)
+    {
+        count = Mathf.Clamp(count, 0, 2);
+        if (count == enemyRevealCount)
+            return;
+        enemyRevealCount = count;
+        RefreshUI();
+    }
+
     private void RefreshUI()
     {
         if (poker == null)
@@ -1044,6 +1124,7 @@ public class PokerUI : MonoBehaviour
                          + (poker.CommunityCards != null ? poker.CommunityCards.Count : 0);
         List<Card> highlightFive = knownCards > 5 ? playerBestFive : null;
 
+        LayoutPlayerSlots(poker.PlayerHand != null ? poker.PlayerHand.Count : 2);
         RenderSlots(playerSlots, poker.PlayerHand, false, highlightFive);
         RenderSlots(communitySlots, poker.CommunityCards, false, highlightFive);
         communityText.text = "";
@@ -1058,7 +1139,7 @@ public class PokerUI : MonoBehaviour
             revealEnemy
                 ? (poker.EnemyBestHand ?? EvaluateLive(poker.EnemyHand, poker.CommunityCards))
                 : null;
-        RenderSlots(enemySlots, poker.EnemyHand, !revealEnemy, enemyBest != null ? enemyBest.bestFive : null);
+        RenderSlots(enemySlots, poker.EnemyHand, !revealEnemy, enemyBest != null ? enemyBest.bestFive : null, enemyRevealCount);
 
         // 牌面已经是卡面图了，这里只留牌型名（颜色+位置已经说明它是「最好五张」），
         // 不再加 "Best five:" 前缀——加上去最长的那档会被挤到盒子外面。
@@ -1110,11 +1191,21 @@ public class PokerUI : MonoBehaviour
                 foldArmedAt = 0f;
         }
 
-        // Swap 按钮：只有在可以换牌时才亮
+        // Swap 按钮：持有换牌工具时始终显示（哪怕这手已经用完），
+        // 按钮上带剩余次数，玩家才知道还剩几次。没有工具则整块隐藏。
         if (swapButton != null)
         {
+            bool hasSwapTool = PokerItemTraits.OwnedSwapsPerHand() > 0;
+            bool showSwap = hasSwapTool && poker.State == PokerState.PlayerTurn && !poker.IsDealing;
+
+            swapButton.gameObject.SetActive(showSwap);
             swapButton.interactable = poker.CanSwapCard;
-            swapButton.gameObject.SetActive(poker.CanSwapCard);
+
+            Text swapLabel = swapButton.GetComponentInChildren<Text>();
+            if (swapLabel != null)
+                swapLabel.text = "Swap " + poker.SwapsRemaining;
+
+            DimLabel(swapButton, poker.CanSwapCard, TEXT_ON_DARK);
         }
 
         if (swapChoiceRow != null && swapChoiceRow.activeSelf && !poker.CanSwapCard)
@@ -1164,7 +1255,7 @@ public class PokerUI : MonoBehaviour
             all.AddRange(community);
         if (all.Count < 5)
             return null;
-        return HandEvaluator.Evaluate(all);
+        return HandEvaluator.EvaluateWithItems(all);
     }
 
     private string CardStrColored(List<Card> cards)
@@ -1349,6 +1440,20 @@ public class PokerUI : MonoBehaviour
         }
 
         RefreshSwapChoiceContent();
+
+        // 预知：换牌前把牌堆顶几张写出来，没这件道具就隐藏。
+        if (swapPeekText != null)
+        {
+            string peek = PokerItemTraits.PrecogPeekCount() > 0
+                ? poker.PeekDeckTop(PokerItemTraits.PrecogPeekCount())
+                : string.Empty;
+
+            bool show = !string.IsNullOrEmpty(peek);
+            swapPeekText.gameObject.SetActive(show);
+            if (show)
+                swapPeekText.text = "Deck top: " + peek;
+        }
+
         swapChoiceRow.SetActive(true);
     }
 
@@ -1400,13 +1505,26 @@ public class PokerUI : MonoBehaviour
             16
         ).color = new Color(0.65f, 0.65f, 0.65f);
 
+        // ---- 预知：牌堆顶预览（只有持有该道具时才显示） ----
+        swapPeekText = CreateText(
+            swapChoiceRow.transform,
+            "SwapPeek",
+            "",
+            new Vector2(0.28f, 0.58f),
+            new Vector2(0.72f, 0.62f),
+            TextAnchor.MiddleCenter,
+            18
+        );
+        swapPeekText.color = new Color(0.95f, 0.78f, 0.30f);
+        swapPeekText.gameObject.SetActive(false);
+
         // ---- 卡片 1 ----
         swapCard1Button = CreateButton(
             swapChoiceRow.transform,
             "SwapCard1",
             "—",
-            new Vector2(0.31f, 0.41f),
-            new Vector2(0.49f, 0.51f),
+            new Vector2(0.305f, 0.41f),
+            new Vector2(0.435f, 0.51f),
             new Color(0.45f, 0.30f, 0.65f),
             () =>
             {
@@ -1420,12 +1538,27 @@ public class PokerUI : MonoBehaviour
             swapChoiceRow.transform,
             "SwapCard2",
             "—",
-            new Vector2(0.51f, 0.41f),
-            new Vector2(0.69f, 0.51f),
+            new Vector2(0.445f, 0.41f),
+            new Vector2(0.575f, 0.51f),
             new Color(0.45f, 0.30f, 0.65f),
             () =>
             {
                 poker.PlayerSwapCard(1);
+                swapChoiceRow.SetActive(false);
+            }
+        );
+
+        // ---- 卡片 3（只有「六张取五」才出现）----
+        swapCard3Button = CreateButton(
+            swapChoiceRow.transform,
+            "SwapCard3",
+            "—",
+            new Vector2(0.585f, 0.41f),
+            new Vector2(0.715f, 0.51f),
+            new Color(0.45f, 0.30f, 0.65f),
+            () =>
+            {
+                poker.PlayerSwapCard(2);
                 swapChoiceRow.SetActive(false);
             }
         );
@@ -1452,6 +1585,15 @@ public class PokerUI : MonoBehaviour
 
         SetButtonLabel(swapCard1Button, LabelForHandIndex(0));
         SetButtonLabel(swapCard2Button, LabelForHandIndex(1));
+
+        // 第三张只有「六张取五」才有，手牌不够时把按钮藏起来。
+        if (swapCard3Button != null)
+        {
+            bool hasThird = poker.PlayerHand != null && poker.PlayerHand.Count > 2;
+            swapCard3Button.gameObject.SetActive(hasThird);
+            if (hasThird)
+                SetButtonLabel(swapCard3Button, LabelForHandIndex(2));
+        }
     }
 
     private string LabelForHandIndex(int i)

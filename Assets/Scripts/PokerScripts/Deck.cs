@@ -80,6 +80,18 @@ public class Deck
     }
 
     /// <summary>
+    /// 预知用：只看不回，返回接下来 n 张牌（不足就返回剩下的）。
+    /// 不会推进 drawIndex。
+    /// </summary>
+    public System.Collections.Generic.List<Card> PeekTop(int count)
+    {
+        var result = new System.Collections.Generic.List<Card>();
+        for (int i = drawIndex; i < cards.Count && result.Count < count; i++)
+            result.Add(cards[i]);
+        return result;
+    }
+
+    /// <summary>
     /// Returns the number of cards remaining in the deck (not yet drawn).
     /// </summary>
     public int RemainingCount()
