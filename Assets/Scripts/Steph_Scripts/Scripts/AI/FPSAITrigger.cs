@@ -23,6 +23,7 @@ public class FpsAiTrigger : MonoBehaviour
     private int ammoAtTriggerPress;
     private int triggerPressFrame;
     private readonly RaycastHit[] shotHits = new RaycastHit[32];
+    private const float BodyHalfWidth = 0.35f;
 
     public bool IsFiring => triggerHeld;
 
@@ -106,9 +107,6 @@ public class FpsAiTrigger : MonoBehaviour
             weapon.Settings == null || weapon.FirePoint == null)
             return false;
 
-        if (aim.CurrentAimError > Mathf.Max(0f, personality.fireAngleTolerance))
-            return false;
-
         Transform eyes = characterController.CameraTransform;
         Vector3 toTarget = perception.AimPoint - eyes.position;
         float distance = toTarget.magnitude;
@@ -116,10 +114,25 @@ public class FpsAiTrigger : MonoBehaviour
         if (distance <= 0.0001f || distance > weapon.Settings.range)
             return false;
 
+        if (aim.CurrentAimError > FireTolerance(distance))
+            return false;
+
         if (!perception.HasLineOfSight(eyes.position, perception.AimPoint))
             return false;
 
         return HasClearFiringPath(eyes, distance, weapon);
+    }
+
+    private float FireTolerance(float distance)
+    {
+        float tolerance = Mathf.Max(0f, personality.fireAngleTolerance);
+        float discipline = Mathf.Clamp01(personality.shotDiscipline);
+        if (discipline <= 0f)
+            return tolerance;
+
+        float bodyAngle = Mathf.Max(0.6f,
+            Mathf.Atan2(BodyHalfWidth, Mathf.Max(0.5f, distance)) * Mathf.Rad2Deg);
+        return Mathf.Min(tolerance, Mathf.Lerp(tolerance, bodyAngle, discipline));
     }
 
     private bool HasClearFiringPath(Transform eyes, float distance, Weapon weapon)

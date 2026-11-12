@@ -15,7 +15,7 @@ public class WeaponSettings : ScriptableObject
     public int damage = 10;
 
     [Min(1f)]
-    public float headshotMultiplier = 1.5f;
+    public float headshotMultiplier = 1.75f;
 
     [Min(0f)]
     public float range = 1000f;

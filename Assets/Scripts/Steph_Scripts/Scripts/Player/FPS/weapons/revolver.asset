@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::WeaponSettings
   weaponName: revolver
   damage: 5
-  headshotMultiplier: 1.5
+  headshotMultiplier: 1.75
   range: 1000
   fireRate: 0.3
   isAutomatic: 0

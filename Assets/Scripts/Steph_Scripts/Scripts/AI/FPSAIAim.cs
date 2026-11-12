@@ -10,9 +10,14 @@ public class FpsAiAim : MonoBehaviour
     [SerializeField] private FPSPersonality personality;
 
     private float targetFirstSeenTime = -999f;
+    private float currentReactionTime;
     private bool hadTargetLastFrame;
     private bool hasValidAim;
     private int lastAimFrame = -1;
+    private Vector3 lastTrackedPoint;
+    private float lastTrackedTime = -999f;
+
+    private const float MinAnticipatedReaction = 0.1f;
 
     private float noiseSeedX;
     private float noiseSeedY;
@@ -48,6 +53,7 @@ public class FpsAiAim : MonoBehaviour
     public void Initialise(FPSPersonality assignedPersonality)
     {
         personality = assignedPersonality;
+        lastTrackedTime = -999f;
         ResetTarget();
     }
 
@@ -83,13 +89,19 @@ public class FpsAiAim : MonoBehaviour
         hasValidAim = false;
         CurrentAimError = 180f;
 
-        HandleReactionTimer(targetVisible);
+        HandleReactionTimer(targetVisible, worldPoint);
 
         if (targetVisible && !HasReacted)
         {
 
             characterController.SetLookInput(Vector2.zero);
             return;
+        }
+
+        if (targetVisible)
+        {
+            lastTrackedPoint = worldPoint;
+            lastTrackedTime = Time.time;
         }
 
         Vector3 aimPoint =
@@ -159,7 +171,8 @@ public class FpsAiAim : MonoBehaviour
             {
                 // Counter most of the known spray, while retaining the
                 // personality's turn speed and natural aim error.
-                errorDegrees -= weapon.ShotOffsetDegrees * 0.7f;
+                errorDegrees -= weapon.ShotOffsetDegrees *
+                    Mathf.Clamp01(personality.recoilControl);
             }
             errorDegrees += CalculateAimWobble();
         }
@@ -168,7 +181,7 @@ public class FpsAiAim : MonoBehaviour
     }
 
 
-    private void HandleReactionTimer(bool targetVisible)
+    private void HandleReactionTimer(bool targetVisible, Vector3 worldPoint)
     {
         if (!targetVisible)
         {
@@ -180,13 +193,38 @@ public class FpsAiAim : MonoBehaviour
         {
             // Target just appeared - start the reaction clock.
             targetFirstSeenTime = Time.time;
+            float baseReaction = Mathf.Max(0f, personality.reactionTime);
+            currentReactionTime = Mathf.Max(
+                Mathf.Min(MinAnticipatedReaction, baseReaction),
+                baseReaction * (1f - 0.5f * CalculateAnticipation(worldPoint)));
         }
 
         hadTargetLastFrame = targetVisible;
 
         HasReacted =
-            Time.time - targetFirstSeenTime >=
-                Mathf.Max(0f, personality.reactionTime);
+            Time.time - targetFirstSeenTime >= currentReactionTime;
+    }
+
+    private float CalculateAnticipation(Vector3 worldPoint)
+    {
+        float sense = Mathf.Clamp01(personality.gameSense);
+        if (sense <= 0f)
+            return 0f;
+
+        float angleToTarget = Vector3.Angle(Eyes.forward, worldPoint - Eyes.position);
+        float preAimed = Mathf.InverseLerp(30f, 8f, angleToTarget);
+
+        float rememberedPeek = 0f;
+        float window = Mathf.Max(0.5f, personality.memoryDuration);
+        float age = Time.time - lastTrackedTime;
+        if (age >= 0f && age <= window)
+        {
+            float closeness = Mathf.InverseLerp(4f, 1f,
+                Vector3.Distance(worldPoint, lastTrackedPoint));
+            rememberedPeek = closeness * (1f - age / window);
+        }
+
+        return sense * Mathf.Max(preAimed, rememberedPeek);
     }
 
 

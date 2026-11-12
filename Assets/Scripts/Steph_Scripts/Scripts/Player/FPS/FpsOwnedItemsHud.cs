@@ -14,6 +14,11 @@ public class FpsOwnedItemsHud : MonoBehaviour
     private static ShopCatalog catalog;
     private static FpsItemDefinition[] combatItems;
 
+    private const float PanelWidth = 370f;
+    private const float RowHeight = 58f;
+    private const float RowsTop = 54f;
+    private const float MaxPanelHeight = 560f;
+
     private Canvas overlayCanvas;
     private RectTransform panel;
     private TextMeshProUGUI heading;
@@ -82,36 +87,16 @@ public class FpsOwnedItemsHud : MonoBehaviour
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1280f, 720f);
 
-        GameObject panelObject = new GameObject("Items Panel",
-            typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+        GameObject panelObject = new GameObject("Items Panel", typeof(RectTransform));
         panel = panelObject.GetComponent<RectTransform>();
         panel.SetParent(transform, false);
-        Image background = panelObject.GetComponent<Image>();
-        background.color = new Color(0.025f, 0.055f, 0.07f, 0.94f);
-        background.raycastTarget = false;
 
-        Outline outline = panelObject.AddComponent<Outline>();
-        outline.effectColor = new Color(0.15f, 0.72f, 0.72f, 0.8f);
-        outline.effectDistance = new Vector2(1.5f, -1.5f);
-
-        GameObject accentObject = new GameObject("Loadout Accent",
-            typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
-        RectTransform accentRect = accentObject.GetComponent<RectTransform>();
-        accentRect.SetParent(panel, false);
-        accentRect.anchorMin = accentRect.anchorMax = new Vector2(0f, 1f);
-        accentRect.pivot = new Vector2(0f, 1f);
-        accentRect.anchoredPosition = Vector2.zero;
-        accentRect.sizeDelta = new Vector2(5f, 74f);
-        Image accentImage = accentObject.GetComponent<Image>();
-        accentImage.color = new Color(0.15f, 0.86f, 0.8f, 1f);
-        accentImage.raycastTarget = false;
-
-        heading = CreateText("Items Heading", "FPS LOADOUT", 24f,
-            new Color(0.9f, 0.98f, 0.97f), new Vector2(18f, -10f),
-            new Vector2(340f, 32f), true);
-        subtitle = CreateText("Items Subheading", "ACTIVE THIS DUEL", 13f,
-            new Color(0.27f, 0.83f, 0.78f), new Vector2(19f, -42f),
-            new Vector2(340f, 20f), true);
+        heading = CreateText("Items Heading", "FPS LOADOUT", 20f,
+            new Color(0.9f, 0.98f, 0.97f), new Vector2(4f, -4f),
+            new Vector2(300f, 26f), true);
+        subtitle = CreateText("Items Subheading", "ACTIVE THIS DUEL", 11.5f,
+            new Color(0.27f, 0.83f, 0.78f), new Vector2(5f, -30f),
+            new Vector2(300f, 18f), true);
 
         GameObject rowsObject = new GameObject("FPS Item Rows", typeof(RectTransform));
         rowsRoot = rowsObject.GetComponent<RectTransform>();
@@ -165,7 +150,7 @@ public class FpsOwnedItemsHud : MonoBehaviour
         panel.anchoredPosition = poker
             ? new Vector2(-18f, -60f) : new Vector2(-28f, -28f);
         panel.sizeDelta = poker
-            ? new Vector2(340f, 230f) : new Vector2(440f, 180f);
+            ? new Vector2(340f, 230f) : new Vector2(PanelWidth, 160f);
         FindCatalog();
         RefreshNow();
     }
@@ -357,17 +342,19 @@ public class FpsOwnedItemsHud : MonoBehaviour
         for (int i = rowsRoot.childCount - 1; i >= 0; i--)
             Destroy(rowsRoot.GetChild(i).gameObject);
 
-        const float rowHeight = 72f;
-        panel.sizeDelta = new Vector2(440f, 84f + entries.Count * rowHeight);
+        float panelHeight = RowsTop + entries.Count * RowHeight;
+        panel.sizeDelta = new Vector2(PanelWidth, panelHeight);
+        float fit = panelHeight > MaxPanelHeight ? MaxPanelHeight / panelHeight : 1f;
+        panel.localScale = new Vector3(fit, fit, 1f);
         subtitle.text = entries.Count == 1
             ? "1 ITEM ACTIVE THIS DUEL"
             : $"{entries.Count} ITEMS ACTIVE THIS DUEL";
 
         for (int i = 0; i < entries.Count; i++)
-            CreateItemRow(entries[i], i, rowHeight);
+            CreateItemRow(entries[i], i);
     }
 
-    private void CreateItemRow(ItemDisplayEntry entry, int index, float rowHeight)
+    private void CreateItemRow(ItemDisplayEntry entry, int index)
     {
         GameObject rowObject = new GameObject("FPS Item Row",
             typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
@@ -376,10 +363,10 @@ public class FpsOwnedItemsHud : MonoBehaviour
         rowRect.anchorMin = new Vector2(0f, 1f);
         rowRect.anchorMax = new Vector2(1f, 1f);
         rowRect.pivot = new Vector2(0.5f, 1f);
-        rowRect.anchoredPosition = new Vector2(0f, -72f - index * rowHeight);
-        rowRect.sizeDelta = new Vector2(-24f, 66f);
+        rowRect.anchoredPosition = new Vector2(0f, -RowsTop - index * RowHeight);
+        rowRect.sizeDelta = new Vector2(0f, RowHeight - 5f);
         Image rowImage = rowObject.GetComponent<Image>();
-        rowImage.color = new Color(0.07f, 0.12f, 0.14f, 0.96f);
+        rowImage.color = new Color(0.07f, 0.12f, 0.14f, 0.9f);
         rowImage.raycastTarget = false;
 
         GameObject iconObject = new GameObject("Item Icon",
@@ -388,8 +375,8 @@ public class FpsOwnedItemsHud : MonoBehaviour
         iconRect.SetParent(rowRect, false);
         iconRect.anchorMin = iconRect.anchorMax = new Vector2(0f, 1f);
         iconRect.pivot = new Vector2(0f, 1f);
-        iconRect.anchoredPosition = new Vector2(10f, -6f);
-        iconRect.sizeDelta = new Vector2(54f, 54f);
+        iconRect.anchoredPosition = new Vector2(7f, -5f);
+        iconRect.sizeDelta = new Vector2(44f, 44f);
         Image icon = iconObject.GetComponent<Image>();
         icon.sprite = entry.icon;
         icon.preserveAspect = true;
@@ -397,13 +384,13 @@ public class FpsOwnedItemsHud : MonoBehaviour
         icon.raycastTarget = false;
 
         TextMeshProUGUI nameText = CreateRowText(rowRect, "Item Name",
-            entry.name, 20f, FontStyles.Bold, new Vector2(76f, -10f),
-            new Vector2(250f, 25f), Color.white);
+            entry.name, 17f, FontStyles.Bold, new Vector2(60f, -5f),
+            new Vector2(220f, 21f), Color.white);
         nameText.alignment = TextAlignmentOptions.MidlineLeft;
 
         TextMeshProUGUI descriptionText = CreateRowText(rowRect, "Item Description",
-            entry.description, 13.5f, FontStyles.Normal, new Vector2(76f, -35f),
-            new Vector2(330f, 30f), new Color(0.78f, 0.86f, 0.87f));
+            entry.description, 12f, FontStyles.Normal, new Vector2(60f, -26f),
+            new Vector2(PanelWidth - 70f, 26f), new Color(0.78f, 0.86f, 0.87f));
         descriptionText.alignment = TextAlignmentOptions.TopLeft;
         descriptionText.textWrappingMode = TextWrappingModes.Normal;
         descriptionText.maxVisibleLines = 2;
@@ -411,13 +398,13 @@ public class FpsOwnedItemsHud : MonoBehaviour
         if (entry.count > 1)
         {
             TextMeshProUGUI countText = CreateRowText(rowRect, "Item Count",
-                "x" + entry.count, 16f, FontStyles.Bold,
-                new Vector2(-12f, -10f), new Vector2(48f, 24f),
+                "x" + entry.count, 14f, FontStyles.Bold,
+                new Vector2(-8f, -6f), new Vector2(40f, 20f),
                 new Color(0.37f, 0.94f, 0.84f));
             RectTransform countRect = countText.rectTransform;
             countRect.anchorMin = countRect.anchorMax = Vector2.one;
             countRect.pivot = Vector2.one;
-            countRect.anchoredPosition = new Vector2(-12f, -10f);
+            countRect.anchoredPosition = new Vector2(-8f, -6f);
             countText.alignment = TextAlignmentOptions.MidlineRight;
         }
     }
@@ -547,7 +534,7 @@ public class FpsOwnedItemsHud : MonoBehaviour
             case ItemId.IronHeart:
                 return Describe("Iron Heart", "Adds FPS maximum health.", count);
             case ItemId.Headhunter:
-                return Describe("Headhunter", "Raises FPS headshot damage from 1.5x to 2x.", count);
+                return Describe("Headhunter", "Raises FPS headshot damage from 1.75x to 2.5x.", count);
             case ItemId.LifeSteal:
                 return Describe("LifeSteal", "Gain 2 health for every 10 damage dealt.", count);
             case ItemId.Marked:

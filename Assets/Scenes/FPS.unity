@@ -34631,6 +34631,7 @@ MonoBehaviour:
   - {fileID: 11400000, guid: c76da4194c6748dbb156168ef90dd017, type: 2}
   - {fileID: 11400000, guid: b58d02f060924e21a30e8e86a1784af1, type: 2}
   - {fileID: 11400000, guid: d2a0edcd77ed47c69fbd6b2dabf2a8a3, type: 2}
+  - {fileID: 11400000, guid: 117c25ad68b9428f9ad261e5dc1f13b2, type: 2}
 --- !u!4 &1058858655
 Transform:
   m_ObjectHideFlags: 0
@@ -37122,6 +37123,11 @@ MonoBehaviour:
   agent: {fileID: 1218645636}
   personality: {fileID: 11400000, guid: 69d5a3f17d12c4148accff69d0f6f498, type: 2}
   arriveDistance: 1.2
+  recoverySearchRadius: 8
+  offMeshGraceTime: 0.25
+  offMeshSnapTime: 2.5
+  stallBackOffTime: 1.25
+  stallSnapTime: 3.5
 --- !u!114 &1218645647
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -58991,7 +58997,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8939548257129462858, guid: a11f9b615e8afe54588fee2ffebb3cf9, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 0.68283916
+      value: -0.113
       objectReference: {fileID: 0}
     - target: {fileID: 8939548257129462858, guid: a11f9b615e8afe54588fee2ffebb3cf9, type: 3}
       propertyPath: m_LocalPosition.z

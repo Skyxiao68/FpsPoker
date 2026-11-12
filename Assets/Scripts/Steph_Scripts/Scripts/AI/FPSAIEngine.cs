@@ -60,8 +60,12 @@ public class FPSAIEngine : MonoBehaviour
     private Vector3 underFireThreatEye;
     private Transform underFireThreatRoot;
     private readonly RaycastHit[] coverHits = new RaycastHit[32];
+    private float glanceSeed;
+
+    private const float PreAimHeight = 1.55f;
 
     private float DecisionInterval => Mathf.Max(0.05f, personality.repathInterval);
+    private float GameSense => Mathf.Clamp01(personality.gameSense);
     private bool HasPatrolPoints => patrolPoints != null && patrolPoints.Length > 0;
     private AIState RestingState => HasPatrolPoints ? AIState.Patrol : AIState.Idle;
 
@@ -92,6 +96,7 @@ public class FPSAIEngine : MonoBehaviour
         health = GetComponent<Health>();
         characterController = GetComponent<FpsCharacterController>();
         orbitSide = Random.value < 0.5f ? -1f : 1f;
+        glanceSeed = Random.value;
     }
 
     private void OnEnable()
@@ -270,6 +275,8 @@ public class FPSAIEngine : MonoBehaviour
 
         EvaluateTransitions();
         RunCurrentState();
+
+        locomotion?.TickRecovery();
     }
 
     private void EvaluateTransitions()
@@ -684,7 +691,8 @@ public class FPSAIEngine : MonoBehaviour
         }
         else
         {
-            aim?.LookTowardDirection(underFireThreatPosition - transform.position);
+            aim?.LookTowardDirection(PreAimDirection(
+                underFireThreatPosition - transform.position, underFireThreatPosition));
             trigger?.Tick(false);
         }
     }
@@ -754,8 +762,34 @@ public class FPSAIEngine : MonoBehaviour
         locomotion.Tick(false, true, threat);
         Vector3 path = locomotion.CurrentPathDirection;
         if (!preserveCombatAim)
-            aim?.LookTowardDirection(path.sqrMagnitude > 0.01f
-                ? path : threat - transform.position);
+        {
+            Vector3 look = path.sqrMagnitude > 0.01f ? path : threat - transform.position;
+            if (IsWatchingThreat())
+                look = PreAimDirection(threat - transform.position, threat);
+            aim?.LookTowardDirection(look);
+        }
+    }
+
+    private bool IsWatchingThreat()
+    {
+        float sense = GameSense;
+        return sense > 0f &&
+            Mathf.Repeat(Time.time * 0.6f + glanceSeed, 1f) < sense * 0.75f;
+    }
+
+    private Vector3 PreAimDirection(Vector3 originalDirection, Vector3 groundPoint)
+    {
+        float sense = GameSense;
+        if (sense <= 0f || characterController == null ||
+            originalDirection.sqrMagnitude < 0.0001f)
+            return originalDirection;
+
+        Vector3 preAim = groundPoint + Vector3.up * PreAimHeight -
+            characterController.CameraTransform.position;
+        if (preAim.sqrMagnitude < 0.0001f)
+            return originalDirection;
+
+        return Vector3.Slerp(originalDirection.normalized, preAim.normalized, sense);
     }
 
     private bool HasCoverFrom(Vector3 source, Vector3 candidateEye, Transform threatRoot)
@@ -866,7 +900,8 @@ public class FPSAIEngine : MonoBehaviour
         }
 
         locomotion.Tick(false, true, searchFocus);
-        aim?.LookTowardDirection(searchFocus - characterController.CameraTransform.position);
+        aim?.LookTowardDirection(PreAimDirection(
+            searchFocus - characterController.CameraTransform.position, searchFocus));
     }
 
     private bool ChooseSearchDestination()
@@ -946,9 +981,11 @@ public class FPSAIEngine : MonoBehaviour
         Vector3 direction = focus - characterController.CameraTransform.position;
         if (direction.sqrMagnitude < 0.01f)
             direction = searchForward;
-        float width = searchUsesMemory
+        else
+            direction = PreAimDirection(direction, focus);
+        float width = (searchUsesMemory
             ? Mathf.Clamp(25f + perception.PossibleTravelDistance, 25f, 75f)
-            : 60f;
+            : 60f) * Mathf.Lerp(1f, 0.45f, GameSense);
         float sweep = Mathf.Sin((Time.time - stateEnterTime) *
             Mathf.Max(0.8f, personality.aimTurnSpeed / 140f)) * width;
         aim?.LookTowardDirection(Quaternion.AngleAxis(sweep, Vector3.up) * direction);
@@ -967,7 +1004,14 @@ public class FPSAIEngine : MonoBehaviour
 
     private void AimAtTarget()
     {
-        if (aim != null && perception != null)
-            aim.AimAt(perception.AimPoint, perception.TargetVelocity, perception.CanSeeTarget);
+        if (aim == null || perception == null)
+            return;
+
+        Vector3 aimPoint = perception.AimPoint;
+        float headBias = Mathf.Clamp01(personality.headAimBias);
+        if (headBias > 0f && perception.TryGetVisibleHeadPoint(out Vector3 headPoint))
+            aimPoint = Vector3.Lerp(aimPoint, headPoint, headBias);
+
+        aim.AimAt(aimPoint, perception.TargetVelocity, perception.CanSeeTarget);
     }
 }

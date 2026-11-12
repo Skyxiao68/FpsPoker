@@ -105,7 +105,7 @@ public class CombatSceneController : MonoBehaviour
             }
         }
 
-        ApplyStats(playerHealth, playerController, playerStats, 100, handoff.playerFpsItems);
+        ApplyStats(playerHealth, playerController, handoff.playerStats, 100, handoff.playerFpsItems);
         FPS_HUD playerHud = playerController != null
             ? playerController.GetComponent<FPS_HUD>() : null;
         if (playerHud != null)
@@ -226,10 +226,8 @@ public class CombatSceneController : MonoBehaviour
     private void ApplyEnemyLevelProgression(GameObject enemyInstance)
     {
         int extraLevels = Mathf.Max(0, currentLevel - 1);
-        if (extraLevels == 0)
-            return;
 
-        if (enemyHealth != null)
+        if (enemyHealth != null && extraLevels > 0)
         {
             long scaledHealth = (long)enemyHealth.MaxHealth + 25L * extraLevels;
             enemyHealth.SetMaxHealth((int)System.Math.Min(int.MaxValue, scaledHealth));
@@ -239,16 +237,7 @@ public class CombatSceneController : MonoBehaviour
         if (enemyAI == null || enemyAI.personality == null)
             return;
 
-        // Clone the prefab's personality so later levels never change the
-        // shared asset or another enemy's original tuning.
-        FPSPersonality original = enemyAI.personality;
-        runtimeEnemyPersonality = ScriptableObject.Instantiate(original);
-        runtimeEnemyPersonality.aimError = Mathf.Max(
-            Mathf.Min(0.3f, original.aimError),
-            original.aimError * Mathf.Pow(0.88f, extraLevels));
-        runtimeEnemyPersonality.fireAngleTolerance = Mathf.Max(
-            Mathf.Min(2.5f, original.fireAngleTolerance),
-            original.fireAngleTolerance * Mathf.Pow(0.96f, extraLevels));
+        runtimeEnemyPersonality = FpsAiDifficulty.CreateForLevel(enemyAI.personality, currentLevel);
         enemyAI.personality = runtimeEnemyPersonality;
         enemyAI.DistributePersonality();
     }
@@ -305,11 +294,11 @@ public class CombatSceneController : MonoBehaviour
         buffsText.color = new Color(1f, 0.9f, 0.7f, 1f);
         buffsText.raycastTarget = false;
         int extraLevels = Mathf.Max(0, currentLevel - 1);
-        string levelBuff = extraLevels > 0
-            ? $"LV {currentLevel}  +{25L * extraLevels} HP, improved aim"
-            : "LV 1";
-        buffsText.text = levelBuff + "\nPOKER " +
-            FPS_HUD.FormatPokerBuffs(enemyPokerStats);
+        string levelLine = $"LV {currentLevel}  {FpsAiDifficulty.TierName(currentLevel)}";
+        if (extraLevels > 0)
+            levelLine += $"  +{25L * extraLevels} HP";
+        buffsText.text = levelLine + "\n" + FpsAiDifficulty.TierTrait(currentLevel) +
+            "\nPOKER " + FPS_HUD.FormatPokerBuffs(enemyPokerStats);
 
         RefreshEnemyHealthBar();
     }
@@ -480,15 +469,34 @@ public class CombatSceneController : MonoBehaviour
 
     private IEnumerator SlowTimeForLastStand()
     {
-        lastStandPreviousTimeScale = Time.timeScale;
+        lastStandPreviousTimeScale = Time.timeScale > 0f ? Time.timeScale : 1f;
         lastStandAppliedTimeScale = Mathf.Min(lastStandPreviousTimeScale, 0.2f);
         Time.timeScale = lastStandAppliedTimeScale;
-        yield return new WaitForSecondsRealtime(10f);
 
-        if (Mathf.Approximately(Time.timeScale, lastStandAppliedTimeScale))
-            Time.timeScale = lastStandPreviousTimeScale;
+        float remaining = 10f;
+        while (remaining > 0f)
+        {
+            yield return null;
+            if (Time.timeScale <= 0f)
+                continue;
+            if (!Mathf.Approximately(Time.timeScale, lastStandAppliedTimeScale))
+                Time.timeScale = lastStandAppliedTimeScale;
+            remaining -= Time.unscaledDeltaTime;
+        }
 
+        Time.timeScale = lastStandPreviousTimeScale;
         lastStandSlowRoutine = null;
+    }
+
+    private void StopLastStandSlow()
+    {
+        if (lastStandSlowRoutine == null)
+            return;
+
+        StopCoroutine(lastStandSlowRoutine);
+        lastStandSlowRoutine = null;
+        if (Time.timeScale > 0f)
+            Time.timeScale = lastStandPreviousTimeScale;
     }
 
     private void EnsureMarkedTargetIndicator()
@@ -541,7 +549,15 @@ public class CombatSceneController : MonoBehaviour
                 new Color(1f, 0.12f, 0.04f, 0.82f));
         }
 
-        markedTargetRenderers = target.GetComponentsInChildren<Renderer>(true);
+        Renderer[] allRenderers = target.GetComponentsInChildren<Renderer>(true);
+        var bodyRenderers = new System.Collections.Generic.List<Renderer>(allRenderers.Length);
+        for (int i = 0; i < allRenderers.Length; i++)
+        {
+            if (allRenderers[i] is MeshRenderer || allRenderers[i] is SkinnedMeshRenderer)
+                bodyRenderers.Add(allRenderers[i]);
+        }
+
+        markedTargetRenderers = bodyRenderers.ToArray();
         markedOriginalMaterials = new Material[markedTargetRenderers.Length][];
         for (int i = 0; i < markedTargetRenderers.Length; i++)
         {
@@ -675,9 +691,11 @@ public class CombatSceneController : MonoBehaviour
         int minimumHealth = 1,
         FpsItemDefinition[] fpsItems = null)
     {
+        CombatStats itemStats = FpsItemCombatHandler.GetBonusStats(fpsItems);
+
         if (health != null)
         {
-            int bonusHealth = Mathf.RoundToInt(stats.health);
+            int bonusHealth = Mathf.RoundToInt(stats.health + itemStats.health);
             long totalHealth = (long)Mathf.Max(minimumHealth, health.MaxHealth) + bonusHealth;
             health.SetMaxHealth((int)System.Math.Max(minimumHealth,
                 System.Math.Min(int.MaxValue, totalHealth)));
@@ -686,11 +704,12 @@ public class CombatSceneController : MonoBehaviour
         if (controller == null)
             return;
 
-        ApplyWeaponStats(controller.EquippedWeapon, stats, fpsItems);
-        ApplyMovementStats(controller, stats);
+        ApplyWeaponStats(controller.EquippedWeapon, stats, itemStats, fpsItems);
+        ApplyMovementStats(controller, stats, itemStats);
     }
 
-    private void ApplyWeaponStats(Weapon weapon, CombatStats stats, FpsItemDefinition[] fpsItems)
+    private void ApplyWeaponStats(Weapon weapon, CombatStats stats,
+        CombatStats itemStats, FpsItemDefinition[] fpsItems)
     {
         if (weapon == null || weapon.Settings == null)
             return;
@@ -698,9 +717,10 @@ public class CombatSceneController : MonoBehaviour
         WeaponSettings runtimeSettings =
             ScriptableObject.Instantiate(weapon.Settings);
 
-        runtimeSettings.damage +=
-        Mathf.RoundToInt(runtimeSettings.damage * stats.attack / 100f);
-          //  Mathf.RoundToInt(stats.attack);
+        int baseDamage = Mathf.Max(0,
+            weapon.Settings.damage + Mathf.RoundToInt(itemStats.attack));
+        runtimeSettings.damage = Mathf.Max(0,
+            baseDamage + Mathf.RoundToInt(baseDamage * stats.attack / 100f));
 
         runtimeSettings.headshotMultiplier = FpsItemCombatHandler.GetHeadshotMultiplier(
             runtimeSettings.headshotMultiplier, fpsItems);
@@ -709,11 +729,12 @@ public class CombatSceneController : MonoBehaviour
         // (smaller = faster). CombatStats.fireRate represents
         // attack SPEED (bigger = faster), so this scales inversely
         // rather than additively.
+        float attackSpeed = Mathf.Max(0.01f,
+            1f + (stats.fireRate + itemStats.fireRate) / 100f);
         runtimeSettings.fireRate =
             Mathf.Max(
                 0.02f,
-                weapon.Settings.fireRate /
-                (1f + stats.fireRate / 100f)
+                weapon.Settings.fireRate / attackSpeed
             );
 
         // Clubs/fire-rate buff can expand the magazine, but a small buff
@@ -733,7 +754,8 @@ public class CombatSceneController : MonoBehaviour
 
     private void ApplyMovementStats(
         FpsCharacterController controller,
-        CombatStats stats)
+        CombatStats stats,
+        CombatStats itemStats)
     {
         if (controller.MovementSettings == null)
             return;
@@ -741,7 +763,7 @@ public class CombatSceneController : MonoBehaviour
         FpsMovementSettings runtimeSettings =
             ScriptableObject.Instantiate(controller.MovementSettings);
 
-        runtimeSettings.moveSpeed += stats.moveSpeed;
+        runtimeSettings.moveSpeed += stats.moveSpeed + itemStats.moveSpeed;
 
         controller.SetMovementSettings(runtimeSettings);
     }
@@ -756,6 +778,7 @@ public class CombatSceneController : MonoBehaviour
             return;
 
         resolved = true;
+        StopLastStandSlow();
 
         CombatWinner winner =
             deceased == playerHealth
@@ -814,12 +837,7 @@ public class CombatSceneController : MonoBehaviour
         EndSubscriptions();
         EndItemEffectSubscriptions();
         RestoreMarkedTargetMaterials();
-        if (lastStandSlowRoutine != null)
-        {
-            StopCoroutine(lastStandSlowRoutine);
-            if (Mathf.Approximately(Time.timeScale, lastStandAppliedTimeScale))
-                Time.timeScale = lastStandPreviousTimeScale;
-        }
+        StopLastStandSlow();
         if (markedRevealMaterial != null)
             Destroy(markedRevealMaterial);
         if (runtimeEnemyPersonality != null)

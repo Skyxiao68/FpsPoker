@@ -31,6 +31,8 @@ public class FpsAiPerception : MonoBehaviour
     private Transform selfRoot;
     private Collider targetBody;
     private Health targetHealth;
+    private Transform headOwner;
+    private Collider targetHead;
     private float nextScanTime;
     private float closeAlertUntil;
 
@@ -385,6 +387,48 @@ public class FpsAiPerception : MonoBehaviour
         return BelongsToTarget(collider, target);
     }
 
+    public bool TryGetVisibleHeadPoint(out Vector3 headPoint)
+    {
+        headPoint = Vector3.zero;
+        if (!CanSeeTarget || target == null)
+            return false;
+
+        if (headOwner != target)
+        {
+            headOwner = target;
+            targetHead = FindHeadCollider(target);
+        }
+
+        if (targetHead == null || !targetHead.enabled ||
+            !targetHead.gameObject.activeInHierarchy)
+            return false;
+
+        Vector3 point = targetHead.bounds.center;
+        float sightRange = Mathf.Max(0f, personality.sightRange);
+        if ((point - Eyes.position).sqrMagnitude > sightRange * sightRange ||
+            !HasLineOfSight(Eyes.position, point, target))
+            return false;
+
+        headPoint = point;
+        return true;
+    }
+
+    private static Collider FindHeadCollider(Transform owner)
+    {
+        CombatHitbox[] hitboxes = owner.GetComponentsInChildren<CombatHitbox>(true);
+        for (int i = 0; i < hitboxes.Length; i++)
+        {
+            if (hitboxes[i] == null || !hitboxes[i].IsHeadshot)
+                continue;
+
+            Collider head = hitboxes[i].GetComponent<Collider>();
+            if (head != null)
+                return head;
+        }
+
+        return null;
+    }
+
     private bool BelongsToTarget(Collider collider, Transform candidateTarget)
     {
         return collider != null && candidateTarget != null &&
@@ -481,6 +525,8 @@ public class FpsAiPerception : MonoBehaviour
         target = null;
         targetBody = null;
         targetHealth = null;
+        headOwner = null;
+        targetHead = null;
         CanSeeTarget = false;
         hasObservation = false;
         hasVelocitySample = false;

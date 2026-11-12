@@ -26,7 +26,9 @@ public static class FpsItemCombatHandler
         PlayerInventory inventory)
     {
         var owned = new List<FpsItemDefinition>();
-        if (catalog == null || inventory == null)
+        if (catalog == null && Shop.Service != null)
+            catalog = Shop.Service.Catalog;
+        if (catalog == null || catalog.items == null || inventory == null)
             return owned.ToArray();
 
         foreach (ShopItem shopItem in catalog.items)
@@ -61,12 +63,11 @@ public static class FpsItemCombatHandler
         return multiplier;
     }
 
-    public static CombatStats Apply(
-        CombatStats baseStats,
-        IReadOnlyList<FpsItemDefinition> items)
+    public static CombatStats GetBonusStats(IReadOnlyList<FpsItemDefinition> items)
     {
+        CombatStats total = new CombatStats();
         if (items == null)
-            return baseStats;
+            return total;
 
         for (int i = 0; i < items.Count; i++)
         {
@@ -75,12 +76,24 @@ public static class FpsItemCombatHandler
                 continue;
 
             CombatStats bonus = item.BonusStats;
-            baseStats.attack += bonus.attack;
-            baseStats.health += bonus.health;
-            baseStats.fireRate += bonus.fireRate;
-            baseStats.moveSpeed += bonus.moveSpeed;
+            total.attack += bonus.attack;
+            total.health += bonus.health;
+            total.fireRate += bonus.fireRate;
+            total.moveSpeed += bonus.moveSpeed;
         }
 
+        return total;
+    }
+
+    public static CombatStats Apply(
+        CombatStats baseStats,
+        IReadOnlyList<FpsItemDefinition> items)
+    {
+        CombatStats bonus = GetBonusStats(items);
+        baseStats.attack += bonus.attack;
+        baseStats.health += bonus.health;
+        baseStats.fireRate += bonus.fireRate;
+        baseStats.moveSpeed += bonus.moveSpeed;
         return baseStats;
     }
 }

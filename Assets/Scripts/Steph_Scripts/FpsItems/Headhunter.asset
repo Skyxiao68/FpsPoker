@@ -15,10 +15,10 @@ MonoBehaviour:
   fpsItemId: headhunter
   itemId: 23
   displayName: Headhunter
-  description: Raises FPS headshot damage from 1.5x to 2x.
+  description: Raises FPS headshot damage from 1.75x to 2.5x.
   bonusStats:
     attack: 0
     health: 0
     fireRate: 0
     moveSpeed: 0
-  headshotMultiplier: 2
+  headshotMultiplier: 2.5

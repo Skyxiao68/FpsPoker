@@ -55,7 +55,7 @@ public static partial class CombatVisualIntegration
         Weapon weapon = player.EquippedWeapon;
         WeaponSettings originalSettings = weapon.Settings;
         WeaponSettings settings = UnityEngine.Object.Instantiate(originalSettings);
-        Check(Mathf.Approximately(settings.headshotMultiplier, 1.5f), "equipped weapon defaults to a 1.5x headshot multiplier");
+        Check(Mathf.Approximately(settings.headshotMultiplier, 1.75f), "equipped weapon defaults to a 1.75x headshot multiplier");
         settings.damage = 10;
         settings.fireRate = 0f;
         settings.magazineSize = 30;
@@ -123,8 +123,8 @@ public static partial class CombatVisualIntegration
 
             before = targetHealth.CurrentHealth;
             fireAt(headPoint);
-            Check(before - targetHealth.CurrentHealth == 15 && confirmations.Count == 2 && confirmations[1],
-                "head raycast applies default 1.5x damage and confirms exactly one headshot");
+            Check(before - targetHealth.CurrentHealth == 18 && confirmations.Count == 2 && confirmations[1],
+                "head raycast applies default 1.75x damage and confirms exactly one headshot");
             CheckHitMarkerColor(marker, Color.red, "headshot shows a red hitmarker");
             CaptureShotHud(camera, renderTarget, Work + "hitmarker-head.png");
 

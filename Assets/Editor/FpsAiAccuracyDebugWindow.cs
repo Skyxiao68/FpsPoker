@@ -98,11 +98,9 @@ public sealed class FpsAiAccuracyDebugWindow : EditorWindow
                 }
 
                 Row("Personality", personality.personalityName);
-                DrawAccuracy(personality.aimError, personality.fireAngleTolerance);
-                Row("Turn speed", $"{personality.aimTurnSpeed:F1} deg/s");
-                Row("Reaction delay", $"{personality.reactionTime:F3} s");
-                Row("Target lead", $"{Mathf.Clamp01(personality.targetLeadAccuracy):P1}");
-                Row("Wobble frequency", $"{personality.aimErrorFrequency:F2}");
+                if (level > 0)
+                    Row("Skill tier", $"{FpsAiDifficulty.TierName(level)} ({FpsAiDifficulty.SkillForLevel(level):P0})");
+                DrawSkillValues(personality);
 
                 // Resolve the actual drivers, including serialized references on other objects.
                 SerializedObject serializedEnemy = new SerializedObject(enemy);
@@ -132,31 +130,43 @@ public sealed class FpsAiAccuracyDebugWindow : EditorWindow
             return;
         }
 
-        // Mirrors CombatSceneController.ApplyEnemyLevelProgression. Preview only;
-        // never clone, assign, or modify the source personality.
-        int extraLevels = previewLevel - 1;
-        float aimError = previewPersonality.aimError;
-        float tolerance = previewPersonality.fireAngleTolerance;
-        if (extraLevels > 0)
+        Row("Skill tier", $"{FpsAiDifficulty.TierName(previewLevel)} " +
+            $"({FpsAiDifficulty.SkillForLevel(previewLevel):P0})");
+        Row("Tier summary", FpsAiDifficulty.TierTrait(previewLevel));
+        Row("Bonus health", $"+{25 * (previewLevel - 1)}");
+
+        FPSPersonality scaled = FpsAiDifficulty.CreateForLevel(previewPersonality, previewLevel);
+        try
         {
-            aimError = Mathf.Max(Mathf.Min(0.3f, aimError), aimError * Mathf.Pow(0.88f, extraLevels));
-            tolerance = Mathf.Max(Mathf.Min(2.5f, tolerance), tolerance * Mathf.Pow(0.96f, extraLevels));
+            DrawSkillValues(scaled);
+        }
+        finally
+        {
+            DestroyImmediate(scaled);
         }
 
-        Row("Base aim wobble", $"{previewPersonality.aimError:F3} deg");
-        Row("Base firing tolerance", $"{previewPersonality.fireAngleTolerance:F3} deg");
-        DrawAccuracy(aimError, tolerance);
         EditorGUILayout.HelpBox(
-            "Each level after 1 multiplies base wobble by 0.88 and base firing tolerance by 0.96. " +
-            "Floors are 0.3 deg and 2.5 deg respectively (or the base value if already lower). " +
-            "Turn speed, reaction delay, target lead and wobble frequency do not scale with level. " +
-            "Preview mirrors the current combat progression formula.", MessageType.None);
+            $"Skill rises evenly from level 1 (base asset) to level {FpsAiDifficulty.MaxSkillLevel} " +
+            "(expert) and holds there; health keeps adding 25 per level. Damage, move speed, " +
+            "sprint and fire rate never scale. Uses FpsAiDifficulty, the same code the combat scene runs.",
+            MessageType.None);
     }
 
-    private static void DrawAccuracy(float aimError, float tolerance)
+    private static void DrawSkillValues(FPSPersonality personality)
     {
-        Row("Aim wobble (level-scaled)", $"{aimError:F3} deg");
-        Row("Firing tolerance (level-scaled)", $"{tolerance:F3} deg");
+        Row("Reaction delay", $"{personality.reactionTime:F3} s");
+        Row("Aim wobble", $"{personality.aimError:F3} deg");
+        Row("Firing tolerance", $"{personality.fireAngleTolerance:F3} deg");
+        Row("Shot discipline", $"{Mathf.Clamp01(personality.shotDiscipline):P0}");
+        Row("Turn speed", $"{personality.aimTurnSpeed:F1} deg/s");
+        Row("Target lead", $"{Mathf.Clamp01(personality.targetLeadAccuracy):P0}");
+        Row("Recoil control", $"{Mathf.Clamp01(personality.recoilControl):P0}");
+        Row("Head aim", $"{Mathf.Clamp01(personality.headAimBias):P0}");
+        Row("Game sense", $"{Mathf.Clamp01(personality.gameSense):P0}");
+        Row("Memory", $"{personality.memoryDuration:F1} s");
+        Row("Field of view", $"{personality.fieldOfView:F0} deg");
+        Row("Strafe", $"{personality.strafeAmplitude:F2} amp, {personality.strafeFrequency:F2} freq");
+        Row("Decision interval", $"{personality.repathInterval:F3} s");
     }
 
     private static void Row(string label, string value)

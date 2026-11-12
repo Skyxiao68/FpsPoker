@@ -19,7 +19,28 @@ public class FpsAiLocomotion : MonoBehaviour
     [Tooltip("How close counts as having arrived.")]
     [SerializeField] private float arriveDistance = 1.2f;
 
+    [Header("Stuck Recovery")]
+    [SerializeField] private float recoverySearchRadius = 8f;
+    [SerializeField] private float offMeshGraceTime = 0.25f;
+    [SerializeField] private float offMeshSnapTime = 2.5f;
+    [SerializeField] private float stallBackOffTime = 1.25f;
+    [SerializeField] private float stallSnapTime = 3.5f;
+
+    private const float StallMoveDistance = 0.35f;
+    private const float BackOffDuration = 0.6f;
+
     private CharacterController body;
+    private readonly Collider[] overlapHits = new Collider[16];
+    private bool offMesh;
+    private float offMeshStartTime;
+    private Vector3 recoveryPoint;
+    private float recoveryBestDistance;
+    private float recoveryProgressTime;
+    private Vector3 stallPosition;
+    private float stallDuration;
+    private float backOffEndTime;
+    private float nextBackOffTime;
+    private Vector3 backOffDirection;
     private NavMeshPath candidatePath;
     private NavMeshPath destinationPath;
     private readonly RaycastHit[] obstacleHits = new RaycastHit[16];
@@ -106,6 +127,7 @@ public class FpsAiLocomotion : MonoBehaviour
         ConfigureAgent();
         strafeSeed = Random.Range(0f, 100f);
         ResetProgress();
+        ResetStall();
     }
 
     private void ConfigureAgent()
@@ -260,6 +282,9 @@ public class FpsAiLocomotion : MonoBehaviour
         UpdateProgress();
 
         Vector3 pathDirection = ResolvePathDirection();
+        if (HandleStall(pathDirection))
+            return;
+
         bool recoveringFromStuck = IsStuck;
         if (recoveringFromStuck)
             pathDirection = DirectionToNearestPathPoint(pathDirection);
@@ -307,6 +332,278 @@ public class FpsAiLocomotion : MonoBehaviour
     {
         Stop();
         ClearDestination();
+        offMesh = false;
+        ResetStall();
+    }
+
+    public bool TickRecovery()
+    {
+        if (!isActiveAndEnabled || agent == null || !agent.isActiveAndEnabled ||
+            characterController == null || !characterController.isActiveAndEnabled)
+        {
+            offMesh = false;
+            return false;
+        }
+
+        SyncAgentPosition();
+        if (positionOnMesh)
+        {
+            offMesh = false;
+            return false;
+        }
+
+        if (!TryFindNearestNavMeshPoint(out Vector3 nearest))
+        {
+            offMesh = false;
+            return false;
+        }
+
+        float distance = FlatDistance(GroundPosition, nearest);
+        if (!offMesh || FlatDistance(nearest, recoveryPoint) > 1f)
+        {
+            if (!offMesh)
+                offMeshStartTime = Time.time;
+            offMesh = true;
+            recoveryPoint = nearest;
+            recoveryBestDistance = distance;
+            recoveryProgressTime = Time.time;
+        }
+
+        if (Time.time - offMeshStartTime < offMeshGraceTime)
+            return false;
+
+        if (distance < recoveryBestDistance - 0.1f)
+        {
+            recoveryBestDistance = distance;
+            recoveryProgressTime = Time.time;
+        }
+
+        bool grounded = characterController.IsGrounded;
+        bool timedOut = Time.time - offMeshStartTime >= offMeshSnapTime;
+        bool noProgress = Time.time - recoveryProgressTime >= Mathf.Max(0.75f, offMeshSnapTime * 0.5f);
+        if ((grounded && (timedOut || noProgress)) || Time.time - offMeshStartTime >= offMeshSnapTime * 2f)
+        {
+            SnapToNavMesh(recoveryPoint);
+            return true;
+        }
+
+        Vector3 direction = recoveryPoint - GroundPosition;
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 0.0025f)
+        {
+            SnapToNavMesh(recoveryPoint);
+            return true;
+        }
+
+        direction.Normalize();
+        CurrentPathDirection = direction;
+        characterController.SetMoveDirection(direction);
+        characterController.SetSprint(false);
+        wasAllowedToSprint = false;
+
+        float probe = (agent != null ? agent.radius : 0.5f) + 0.2f;
+        if (HasBlockingObstacle(direction, probe))
+            HandleStuckJump();
+
+        return true;
+    }
+
+    private bool TryFindNearestNavMeshPoint(out Vector3 point)
+    {
+        Vector3 ground = GroundPosition;
+        float radius = Mathf.Max(recoverySearchRadius, agent.height * 2f);
+        if (NavMesh.SamplePosition(ground, out NavMeshHit hit, radius, NavigationFilter) ||
+            NavMesh.SamplePosition(ground, out hit, radius * 4f, NavigationFilter))
+        {
+            point = hit.position;
+            return true;
+        }
+
+        point = ground;
+        return false;
+    }
+
+    private bool HandleStall(Vector3 pathDirection)
+    {
+        Vector3 moved = transform.position - stallPosition;
+        moved.y = 0f;
+        if (moved.sqrMagnitude > StallMoveDistance * StallMoveDistance)
+        {
+            ResetStall();
+            return false;
+        }
+
+        if (Time.time < backOffEndTime)
+            return ContinueBackOff();
+
+        if (pathDirection.sqrMagnitude < 0.0001f)
+            return false;
+
+        stallDuration += Time.deltaTime;
+
+        if (stallDuration >= stallSnapTime && characterController.IsGrounded &&
+            TryFindUnstuckPoint(pathDirection, out Vector3 unstuckPoint))
+        {
+            SnapToNavMesh(unstuckPoint);
+            return true;
+        }
+
+        if (stallDuration >= stallBackOffTime && Time.time >= nextBackOffTime)
+        {
+            backOffDirection = ChooseBackOffDirection(pathDirection);
+            backOffEndTime = Time.time + BackOffDuration;
+            nextBackOffTime = backOffEndTime + BackOffDuration;
+            return ContinueBackOff();
+        }
+
+        return false;
+    }
+
+    private bool ContinueBackOff()
+    {
+        if (backOffDirection.sqrMagnitude < 0.0001f)
+            return false;
+
+        CurrentPathDirection = backOffDirection;
+        characterController.SetMoveDirection(backOffDirection);
+        characterController.SetSprint(false);
+        wasAllowedToSprint = false;
+        HandleStuckJump();
+        return true;
+    }
+
+    private Vector3 ChooseBackOffDirection(Vector3 pathDirection)
+    {
+        Vector3 back = -pathDirection;
+        back.y = 0f;
+        back.Normalize();
+        float side = Mathf.Sin(strafeSeed + Time.time) < 0f ? -1f : 1f;
+        float[] angles = { 45f * side, -45f * side, 90f * side, -90f * side, 0f };
+
+        for (int i = 0; i < angles.Length; i++)
+        {
+            Vector3 candidate = Quaternion.AngleAxis(angles[i], Vector3.up) * back;
+            if (CanMoveSafely(candidate))
+                return candidate;
+        }
+
+        return back;
+    }
+
+    private bool TryFindUnstuckPoint(Vector3 pathDirection, out Vector3 point)
+    {
+        point = navigationPosition;
+        if (!AgentReady)
+            return false;
+
+        Vector3 forward = pathDirection;
+        if (agent.hasPath)
+        {
+            Vector3 toCorner = agent.steeringTarget - navigationPosition;
+            toCorner.y = 0f;
+            if (toCorner.sqrMagnitude > 0.01f)
+                forward = toCorner.normalized;
+        }
+
+        forward.y = 0f;
+        forward.Normalize();
+        Vector3 right = Vector3.Cross(Vector3.up, forward);
+        Vector3[] offsets =
+        {
+            forward * 1.5f,
+            (forward + right).normalized * 1.3f,
+            (forward - right).normalized * 1.3f,
+            right * 1.2f,
+            -right * 1.2f,
+            -forward * 1.2f
+        };
+
+        for (int i = 0; i < offsets.Length; i++)
+        {
+            Vector3 probe = navigationPosition + offsets[i];
+            if (!NavMesh.SamplePosition(probe, out NavMeshHit hit, 1f, NavigationFilter) ||
+                NavMesh.Raycast(navigationPosition, hit.position, out NavMeshHit edge, NavigationFilter) ||
+                FlatDistance(hit.position, navigationPosition) < 0.5f ||
+                !IsSpaceClear(hit.position))
+            {
+                continue;
+            }
+
+            point = hit.position;
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsSpaceClear(Vector3 groundPoint)
+    {
+        if (body == null)
+            return true;
+
+        Vector3 scale = transform.lossyScale;
+        float radius = Mathf.Max(0.05f,
+            body.radius * Mathf.Max(Mathf.Abs(scale.x), Mathf.Abs(scale.z)) - body.skinWidth);
+        float height = Mathf.Max(radius * 2f, body.height * Mathf.Abs(scale.y));
+        float lift = body.stepOffset * Mathf.Abs(scale.y) + 0.05f;
+        Vector3 bottom = groundPoint + Vector3.up * (radius + lift);
+        Vector3 top = groundPoint + Vector3.up * Mathf.Max(radius + lift, height - radius);
+        int count = Physics.OverlapCapsuleNonAlloc(bottom, top, radius, overlapHits,
+            Physics.AllLayers, QueryTriggerInteraction.Ignore);
+
+        for (int i = 0; i < count; i++)
+        {
+            Collider hit = overlapHits[i];
+            if (hit == null || hit.transform == transform || hit.transform.IsChildOf(transform) ||
+                Physics.GetIgnoreLayerCollision(body.gameObject.layer, hit.gameObject.layer) ||
+                Physics.GetIgnoreCollision(body, hit))
+            {
+                continue;
+            }
+
+            return false;
+        }
+
+        return true;
+    }
+
+    private void SnapToNavMesh(Vector3 navPoint)
+    {
+        Vector3 offset = transform.position - GroundPosition;
+        bool bodyEnabled = body != null && body.enabled;
+        if (bodyEnabled)
+            body.enabled = false;
+        transform.position = navPoint + offset + Vector3.up * 0.02f;
+        if (bodyEnabled)
+            body.enabled = true;
+        Physics.SyncTransforms();
+
+        if (agent != null && agent.isActiveAndEnabled)
+            agent.Warp(navPoint);
+
+        characterController.Stop();
+        characterController.SetSprint(false);
+        CurrentPathDirection = Vector3.zero;
+        wasAllowedToSprint = false;
+        offMesh = false;
+        nextRepathTime = 0f;
+        ResetProgress();
+        ResetStall();
+        SyncAgentPosition();
+    }
+
+    private void ResetStall()
+    {
+        stallPosition = transform.position;
+        stallDuration = 0f;
+        backOffEndTime = 0f;
+    }
+
+    private static float FlatDistance(Vector3 a, Vector3 b)
+    {
+        a.y = 0f;
+        b.y = 0f;
+        return Vector3.Distance(a, b);
     }
 
     private void SyncAgentPosition()

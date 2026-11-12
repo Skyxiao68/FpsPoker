@@ -70,6 +70,30 @@ public class FPSPersonality : ScriptableObject
     [Range(0f, 1f)]
     public float targetLeadAccuracy = 0.4f;
 
+    [Tooltip("How much of the weapon's known recoil it pulls down " +
+             "against between shots.")]
+    [Range(0f, 1f)]
+    public float recoilControl = 0.7f;
+
+    [Tooltip("0 = aims at the body centre, 1 = aims at the head " +
+             "whenever the head is visible.")]
+    [Range(0f, 1f)]
+    public float headAimBias = 0f;
+
+
+    [Header("Game Sense")]
+
+    [Tooltip("Pre-aims head height on known angles, reacts faster " +
+             "to repeat peeks, watches the threat while repositioning " +
+             "and searches the likely angle instead of sweeping wide.")]
+    [Range(0f, 1f)]
+    public float gameSense = 0f;
+
+    [Tooltip("0 = fires anywhere inside the fire angle tolerance, " +
+             "1 = waits until the shot would land on the target's body.")]
+    [Range(0f, 1f)]
+    public float shotDiscipline = 0f;
+
 
 
     [Header("Engagement")]
