@@ -720,7 +720,7 @@ public class CombatSceneController : MonoBehaviour
         int baseDamage = Mathf.Max(0,
             weapon.Settings.damage + Mathf.RoundToInt(itemStats.attack));
         runtimeSettings.damage = Mathf.Max(0,
-            baseDamage + Mathf.RoundToInt(baseDamage * stats.attack / 100f));
+            Mathf.RoundToInt(baseDamage * PokerStatUnits.AttackMultiplier(stats.attack)));
 
         runtimeSettings.headshotMultiplier = FpsItemCombatHandler.GetHeadshotMultiplier(
             runtimeSettings.headshotMultiplier, fpsItems);

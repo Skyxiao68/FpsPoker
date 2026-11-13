@@ -31,15 +31,15 @@ MonoBehaviour:
   visualHorizontalKickMultiplier: 1
   verticalRecoilPattern:
   - 1
+  - 1
   - 2
-  - 3
-  - 4
-  - 4
-  - 4
+  - 2
+  - 2
+  - 2
   horizontalRecoilPattern:
-  - 2
-  - 2
-  - 2
+  - 0
+  - 1
+  - 1
   - 2
   - 2
   - 2

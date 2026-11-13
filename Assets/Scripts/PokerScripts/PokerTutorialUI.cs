@@ -246,7 +246,7 @@ public partial class PokerTutorialUI : MonoBehaviour
             ? new[] { "—", "—", "—", "—" }
             : new[]
             {
-                "adds +" + Mathf.RoundToInt(mine.attack) + " to shot damage",
+                PokerStatUnits.FormatAttackPercent(mine.attack) + " shot damage",
                 mine.health > 0.5f
                     ? "+" + Mathf.RoundToInt(mine.health) + " extra max health"
                     : "no extra health — you fight at base HP",

@@ -22,9 +22,12 @@ public static class FpsAiDifficulty
         "Pinpoint aim, hunts you down"
     };
 
+    private static readonly float[] SkillByLevel = { 0f, 0.25f, 0.45f, 0.6f, 0.8f, 1f };
+
     public static float SkillForLevel(int level)
     {
-        return Mathf.Clamp01((Mathf.Max(1, level) - 1f) / (MaxSkillLevel - 1f));
+        int index = Mathf.Clamp(level, 1, SkillByLevel.Length) - 1;
+        return SkillByLevel[index];
     }
 
     public static string TierName(int level)
@@ -67,7 +70,7 @@ public static class FpsAiDifficulty
         target.recoilControl = Mathf.Lerp(source.recoilControl,
             Mathf.Max(source.recoilControl, 0.95f), s);
         target.headAimBias = Mathf.Lerp(source.headAimBias,
-            Mathf.Max(source.headAimBias, 0.7f), s);
+            Mathf.Max(source.headAimBias, 0.7f), s * s);
 
         target.gameSense = Mathf.Lerp(source.gameSense,
             Mathf.Max(source.gameSense, 1f), s);

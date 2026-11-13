@@ -601,6 +601,8 @@ public class ShowdownPanelUI : MonoBehaviour
 
     private static string FormatIncrement(int index, float value)
     {
+        if (index == 0)
+            return PokerStatUnits.FormatAttackPercent(value);
         if (index == 2)
             return "+" + Mathf.RoundToInt(value) + "%";
         return "+" + value.ToString("0.#");

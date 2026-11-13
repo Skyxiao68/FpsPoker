@@ -34624,7 +34624,7 @@ MonoBehaviour:
     fireRate: 0
     moveSpeed: 0
   debugPot: 20
-  debugLevel: 1
+  debugLevel: 4
   debugEnemyCombatStyle: Ranged
   debugFpsItems:
   - {fileID: 11400000, guid: db209c1b6059442cb97f7c68eab51eb5, type: 2}

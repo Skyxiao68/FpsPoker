@@ -21,6 +21,19 @@ public static class PokerStatUnits
     /// <summary>CombatSceneController 里占位用的基础伤害（attack = 10）。</summary>
     public const float AttackBase = 10f;
 
+    public const float AttackPercentPerPoint = 2f;
+
+    public static float AttackMultiplier(float attack)
+    {
+        return Mathf.Max(0f, 1f + attack * AttackPercentPerPoint / 100f);
+    }
+
+    public static string FormatAttackPercent(float attack)
+    {
+        float percent = attack * AttackPercentPerPoint;
+        return (percent >= 0f ? "+" : "") + percent.ToString("0.#") + "%";
+    }
+
     /// <summary>Health.maxHealth 的默认值。</summary>
     public const float HealthBase = 100f;
 
@@ -32,7 +45,7 @@ public static class PokerStatUnits
     {
         switch (stat)
         {
-            case Attack: return 1f + value / AttackBase;
+            case Attack: return AttackMultiplier(value);
             case Health: return 1f + value / HealthBase;
             case FireRate: return 1f + value / 100f;
             case MoveSpeed: return 1f + value / MoveSpeedBase;

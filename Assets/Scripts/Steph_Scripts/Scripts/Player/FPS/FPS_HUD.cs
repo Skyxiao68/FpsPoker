@@ -438,7 +438,9 @@ public class FPS_HUD : MonoBehaviour
                 continue;
 
             activeBuffs++;
-            pokerBuffValues[i].text = FormatBonus(values[i]);
+            pokerBuffValues[i].text = i == 0
+                ? PokerStatUnits.FormatAttackPercent(values[i])
+                : FormatBonus(values[i]);
             pokerBuffValues[i].color = values[i] >= 0f
                 ? new Color(0.94f, 0.68f, 0.22f)
                 : new Color(1f, 0.42f, 0.35f);
@@ -451,7 +453,7 @@ public class FPS_HUD : MonoBehaviour
     {
         var bonuses = new List<string>(4);
         if (Mathf.Abs(stats.attack) > 0.005f)
-            bonuses.Add("DMG " + FormatBonus(stats.attack));
+            bonuses.Add("DMG " + PokerStatUnits.FormatAttackPercent(stats.attack));
         if (Mathf.Abs(stats.health) > 0.005f)
             bonuses.Add("HP " + FormatBonus(stats.health));
         if (Mathf.Abs(stats.fireRate) > 0.005f)

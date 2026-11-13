@@ -31,16 +31,16 @@ MonoBehaviour:
   visualHorizontalKickMultiplier: 1
   verticalRecoilPattern:
   - 1
-  - 2
+  - 3
   - 3
   - 4
   - 4
   - 4
   horizontalRecoilPattern:
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
-  - 0
+  - 2
+  - -2
+  - 3
+  - -5
+  - 6
+  - 3
   movementMultiplier: 0.9

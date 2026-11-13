@@ -15,9 +15,9 @@ MonoBehaviour:
   fpsItemId: deadeye
   itemId: 20
   displayName: Deadeye
-  description: Adds 3 base damage to each FPS weapon hit.
+  description: Adds 2 base damage to each FPS weapon hit.
   bonusStats:
-    attack: 3
+    attack: 2
     health: 0
     fireRate: 0
     moveSpeed: 0
