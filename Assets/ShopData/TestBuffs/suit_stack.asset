@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 772491752b440df43ba4ab6847460aad, type: 3}
+  m_Name: suit_stack
+  m_EditorClassIdentifier: Assembly-CSharp::PokerShop.ShopItem
+  id: suit_stack
+  displayName: Suit Stack
+  description: Each extra card in a suit multiplies that suit's stat by 1.3, capped at 2.0. Permanent tool - never used up.
+  icon: {fileID: -5865450041031292075, guid: 29737727bf911eb4cb37b5a0715b05c3, type: 3}
+  price: 65
+  category: Suits
+  tier: silver
+  maxOwned: 1
+  hidden: 0
+  payload: {fileID: 0}

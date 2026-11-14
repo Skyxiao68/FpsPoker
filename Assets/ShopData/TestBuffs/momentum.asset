@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 772491752b440df43ba4ab6847460aad, type: 3}
+  m_Name: momentum
+  m_EditorClassIdentifier: Assembly-CSharp::PokerShop.ShopItem
+  id: momentum
+  displayName: Momentum
+  description: Each raise this hand adds 0.05 to your showdown multiplier, up to 0.15. Permanent tool - never used up.
+  icon: {fileID: 5395825728034878220, guid: ead0d22f8fafaec46b225d62e4bccc52, type: 3}
+  price: 25
+  category: Cards
+  tier: bronze
+  maxOwned: 1
+  hidden: 0
+  payload: {fileID: 0}

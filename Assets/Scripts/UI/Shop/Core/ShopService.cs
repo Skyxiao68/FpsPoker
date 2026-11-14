@@ -1,0 +1,104 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+namespace PokerShop
+{
+    public enum PurchaseResult { Success, UnknownItem, NotOffered, AtLimit, NotEnoughFunds, BelowBuyIn, GrantFailed, Closed, NotOwned }
+
+    sealed class AllVisibleOffers : IOfferProvider
+    {
+        public IEnumerable<ShopItem> GetOffers(ShopCatalog c, ShopContext x) => c.Visible;
+    }
+
+    public class ShopService
+    {
+        public readonly ShopCatalog Catalog;
+        readonly ICurrencyProvider _currency; readonly IInventoryProvider _inventory;
+        readonly IGameStateControl _state; readonly IOfferProvider _offers;
+
+        public bool IsOpen { get; private set; }
+        public ShopContext Context { get; private set; }
+        public IReadOnlyList<ShopItem> CurrentOffers { get; private set; } = new List<ShopItem>();
+
+        public event Action<ShopContext> ShopOpened;
+        public event Action ShopClosed;
+        public event Action<ShopItem> ItemPurchased;
+        public event Action<ShopItem> ItemSold;
+        public event Action<ShopItem, PurchaseResult> PurchaseFailed;
+        public event Action Changed;
+
+        public ShopService(ShopCatalog cat, ICurrencyProvider cur, IInventoryProvider inv,
+                           IGameStateControl st, IOfferProvider offers = null)
+        {
+            Catalog = cat; _currency = cur; _inventory = inv; _state = st;
+            _offers = offers ?? new AllVisibleOffers();
+            _currency.BalanceChanged += () => Changed?.Invoke();
+        }
+
+        public int Balance => _currency.GetBalance();
+        public bool AtLimit(ShopItem i) => i.maxOwned > 0 && _inventory.GetCount(i) >= i.maxOwned;
+        public bool CanAfford(ShopItem i) => Balance >= PokerItemPricing.Price(i);
+
+        public bool Open(ShopContext ctx = null)
+        {
+            if (IsOpen || !_state.CanOpenShop()) return false;
+            Context = ctx ?? new ShopContext();
+            CurrentOffers = _offers.GetOffers(Catalog, Context).ToList(); // rolled once per visit
+            IsOpen = true;
+            _state.OnShopOpened(Context);
+            ShopOpened?.Invoke(Context);
+            return true;
+        }
+
+        public void Close()
+        {
+            if (!IsOpen) return;
+            IsOpen = false; _state.OnShopClosed(); ShopClosed?.Invoke();
+        }
+
+        public PurchaseResult TryPurchase(string itemId)
+        {
+            var item = Catalog.Find(itemId);
+            if (item == null) return Fail(null, PurchaseResult.UnknownItem);
+            if (!IsOpen) return Fail(item, PurchaseResult.Closed);
+            if (!CurrentOffers.Contains(item)) return Fail(item, PurchaseResult.NotOffered);
+            if (AtLimit(item)) return Fail(item, PurchaseResult.AtLimit);
+            // 价格走逐关表（PokerItemPricing），不是 asset 上的单一 price。
+            int price = PokerItemPricing.Price(item);
+
+            // 护栏（Ben 2026-11-10）：买完必须还留得下「下一手的买入」，
+            // 否则一买完筹码就低于买入，run 直接结束 —— 玩家会以为道具把人害死了。
+            // 注意要看「即将这一关 / 再下一关」的买入（PokerBuyInReserve），
+            // 只用 CurrentBuyIn 会按刚打完那一关的旧值放行，进下一关照样死。
+            int buyIn = PokerBuyInReserve.Required();
+            if (Balance - price < buyIn) return Fail(item, PurchaseResult.BelowBuyIn);
+
+            if (!_currency.TrySpend(price)) return Fail(item, PurchaseResult.NotEnoughFunds);
+            if (!_inventory.Grant(item)) { _currency.Refund(price); return Fail(item, PurchaseResult.GrantFailed); }
+            ItemPurchased?.Invoke(item); Changed?.Invoke();
+            return PurchaseResult.Success;
+        }
+
+        /// <summary>手上的数量（卖掉时用）。</summary>
+        public int OwnedCount(ShopItem i) => _inventory.GetCount(i);
+
+        /// <summary>卖价：原价一半，最少 1（Ben 2026-11-08 定）。</summary>
+        public int RefundValue(ShopItem i) => Math.Max(1, PokerItemPricing.Price(i) / 2);
+
+        /// <summary>卖掉 1 个：先回收物品再退钱，避免两边数量对不上。</summary>
+        public PurchaseResult TrySell(string itemId)
+        {
+            var item = Catalog.Find(itemId);
+            if (item == null) return Fail(null, PurchaseResult.UnknownItem);
+            if (!IsOpen) return Fail(item, PurchaseResult.Closed);
+            if (OwnedCount(item) <= 0) return Fail(item, PurchaseResult.NotOwned);
+
+            _inventory.Revoke(item);
+            _currency.Refund(RefundValue(item));
+            ItemSold?.Invoke(item); Changed?.Invoke();
+            return PurchaseResult.Success;
+        }
+
+        PurchaseResult Fail(ShopItem i, PurchaseResult r) { PurchaseFailed?.Invoke(i, r); return r; }
+    }
+}
